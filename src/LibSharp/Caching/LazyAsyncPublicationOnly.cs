@@ -22,7 +22,7 @@ namespace LibSharp.Caching
         {
             Argument.NotNull(value, nameof(value));
 
-            m_value = new Box<T>(value);
+            m_value = new ValueReference<T>(value);
         }
 
         /// <summary>
@@ -51,13 +51,13 @@ namespace LibSharp.Caching
             if (!HasValue)
             {
                 T value = await m_factory(cancellationToken).ConfigureAwait(false);
-                _ = Interlocked.CompareExchange(ref m_value, new Box<T>(value), null);
+                _ = Interlocked.CompareExchange(ref m_value, new ValueReference<T>(value), null);
             }
 
             return m_value.Value;
         }
 
         private readonly Func<CancellationToken, Task<T>> m_factory;
-        private Box<T> m_value;
+        private ValueReference<T> m_value;
     }
 }

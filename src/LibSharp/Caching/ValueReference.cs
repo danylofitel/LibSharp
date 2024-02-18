@@ -8,24 +8,24 @@ namespace LibSharp.Caching
     /// A value wrapper, allows to swap the value atomically.
     /// </summary>
     /// <typeparam name="TValue">Type of the value.</typeparam>
-    internal class Box<TValue>
+    internal class ValueReference<TValue>
     {
         /// <summary>
-        /// Initializes a new instance of the <see cref="Box{TValue}"/> class.
+        /// Initializes a new instance of the <see cref="ValueReference{TValue}"/> class.
         /// </summary>
         /// <param name="value">The value.</param>
-        public Box(TValue value)
+        public ValueReference(TValue value)
         {
             Value = value;
             Expiration = DateTime.MaxValue;
         }
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="Box{TValue}"/> class.
+        /// Initializes a new instance of the <see cref="ValueReference{TValue}"/> class.
         /// </summary>
         /// <param name="value">The value.</param>
         /// <param name="expiration">Expiration time.</param>
-        public Box(TValue value, DateTime expiration)
+        public ValueReference(TValue value, DateTime expiration)
         {
             Value = value;
             Expiration = expiration;

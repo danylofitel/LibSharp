@@ -25,12 +25,12 @@ namespace LibSharp.Caching
             if (!HasValue)
             {
                 T value = await factory(cancellationToken).ConfigureAwait(false);
-                _ = Interlocked.CompareExchange(ref m_value, new Box<T>(value), null);
+                _ = Interlocked.CompareExchange(ref m_value, new ValueReference<T>(value), null);
             }
 
             return m_value.Value;
         }
 
-        private Box<T> m_value;
+        private ValueReference<T> m_value;
     }
 }

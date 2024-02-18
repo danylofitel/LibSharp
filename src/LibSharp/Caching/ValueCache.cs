@@ -131,7 +131,7 @@ namespace LibSharp.Caching
                 newExpiration = m_expirationFunction(newValue);
             }
 
-            m_boxed = new Box<T>(newValue, newExpiration);
+            m_boxed = new ValueReference<T>(newValue, newExpiration);
         }
 
         private readonly object m_lock = new object();
@@ -141,6 +141,6 @@ namespace LibSharp.Caching
         private readonly TimeSpan? m_timeToLive;
         private readonly Func<T, DateTime> m_expirationFunction;
 
-        private Box<T> m_boxed;
+        private ValueReference<T> m_boxed;
     }
 }
