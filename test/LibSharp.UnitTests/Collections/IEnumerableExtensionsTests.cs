@@ -11,187 +11,148 @@ namespace LibSharp.Collections.UnitTests
     public class IEnumerableExtensionsTests
     {
         [TestMethod]
-        [ExpectedException(typeof(ArgumentOutOfRangeException))]
-        public void Batch_ZeroBatchSize_Throws()
-        {
-            // Act
-            _ = Enumerable.Empty<int>().Batch(0).ToList();
-        }
-
-        [TestMethod]
-        public void Batch_EmptyListWithBatchSize1_ReturnsZeroBatches()
+        public void Chunk_EmptyList_ReturnsZeroChunkes()
         {
             // Arrange
             IEnumerable<string> items = Enumerable.Empty<string>();
 
             // Act
-            IEnumerable<IEnumerable<string>> batches = items.Batch(1);
+            IEnumerable<IEnumerable<string>> chunks = items.Chunk(1.0, _ => 0.0);
 
             // Act
-            Assert.IsFalse(batches.Any());
+            Assert.IsFalse(chunks.Any());
         }
 
         [TestMethod]
-        public void Batch_EmptyListWithBatchSizeGreaterThan1_ReturnsZeroBatches()
+        public void Chunk_SingleItem_Returns1ChunkWith1Item()
         {
             // Arrange
-            IEnumerable<string> items = Enumerable.Empty<string>();
+            string[] items = new[] { "value" };
 
             // Act
-            IEnumerable<IEnumerable<string>> batches = items.Batch(5);
-
-            // Act
-            Assert.IsFalse(batches.Any());
-        }
-
-        [TestMethod]
-        public void Batch_SingleItemWithBatchSize1_Returns1BatchWith1Item()
-        {
-            // Arrange
-            string[] items = new[] { "unique personality" };
-
-            // Act
-            List<List<string>> batches = items
-                .Batch(1)
+            List<List<string>> chunks = items
+                .Chunk(100, _ => 1)
                 .Select(batch => batch.ToList())
                 .ToList();
 
             // Act
-            Assert.AreEqual(1, batches.Count);
-            Assert.AreEqual(1, batches[0].Count);
-            Assert.AreEqual(items[0], batches[0][0]);
+            Assert.AreEqual(1, chunks.Count);
+            Assert.AreEqual(1, chunks[0].Count);
+            Assert.AreEqual(items[0], chunks[0][0]);
         }
 
         [TestMethod]
-        public void Batch_SingleItemWithBatchSizeGreaterThan1_Returns1BatchWith1Item()
-        {
-            // Arrange
-            string[] items = new[] { "unique personality" };
-
-            // Act
-            List<List<string>> batches = items
-                .Batch(10)
-                .Select(batch => batch.ToList())
-                .ToList();
-
-            // Act
-            Assert.AreEqual(1, batches.Count);
-            Assert.AreEqual(1, batches[0].Count);
-            Assert.AreEqual(items[0], batches[0][0]);
-        }
-
-        [TestMethod]
-        public void Batch_MultipleItemsFittingIn1Batch_Returns1BatchWithAllItems()
+        public void Chunk_MultipleItemsFittingIn1Chunk_Returns1ChunkWithAllItems()
         {
             // Arrange
             List<int> items = Enumerable.Range(0, 10).ToList();
 
             // Act
-            List<List<int>> batches = items
-                .Batch(20)
+            List<List<int>> chunks = items
+                .Chunk(20, _ => 1)
                 .Select(batch => batch.ToList())
                 .ToList();
 
             // Act
-            Assert.AreEqual(1, batches.Count);
-            Assert.AreEqual(items.Count, batches[0].Count);
+            Assert.AreEqual(1, chunks.Count);
+            Assert.AreEqual(items.Count, chunks[0].Count);
 
             for (int i = 0; i < items.Count; ++i)
             {
-                Assert.AreEqual(items[i], batches[0][i]);
+                Assert.AreEqual(items[i], chunks[0][i]);
             }
         }
 
         [TestMethod]
-        public void Batch_MultipleItemsFilling1Batch_Returns1BatchWithAllItems()
+        public void Chunk_MultipleItemsFilling1Chunk_Returns1ChunkWithAllItems()
         {
             // Arrange
             List<int> items = Enumerable.Range(0, 10).ToList();
 
             // Act
-            List<List<int>> batches = items
-                .Batch(10)
+            List<List<int>> chunks = items
+                .Chunk(10, _ => 1)
                 .Select(batch => batch.ToList())
                 .ToList();
 
             // Act
-            Assert.AreEqual(1, batches.Count);
-            Assert.AreEqual(items.Count, batches[0].Count);
+            Assert.AreEqual(1, chunks.Count);
+            Assert.AreEqual(items.Count, chunks[0].Count);
 
             for (int i = 0; i < items.Count; ++i)
             {
-                Assert.AreEqual(items[i], batches[0][i]);
+                Assert.AreEqual(items[i], chunks[0][i]);
             }
         }
 
         [TestMethod]
-        public void Batch_MultipleItemsMakingMultipleFullBatches_ReturnsMultipleFullBatches()
+        public void Chunk_MultipleItemsMakingMultipleFullChunkes_ReturnsMultipleFullChunkes()
         {
             // Arrange
             List<int> items = Enumerable.Range(0, 100).Select(i => i % 10).ToList();
 
             // Act
-            List<List<int>> batches = items
-                .Batch(10)
+            List<List<int>> chunks = items
+                .Chunk(10, _ => 1)
                 .Select(batch => batch.ToList())
                 .ToList();
 
             // Act
-            Assert.AreEqual(10, batches.Count);
+            Assert.AreEqual(10, chunks.Count);
 
             for (int i = 0; i < 10; ++i)
             {
-                Assert.AreEqual(10, batches[i].Count);
+                Assert.AreEqual(10, chunks[i].Count);
 
                 for (int j = 0; j < 10; ++j)
                 {
-                    Assert.AreEqual(j, batches[i][j]);
+                    Assert.AreEqual(j, chunks[i][j]);
                 }
             }
         }
 
         [TestMethod]
-        public void Batch_MultipleItemsMakingMultipleBatches_ReturnsMultipleBatches()
+        public void Chunk_MultipleItemsMakingMultipleChunkes_ReturnsMultipleChunkes()
         {
             // Arrange
             List<int> items = Enumerable.Range(0, 101).Select(i => i % 10).ToList();
 
             // Act
-            List<List<int>> batches = items
-                .Batch(10)
+            List<List<int>> chunks = items
+                .Chunk(10, _ => 1)
                 .Select(batch => batch.ToList())
                 .ToList();
 
             // Act
-            Assert.AreEqual(11, batches.Count);
+            Assert.AreEqual(11, chunks.Count);
 
             for (int i = 0; i < 10; ++i)
             {
-                Assert.AreEqual(10, batches[i].Count);
+                Assert.AreEqual(10, chunks[i].Count);
 
                 for (int j = 0; j < 10; ++j)
                 {
-                    Assert.AreEqual(j, batches[i][j]);
+                    Assert.AreEqual(j, chunks[i][j]);
                 }
             }
 
-            Assert.AreEqual(1, batches[10].Count);
-            Assert.AreEqual(0, batches[10][0]);
+            Assert.AreEqual(1, chunks[10].Count);
+            Assert.AreEqual(0, chunks[10][0]);
         }
 
         [TestMethod]
-        public void Batch_RepeatedEnumerationOfBatchItems_Succeeds()
+        public void Chunk_RepeatedEnumerationOfChunkItems_Succeeds()
         {
             // Arrange
             const int Iterations = 3;
             List<int> items = Enumerable.Range(0, 100).Select(i => i % 10).ToList();
 
             // Act
-            IEnumerable<IEnumerable<int>> batches = items.Batch(10);
+            IEnumerable<IEnumerable<int>> chunks = items.Chunk(10, _ => 1);
 
             // Act
             int batchCount = 0;
-            foreach (IEnumerable<int> batch in batches)
+            foreach (IEnumerable<int> batch in chunks)
             {
                 ++batchCount;
 
@@ -213,13 +174,13 @@ namespace LibSharp.Collections.UnitTests
 
         [TestMethod]
         [ExpectedException(typeof(ArgumentException))]
-        public void Batch_SingleItemWeightMoreThanBatchWeight_Throws()
+        public void Chunk_SingleItemWeightMoreThanChunkWeight_Throws()
         {
             // Arrange
             List<double> items = new List<double> { 101.0 };
 
             // Act
-            _ = items.Batch(10, 100.0, x => x).ToList();
+            _ = items.Chunk(100.0, x => x).ToList();
         }
 
         [TestMethod]

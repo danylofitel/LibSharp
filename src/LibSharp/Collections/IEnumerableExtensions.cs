@@ -13,56 +13,38 @@ namespace LibSharp.Collections
     public static class IEnumerableExtensions
     {
         /// <summary>
-        /// Splits a sequence into batches of the given size.
+        /// Splits a sequence into chunks.
         /// </summary>
         /// <typeparam name="TSource">Type of the elements in the sequence.</typeparam>
         /// <param name="source">The sequence of elements to split.</param>
-        /// <param name="batchSize">The maximum number of elements in a batch.</param>
-        /// <returns>A sequence of batches.</returns>
-        public static IEnumerable<IReadOnlyList<TSource>> Batch<TSource>(this IEnumerable<TSource> source, int batchSize)
-        {
-            Argument.NotNull(source, nameof(source));
-            Argument.GreaterThan(batchSize, 0, nameof(batchSize));
-
-            return source.Batch(batchSize, double.MaxValue, item => 0.0);
-        }
-
-        /// <summary>
-        /// Splits a sequence into batches.
-        /// </summary>
-        /// <typeparam name="TSource">Type of the elements in the sequence.</typeparam>
-        /// <param name="source">The sequence of elements to split.</param>
-        /// <param name="batchSize">The maximum number of elements in a batch.</param>
-        /// <param name="batchWeight">The maximum total weight of elements in a batch.</param>
+        /// <param name="chunkWeight">The maximum total weight of elements in a chunk.</param>
         /// <param name="itemWeight">The item weight selector.</param>
-        /// <returns>A sequence of batches.</returns>
-        public static IEnumerable<List<TSource>> Batch<TSource>(
+        /// <returns>A sequence of chunks.</returns>
+        public static IEnumerable<List<TSource>> Chunk<TSource>(
             this IEnumerable<TSource> source,
-            int batchSize,
-            double batchWeight,
+            double chunkWeight,
             Func<TSource, double> itemWeight)
         {
             Argument.NotNull(source, nameof(source));
-            Argument.GreaterThan(batchSize, 0, nameof(batchSize));
-            Argument.GreaterThan(batchWeight, 0.0, nameof(batchWeight));
+            Argument.GreaterThan(chunkWeight, 0.0, nameof(chunkWeight));
             Argument.NotNull(itemWeight, nameof(itemWeight));
 
-            List<TSource> currentBatch = new List<TSource>(batchSize);
+            List<TSource> currentBatch = new List<TSource>();
             double currentBatchWeight = 0.0;
 
             foreach (TSource item in source)
             {
                 double currentItemWeight = itemWeight(item);
 
-                if (currentItemWeight > batchWeight)
+                if (currentItemWeight > chunkWeight)
                 {
-                    throw new ArgumentException($"Weight of an item {currentItemWeight} exceeds maximum weight of a batch {batchWeight}");
+                    throw new ArgumentException($"Weight of an item {currentItemWeight} exceeds maximum chunk weight {chunkWeight}");
                 }
 
-                if (currentBatch.Count == batchSize || currentBatchWeight + currentItemWeight > batchWeight)
+                if (currentBatchWeight + currentItemWeight > chunkWeight)
                 {
                     yield return currentBatch;
-                    currentBatch = new List<TSource>(batchSize);
+                    currentBatch = new List<TSource>();
                     currentBatchWeight = 0.0;
                 }
 
