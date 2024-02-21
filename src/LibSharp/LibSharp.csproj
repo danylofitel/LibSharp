@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFrameworks>netstandard2.1;net5.0;net6.0;net7.0;net8.0</TargetFrameworks>
     <IsPackable>true</IsPackable>
     <LangVersion>latest</LangVersion>
     <AssemblyName>LibSharp</AssemblyName>
@@ -24,6 +24,7 @@
         - Argument validation methods.
     </Description>
     <PackageReleaseNotes>
+        1.1.0: Add support for .NET Standard 2.1, .NET 5.0, .NET 6.0 and .NET 7.0, update documentation.
         1.0.0: Initial release.
     </PackageReleaseNotes>
     <PackageTags>LibSharp;Async;Lazy;Cache;Caching;Collections;Extensions</PackageTags>
@@ -35,8 +36,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="..\..\README.md" Pack="true" PackagePath=""/>
-    <None Include="..\..\LICENSE.txt" Pack="true" PackagePath=""/>
+    <None Include="..\..\README.md" Pack="true" PackagePath="" />
+    <None Include="..\..\LICENSE.txt" Pack="true" PackagePath="" />
   </ItemGroup>
 
 </Project>
