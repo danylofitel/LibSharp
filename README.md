@@ -227,7 +227,7 @@ Initializers in LibSharp are equivalents of lazy types, with the only difference
 
 Value caches are lazy types that automatically refresh the value when it expires. It is possible to either provide an exact time-to-live value or a custom function to determine expiration of a value (useful, for example, for in-memory caching of tokens with known expiration time). It is also possible to provide either a factory method for creation of a new value or a factory for updating the existing value.
 
-Note that `ValueCacheAsync` guarantees `LazyThreadSafetyMode.ExecutionAndPublication` behavior and implements `LazyThreadSafetyMode.ExecutionAndPublication`.
+Note that `ValueCacheAsync` guarantees `LazyThreadSafetyMode.ExecutionAndPublication` behavior and implements `IDisposable`.
 
 ```csharp
     using LibSharp.Caching;
