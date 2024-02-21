@@ -35,7 +35,10 @@ namespace LibSharp.Caching
         {
             Argument.NotNull(key, nameof(key));
 
-            ObjectDisposedException.ThrowIf(m_isDisposed, this);
+            if (m_isDisposed)
+            {
+                throw new ObjectDisposedException(GetType().FullName);
+            }
 
             /* ValueCacheAsync is disposable, so we should to call Dispose() on every created instance.
              *

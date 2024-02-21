@@ -46,7 +46,7 @@ namespace LibSharp.UnitTests.Common
             Argument.EqualTo(double.Epsilon, double.Epsilon, "name");
             Argument.EqualTo('c', 'c', "name");
             Argument.EqualTo("value", "value", "name");
-            Argument.EqualTo(DateTime.UnixEpoch, DateTime.UnixEpoch, "name");
+            Argument.EqualTo(DateTimeExtensions.UnixEpoch, DateTimeExtensions.UnixEpoch, "name");
             Argument.EqualTo(Guid.Empty, Guid.Empty, "name");
             Argument.EqualTo(this, this, "name");
         }

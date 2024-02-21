@@ -82,7 +82,10 @@ namespace LibSharp.Caching
         {
             get
             {
-                ObjectDisposedException.ThrowIf(m_isDisposed, this);
+                if (m_isDisposed)
+                {
+                    throw new ObjectDisposedException(GetType().FullName);
+                }
 
                 return m_boxed != null;
             }
@@ -93,7 +96,10 @@ namespace LibSharp.Caching
         {
             get
             {
-                ObjectDisposedException.ThrowIf(m_isDisposed, this);
+                if (m_isDisposed)
+                {
+                    throw new ObjectDisposedException(GetType().FullName);
+                }
 
                 return m_boxed?.Expiration;
             }
@@ -102,7 +108,10 @@ namespace LibSharp.Caching
         /// <inheritdoc/>
         public async Task<T> GetValueAsync(CancellationToken cancellationToken = default)
         {
-            ObjectDisposedException.ThrowIf(m_isDisposed, this);
+            if (m_isDisposed)
+            {
+                throw new ObjectDisposedException(GetType().FullName);
+            }
 
             if (m_boxed == null || DateTime.UtcNow >= m_boxed.Expiration)
             {
