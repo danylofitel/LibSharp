@@ -3,7 +3,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -975,7 +974,7 @@ namespace LibSharp.Collections.UnitTests
 
         private class WrapperClassComparer : IComparer<WrapperClass>
         {
-            public int Compare([AllowNull] WrapperClass x, [AllowNull] WrapperClass y)
+            public int Compare(WrapperClass x, WrapperClass y)
             {
                 return x.Value.CompareTo(y.Value);
             }
@@ -988,7 +987,7 @@ namespace LibSharp.Collections.UnitTests
 
         private class WrapperStructComparer : IComparer<WrapperStruct>
         {
-            public int Compare([AllowNull] WrapperStruct x, [AllowNull] WrapperStruct y)
+            public int Compare(WrapperStruct x, WrapperStruct y)
             {
                 return x.Value.CompareTo(y.Value);
             }

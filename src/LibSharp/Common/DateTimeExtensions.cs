@@ -10,13 +10,19 @@ namespace LibSharp.Common
     public static class DateTimeExtensions
     {
         /// <summary>
+        /// The value of this constant is equivalent to 00:00:00.0000000 UTC, January 1, 1970, in the Gregorian calendar.
+        /// UnixEpoch defines the point in time when Unix time is equal to 0.
+        /// </summary>
+        public static DateTime UnixEpoch { get; } = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        /// <summary>
         /// Creates a DateTime from Epoch milliseconds.
         /// </summary>
         /// <param name="epochMilliseconds">Epoch milliseconds.</param>
         /// <returns>A DateTime value.</returns>
         public static DateTime FromEpochMilliseconds(this long epochMilliseconds)
         {
-            return DateTime.UnixEpoch.AddMilliseconds(epochMilliseconds);
+            return UnixEpoch.AddMilliseconds(epochMilliseconds);
         }
 
         /// <summary>
@@ -26,7 +32,7 @@ namespace LibSharp.Common
         /// <returns>A DateTime value.</returns>
         public static DateTime FromEpochSeconds(this long epochSeconds)
         {
-            return DateTime.UnixEpoch.AddSeconds(epochSeconds);
+            return UnixEpoch.AddSeconds(epochSeconds);
         }
 
         /// <summary>
@@ -36,7 +42,7 @@ namespace LibSharp.Common
         /// <returns>Epoch milliseconds.</returns>
         public static long ToEpochMilliseconds(this DateTime dateTime)
         {
-            TimeSpan epochTimeSpan = dateTime.Subtract(DateTime.UnixEpoch);
+            TimeSpan epochTimeSpan = dateTime.Subtract(UnixEpoch);
             return Convert.ToInt64(epochTimeSpan.TotalMilliseconds);
         }
 
@@ -47,7 +53,7 @@ namespace LibSharp.Common
         /// <returns>Epoch seconds.</returns>
         public static long ToEpochSeconds(this DateTime dateTime)
         {
-            TimeSpan epochTimeSpan = dateTime.Subtract(DateTime.UnixEpoch);
+            TimeSpan epochTimeSpan = dateTime.Subtract(UnixEpoch);
             return Convert.ToInt64(epochTimeSpan.TotalSeconds);
         }
     }

@@ -34,11 +34,11 @@ namespace LibSharp.UnitTests.Common
         public void ValueType_FromValue()
         {
             // Arrange
-            Box<DateTime> box = new Box<DateTime>(DateTime.UnixEpoch);
+            Box<DateTime> box = new Box<DateTime>(DateTimeExtensions.UnixEpoch);
 
             // Assert
             Assert.IsTrue(box.HasValue);
-            Assert.AreEqual(DateTime.UnixEpoch, box.Value);
+            Assert.AreEqual(DateTimeExtensions.UnixEpoch, box.Value);
         }
 
         [TestMethod]
@@ -144,7 +144,7 @@ namespace LibSharp.UnitTests.Common
             // Assert
             Assert.IsFalse(box.Equals((object)null));
             Assert.IsFalse(box.Equals(1));
-            Assert.IsFalse(box.Equals(DateTime.UnixEpoch));
+            Assert.IsFalse(box.Equals(DateTimeExtensions.UnixEpoch));
             Assert.IsFalse(box.Equals(new Box<object>(new object())));
             Assert.IsFalse(box.Equals(new Box<object>("boxed")));
             Assert.IsFalse(box.Equals((object)"boxed"));
@@ -163,7 +163,7 @@ namespace LibSharp.UnitTests.Common
             // Assert
             Assert.IsFalse(box.Equals((object)null));
             Assert.IsFalse(box.Equals(1));
-            Assert.IsFalse(box.Equals(DateTime.UnixEpoch));
+            Assert.IsFalse(box.Equals(DateTimeExtensions.UnixEpoch));
             Assert.IsFalse(box.Equals(new Box<object>(new object())));
             Assert.IsFalse(box.Equals(new Box<object>("boxed")));
 

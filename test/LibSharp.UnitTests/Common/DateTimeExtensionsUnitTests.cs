@@ -13,7 +13,7 @@ namespace LibSharp.UnitTests.Common
         public void FromEpochMilliseconds()
         {
             DateTime currentDate = new DateTime(2022, 2, 2, 2, 2, 2, DateTimeKind.Utc);
-            long millisecondsSinceEpoch = (long)currentDate.Subtract(DateTime.UnixEpoch).TotalMilliseconds;
+            long millisecondsSinceEpoch = (long)currentDate.Subtract(DateTimeExtensions.UnixEpoch).TotalMilliseconds;
             DateTime convertedDateTime = millisecondsSinceEpoch.FromEpochMilliseconds();
 
             Assert.AreEqual(currentDate.Date, convertedDateTime.Date);
@@ -25,7 +25,7 @@ namespace LibSharp.UnitTests.Common
         public void FromEpochSeconds()
         {
             DateTime currentDate = new DateTime(2022, 2, 2, 2, 2, 2, DateTimeKind.Utc);
-            long secondsSinceEpoch = (long)currentDate.Subtract(DateTime.UnixEpoch).TotalSeconds;
+            long secondsSinceEpoch = (long)currentDate.Subtract(DateTimeExtensions.UnixEpoch).TotalSeconds;
             DateTime convertedDateTime = secondsSinceEpoch.FromEpochSeconds();
 
             Assert.AreEqual(currentDate.Date, convertedDateTime.Date);
@@ -36,7 +36,7 @@ namespace LibSharp.UnitTests.Common
         [TestMethod]
         public void ToEpochMilliseconds()
         {
-            long fromEpoch = DateTime.UnixEpoch.ToEpochMilliseconds();
+            long fromEpoch = DateTimeExtensions.UnixEpoch.ToEpochMilliseconds();
             Assert.AreEqual(0, fromEpoch);
 
             long fromDayAfterEpoch = new DateTime(1970, 1, 2).ToEpochMilliseconds();
@@ -44,22 +44,22 @@ namespace LibSharp.UnitTests.Common
 
             DateTime currentDate = new DateTime(2022, 2, 2, 2, 2, 2, DateTimeKind.Utc);
             currentDate = currentDate.AddMilliseconds(-currentDate.Millisecond);
-            long millisecondsSinceEpoch = Convert.ToInt64(currentDate.Subtract(DateTime.UnixEpoch).TotalMilliseconds);
+            long millisecondsSinceEpoch = Convert.ToInt64(currentDate.Subtract(DateTimeExtensions.UnixEpoch).TotalMilliseconds);
             Assert.AreEqual(currentDate.ToEpochMilliseconds(), millisecondsSinceEpoch);
         }
 
         [TestMethod]
         public void ToEpochSeconds()
         {
-            long fromEpoch = DateTime.UnixEpoch.ToEpochSeconds();
+            long fromEpoch = DateTimeExtensions.UnixEpoch.ToEpochSeconds();
             Assert.AreEqual(0, fromEpoch);
 
-            long fromDayAfterEpoch = DateTime.UnixEpoch.AddDays(1).ToEpochSeconds();
+            long fromDayAfterEpoch = DateTimeExtensions.UnixEpoch.AddDays(1).ToEpochSeconds();
             Assert.AreEqual(24 * 60 * 60, fromDayAfterEpoch);
 
             DateTime currentDate = new DateTime(2022, 2, 2, 2, 2, 2, DateTimeKind.Utc);
             currentDate = currentDate.AddMilliseconds(-currentDate.Millisecond);
-            long secondsSinceEpoch = Convert.ToInt64(currentDate.Subtract(DateTime.UnixEpoch).TotalSeconds);
+            long secondsSinceEpoch = Convert.ToInt64(currentDate.Subtract(DateTimeExtensions.UnixEpoch).TotalSeconds);
             Assert.AreEqual(currentDate.ToEpochSeconds(), secondsSinceEpoch);
         }
     }
