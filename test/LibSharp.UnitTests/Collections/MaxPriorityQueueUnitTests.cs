@@ -745,7 +745,7 @@ namespace LibSharp.Collections.UnitTests
         public void GetEnumerator_NonEmptyQueue_IteratesThroughAllElements()
         {
             // Arrange
-            List<int> collection = Enumerable.Range(0, 100).Shuffle().ToList();
+            int[] collection = Enumerable.Range(0, 100).Shuffle();
             MaxPriorityQueue<int> queue = new MaxPriorityQueue<int>(collection);
 
             // Act
@@ -763,7 +763,7 @@ namespace LibSharp.Collections.UnitTests
         public void GetWeakEnumerator_NonEmptyQueue_IteratesThroughAllElements()
         {
             // Arrange
-            List<int> collection = Enumerable.Range(0, 100).Shuffle().ToList();
+            int[] collection = Enumerable.Range(0, 100).Shuffle();
             IEnumerable queue = new MaxPriorityQueue<int>(collection);
 
             // Act

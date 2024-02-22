@@ -118,8 +118,8 @@ namespace LibSharp.Collections
         /// </summary>
         /// <typeparam name="TSource">The type of the elements of source.</typeparam>
         /// <param name="source">The sequence of elements to shuffle.</param>
-        /// <returns>A randomly shuffled sequence.</returns>
-        public static IEnumerable<TSource> Shuffle<TSource>(this IEnumerable<TSource> source)
+        /// <returns>A randomly shuffled array.</returns>
+        public static TSource[] Shuffle<TSource>(this IEnumerable<TSource> source)
         {
             Argument.NotNull(source, nameof(source));
 
