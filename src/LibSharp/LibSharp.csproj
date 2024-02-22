@@ -24,9 +24,9 @@ Contains:
 - Argument validation methods.
     </Description>
     <PackageReleaseNotes>
-1.1.1: Changed return type of IEnumerable.Shuffle extension method to return an array instead of IEnumerable to not force the callers to create extra copies.
-1.1.0: Added support for .NET Standard 2.0, .NET Standard 2.1, .NET 5.0, .NET 6.0, .NET 7.0. Updated documentation and added examples.
-1.0.0: Initial release. Supports .NET 8.0 only.
+- 1.1.1: Changed return type of IEnumerable.Shuffle extension method to return an array instead of IEnumerable to not force the callers to create extra copies.
+- 1.1.0: Added support for .NET Standard 2.0, .NET Standard 2.1, .NET 5.0, .NET 6.0, .NET 7.0. Updated documentation and added examples.
+- 1.0.0: Initial release. Supports .NET 8.0 only.
     </PackageReleaseNotes>
     <PackageTags>LibSharp;Async;Lazy;Cache;Caching;Collections;Extensions</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
