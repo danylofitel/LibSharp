@@ -115,6 +115,7 @@ namespace LibSharp.Collections
 
         /// <summary>
         /// Randomly shuffles the sequence using Fisher-Yates algorithm.
+        /// Does not modify the original collection and returns a new array
         /// </summary>
         /// <typeparam name="TSource">The type of the elements of source.</typeparam>
         /// <param name="source">The sequence of elements to shuffle.</param>
