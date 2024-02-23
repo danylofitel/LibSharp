@@ -34,7 +34,7 @@ namespace LibSharp.Common
         /// <typeparam name="T">Object type.</typeparam>
         /// <param name="objectToSerialize">Object to serialize.</param>
         /// <returns>XML string.</returns>
-        public static string SerializeToXml<T>(T objectToSerialize)
+        public static string SerializeToXml<T>(this T objectToSerialize)
         {
             Argument.NotNull(objectToSerialize, nameof(objectToSerialize));
 
