@@ -14,21 +14,37 @@ namespace LibSharp.Caching
     public class InitializerAsyncExecutionAndPublication<T> : IInitializerAsync<T>, IDisposable
     {
         /// <inheritdoc/>
-        public bool HasValue { get; private set; }
+        public bool HasValue
+        {
+            get
+            {
+                if (m_isDisposed)
+                {
+                    throw new ObjectDisposedException(GetType().FullName);
+                }
+
+                return m_hasValue;
+            }
+        }
 
         /// <inheritdoc/>
         public async Task<T> GetValueAsync(Func<CancellationToken, Task<T>> factory, CancellationToken cancellationToken = default)
         {
-            if (!HasValue)
+            if (m_isDisposed)
+            {
+                throw new ObjectDisposedException(GetType().FullName);
+            }
+
+            if (!m_hasValue)
             {
                 await m_semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
 
                 try
                 {
-                    if (!HasValue)
+                    if (!m_hasValue)
                     {
                         m_value = await factory(cancellationToken).ConfigureAwait(false);
-                        HasValue = true;
+                        m_hasValue = true;
                     }
                 }
                 finally
@@ -53,16 +69,17 @@ namespace LibSharp.Caching
         /// <param name="disposing">True if the method was called by Dispose(), false if by the finalizer.</param>
         protected virtual void Dispose(bool disposing)
         {
-            if (!m_disposedValue)
+            if (!m_isDisposed)
             {
                 m_semaphore.Dispose();
-                m_disposedValue = true;
+                m_isDisposed = true;
             }
         }
 
         private readonly SemaphoreSlim m_semaphore = new SemaphoreSlim(1, 1);
 
+        private bool m_hasValue;
         private T m_value;
-        private bool m_disposedValue;
+        private bool m_isDisposed;
     }
 }

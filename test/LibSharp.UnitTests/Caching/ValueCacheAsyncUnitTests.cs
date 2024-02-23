@@ -27,10 +27,12 @@ namespace LibSharp.Caching.UnitTests
                 {
                     // Assert
                     Assert.IsFalse(cache.HasValue);
+                    Assert.IsNull(cache.Expiration);
 
                     Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
 
                     Assert.IsTrue(cache.HasValue);
+                    Assert.IsTrue(cache.Expiration <= DateTime.UtcNow);
 
                     Assert.AreEqual(1, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
                     Assert.AreEqual(2, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
@@ -38,6 +40,7 @@ namespace LibSharp.Caching.UnitTests
                     Assert.AreEqual(4, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
 
                     Assert.IsTrue(cache.HasValue);
+                    Assert.IsTrue(cache.Expiration <= DateTime.UtcNow);
                 }
 
                 _ = factory.Received(5)(cancellationToken);
@@ -60,10 +63,12 @@ namespace LibSharp.Caching.UnitTests
                 {
                     // Assert
                     Assert.IsFalse(cache.HasValue);
+                    Assert.IsNull(cache.Expiration);
 
                     Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
 
                     Assert.IsTrue(cache.HasValue);
+                    Assert.IsTrue(cache.Expiration <= DateTime.UtcNow);
 
                     Assert.AreEqual(1, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
                     Assert.AreEqual(2, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
@@ -71,6 +76,7 @@ namespace LibSharp.Caching.UnitTests
                     Assert.AreEqual(4, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
 
                     Assert.IsTrue(cache.HasValue);
+                    Assert.IsTrue(cache.Expiration <= DateTime.UtcNow);
                 }
 
                 _ = factory.Received(5)(cancellationToken);
@@ -97,10 +103,12 @@ namespace LibSharp.Caching.UnitTests
                 {
                     // Assert
                     Assert.IsFalse(cache.HasValue);
+                    Assert.IsNull(cache.Expiration);
 
                     Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
 
                     Assert.IsTrue(cache.HasValue);
+                    Assert.IsTrue(cache.Expiration <= DateTime.UtcNow);
 
                     Assert.AreEqual(1, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
                     Assert.AreEqual(2, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
@@ -108,6 +116,7 @@ namespace LibSharp.Caching.UnitTests
                     Assert.AreEqual(4, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
 
                     Assert.IsTrue(cache.HasValue);
+                    Assert.IsTrue(cache.Expiration <= DateTime.UtcNow);
                 }
 
                 _ = createFactory.Received(1)(cancellationToken);
@@ -135,10 +144,12 @@ namespace LibSharp.Caching.UnitTests
                 {
                     // Assert
                     Assert.IsFalse(cache.HasValue);
+                    Assert.IsNull(cache.Expiration);
 
                     Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
 
                     Assert.IsTrue(cache.HasValue);
+                    Assert.IsTrue(cache.Expiration <= DateTime.UtcNow);
 
                     Assert.AreEqual(1, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
                     Assert.AreEqual(2, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
@@ -146,6 +157,7 @@ namespace LibSharp.Caching.UnitTests
                     Assert.AreEqual(4, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
 
                     Assert.IsTrue(cache.HasValue);
+                    Assert.IsTrue(cache.Expiration <= DateTime.UtcNow);
                 }
 
                 _ = createFactory.Received(1)(cancellationToken);
@@ -169,10 +181,12 @@ namespace LibSharp.Caching.UnitTests
                 {
                     // Assert
                     Assert.IsFalse(cache.HasValue);
+                    Assert.IsNull(cache.Expiration);
 
                     Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
 
                     Assert.IsTrue(cache.HasValue);
+                    Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
 
                     Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
                     Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
@@ -180,6 +194,7 @@ namespace LibSharp.Caching.UnitTests
                     Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
 
                     Assert.IsTrue(cache.HasValue);
+                    Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
                 }
 
                 _ = factory.Received(1)(cancellationToken);
@@ -202,10 +217,12 @@ namespace LibSharp.Caching.UnitTests
                 {
                     // Assert
                     Assert.IsFalse(cache.HasValue);
+                    Assert.IsNull(cache.Expiration);
 
                     Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
 
                     Assert.IsTrue(cache.HasValue);
+                    Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
 
                     Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
                     Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
@@ -213,6 +230,7 @@ namespace LibSharp.Caching.UnitTests
                     Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
 
                     Assert.IsTrue(cache.HasValue);
+                    Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
                 }
 
                 _ = factory.Received(1)(cancellationToken);
@@ -237,10 +255,12 @@ namespace LibSharp.Caching.UnitTests
                 {
                     // Assert
                     Assert.IsFalse(cache.HasValue);
+                    Assert.IsNull(cache.Expiration);
 
                     Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
 
                     Assert.IsTrue(cache.HasValue);
+                    Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
 
                     Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
                     Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
@@ -248,6 +268,7 @@ namespace LibSharp.Caching.UnitTests
                     Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
 
                     Assert.IsTrue(cache.HasValue);
+                    Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
                 }
 
                 _ = createFactory.Received(1)(cancellationToken);
@@ -273,10 +294,12 @@ namespace LibSharp.Caching.UnitTests
                 {
                     // Assert
                     Assert.IsFalse(cache.HasValue);
+                    Assert.IsNull(cache.Expiration);
 
                     Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
 
                     Assert.IsTrue(cache.HasValue);
+                    Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
 
                     Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
                     Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
@@ -284,6 +307,7 @@ namespace LibSharp.Caching.UnitTests
                     Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
 
                     Assert.IsTrue(cache.HasValue);
+                    Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
                 }
 
                 _ = createFactory.Received(1)(cancellationToken);

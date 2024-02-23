@@ -18,6 +18,7 @@ namespace LibSharp.Caching.UnitTests
 
             // Assert
             Assert.IsFalse(cache.HasValue);
+            Assert.IsNull(cache.Expiration);
             _ = factory.DidNotReceive()();
         }
 
@@ -30,6 +31,7 @@ namespace LibSharp.Caching.UnitTests
 
             // Assert
             Assert.IsFalse(cache.HasValue);
+            Assert.IsNull(cache.Expiration);
             _ = factory.DidNotReceive()();
         }
 
@@ -43,6 +45,7 @@ namespace LibSharp.Caching.UnitTests
 
             // Assert
             Assert.IsFalse(cache.HasValue);
+            Assert.IsNull(cache.Expiration);
             _ = createFactory.DidNotReceive()();
             _ = updateFactory.DidNotReceive()(Arg.Any<int>());
         }
@@ -57,6 +60,7 @@ namespace LibSharp.Caching.UnitTests
 
             // Assert
             Assert.IsFalse(cache.HasValue);
+            Assert.IsNull(cache.Expiration);
             _ = createFactory.DidNotReceive()();
             _ = updateFactory.DidNotReceive()(Arg.Any<int>());
         }
@@ -73,15 +77,18 @@ namespace LibSharp.Caching.UnitTests
 
             // Assert
             Assert.IsFalse(cache.HasValue);
+            Assert.IsNull(cache.Expiration);
 
             Assert.AreEqual(5, cache.GetValue());
 
             Assert.IsTrue(cache.HasValue);
+            Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
 
             Assert.AreEqual(5, cache.GetValue());
             Assert.AreEqual(5, cache.GetValue());
 
             Assert.IsTrue(cache.HasValue);
+            Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
             _ = factory.Received(1)();
         }
 
@@ -97,15 +104,18 @@ namespace LibSharp.Caching.UnitTests
 
             // Assert
             Assert.IsFalse(cache.HasValue);
+            Assert.IsNull(cache.Expiration);
 
             Assert.AreEqual(5, cache.GetValue());
 
             Assert.IsTrue(cache.HasValue);
+            Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
 
             Assert.AreEqual(5, cache.GetValue());
             Assert.AreEqual(5, cache.GetValue());
 
             Assert.IsTrue(cache.HasValue);
+            Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
             _ = factory.Received(1)();
         }
 
@@ -123,15 +133,18 @@ namespace LibSharp.Caching.UnitTests
 
             // Assert
             Assert.IsFalse(cache.HasValue);
+            Assert.IsNull(cache.Expiration);
 
             Assert.AreEqual(5, cache.GetValue());
 
             Assert.IsTrue(cache.HasValue);
+            Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
 
             Assert.AreEqual(5, cache.GetValue());
             Assert.AreEqual(5, cache.GetValue());
 
             Assert.IsTrue(cache.HasValue);
+            Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
             _ = createFactory.Received(1)();
             _ = updateFactory.DidNotReceive()(Arg.Any<int>());
         }
@@ -150,15 +163,18 @@ namespace LibSharp.Caching.UnitTests
 
             // Assert
             Assert.IsFalse(cache.HasValue);
+            Assert.IsNull(cache.Expiration);
 
             Assert.AreEqual(5, cache.GetValue());
 
             Assert.IsTrue(cache.HasValue);
+            Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
 
             Assert.AreEqual(5, cache.GetValue());
             Assert.AreEqual(5, cache.GetValue());
 
             Assert.IsTrue(cache.HasValue);
+            Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
             _ = createFactory.Received(1)();
             _ = updateFactory.DidNotReceive()(Arg.Any<int>());
         }
@@ -175,10 +191,12 @@ namespace LibSharp.Caching.UnitTests
 
             // Assert
             Assert.IsFalse(cache.HasValue);
+            Assert.IsNull(cache.Expiration);
 
             Assert.AreEqual(0, cache.GetValue());
 
             Assert.IsTrue(cache.HasValue);
+            Assert.IsTrue(cache.Expiration <= DateTime.UtcNow);
 
             Assert.AreEqual(1, cache.GetValue());
             Assert.AreEqual(2, cache.GetValue());
@@ -186,6 +204,7 @@ namespace LibSharp.Caching.UnitTests
             Assert.AreEqual(4, cache.GetValue());
 
             Assert.IsTrue(cache.HasValue);
+            Assert.IsTrue(cache.Expiration <= DateTime.UtcNow);
             _ = factory.Received(5)();
         }
 
@@ -201,10 +220,12 @@ namespace LibSharp.Caching.UnitTests
 
             // Assert
             Assert.IsFalse(cache.HasValue);
+            Assert.IsNull(cache.Expiration);
 
             Assert.AreEqual(0, cache.GetValue());
 
             Assert.IsTrue(cache.HasValue);
+            Assert.IsTrue(cache.Expiration <= DateTime.UtcNow);
 
             Assert.AreEqual(1, cache.GetValue());
             Assert.AreEqual(2, cache.GetValue());
@@ -212,6 +233,7 @@ namespace LibSharp.Caching.UnitTests
             Assert.AreEqual(4, cache.GetValue());
 
             Assert.IsTrue(cache.HasValue);
+            Assert.IsTrue(cache.Expiration <= DateTime.UtcNow);
             _ = factory.Received(5)();
         }
 
@@ -231,10 +253,12 @@ namespace LibSharp.Caching.UnitTests
 
             // Assert
             Assert.IsFalse(cache.HasValue);
+            Assert.IsNull(cache.Expiration);
 
             Assert.AreEqual(0, cache.GetValue());
 
             Assert.IsTrue(cache.HasValue);
+            Assert.IsTrue(cache.Expiration <= DateTime.UtcNow);
 
             Assert.AreEqual(1, cache.GetValue());
             Assert.AreEqual(2, cache.GetValue());
@@ -242,6 +266,7 @@ namespace LibSharp.Caching.UnitTests
             Assert.AreEqual(4, cache.GetValue());
 
             Assert.IsTrue(cache.HasValue);
+            Assert.IsTrue(cache.Expiration <= DateTime.UtcNow);
             _ = createFactory.Received(1)();
             _ = updateFactory.Received(4)(Arg.Any<int>());
         }
@@ -262,10 +287,12 @@ namespace LibSharp.Caching.UnitTests
 
             // Assert
             Assert.IsFalse(cache.HasValue);
+            Assert.IsNull(cache.Expiration);
 
             Assert.AreEqual(0, cache.GetValue());
 
             Assert.IsTrue(cache.HasValue);
+            Assert.IsTrue(cache.Expiration <= DateTime.UtcNow);
 
             Assert.AreEqual(1, cache.GetValue());
             Assert.AreEqual(2, cache.GetValue());
@@ -273,6 +300,7 @@ namespace LibSharp.Caching.UnitTests
             Assert.AreEqual(4, cache.GetValue());
 
             Assert.IsTrue(cache.HasValue);
+            Assert.IsTrue(cache.Expiration <= DateTime.UtcNow);
             _ = createFactory.Received(1)();
             _ = updateFactory.Received(4)(Arg.Any<int>());
         }
@@ -289,10 +317,12 @@ namespace LibSharp.Caching.UnitTests
 
             // Assert
             Assert.IsFalse(cache.HasValue);
+            Assert.IsNull(cache.Expiration);
 
             Assert.AreEqual(0, cache.GetValue());
 
             Assert.IsTrue(cache.HasValue);
+            Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
 
             Assert.AreEqual(0, cache.GetValue());
             Assert.AreEqual(0, cache.GetValue());
@@ -300,6 +330,7 @@ namespace LibSharp.Caching.UnitTests
             Assert.AreEqual(0, cache.GetValue());
 
             Assert.IsTrue(cache.HasValue);
+            Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
             _ = factory.Received(1)();
         }
 
@@ -317,10 +348,12 @@ namespace LibSharp.Caching.UnitTests
 
             // Assert
             Assert.IsFalse(cache.HasValue);
+            Assert.IsNull(cache.Expiration);
 
             Assert.AreEqual(0, cache.GetValue());
 
             Assert.IsTrue(cache.HasValue);
+            Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
 
             Assert.AreEqual(0, cache.GetValue());
             Assert.AreEqual(0, cache.GetValue());
@@ -328,6 +361,7 @@ namespace LibSharp.Caching.UnitTests
             Assert.AreEqual(0, cache.GetValue());
 
             Assert.IsTrue(cache.HasValue);
+            Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
             _ = createFactory.Received(1)();
             _ = updateFactory.DidNotReceive()(Arg.Any<int>());
         }
