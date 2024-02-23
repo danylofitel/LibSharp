@@ -21,8 +21,8 @@ namespace LibSharp.Collections.UnitTests
         public void Compare_ReturnsReversedResult()
         {
             // Arrange
-            IComparer<int> normal = Comparer<int>.Default;
-            IComparer<int> reverse = new ReverseComparer<int>(Comparer<int>.Default);
+            Comparer<int> normal = Comparer<int>.Default;
+            ReverseComparer<int> reverse = new ReverseComparer<int>(Comparer<int>.Default);
 
             // Assert
             Assert.AreEqual(normal.Compare(1, 1), reverse.Compare(1, 1));

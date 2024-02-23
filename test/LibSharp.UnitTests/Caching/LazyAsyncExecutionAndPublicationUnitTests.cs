@@ -12,6 +12,32 @@ namespace LibSharp.Caching.UnitTests
     public class LazyAsyncExecutionAndPublicationUnitTests
     {
         [TestMethod]
+        [ExpectedException(typeof(ObjectDisposedException))]
+        public void HasValue_ThrowsWhenDisposed()
+        {
+            // Arrange
+            Func<CancellationToken, Task<int>> factory = Substitute.For<Func<CancellationToken, Task<int>>>();
+            LazyAsyncExecutionAndPublication<int> lazy = new LazyAsyncExecutionAndPublication<int>(factory);
+            lazy.Dispose();
+
+            // Act
+            _ = lazy.HasValue;
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(ObjectDisposedException))]
+        public async Task GetValueAsync_ThrowsWhenDisposed()
+        {
+            // Arrange
+            Func<CancellationToken, Task<int>> factory = Substitute.For<Func<CancellationToken, Task<int>>>();
+            LazyAsyncExecutionAndPublication<int> lazy = new LazyAsyncExecutionAndPublication<int>(factory);
+            lazy.Dispose();
+
+            // Act
+            _ = await lazy.GetValueAsync(CancellationToken.None).ConfigureAwait(false);
+        }
+
+        [TestMethod]
         public async Task FromValue()
         {
             // Arrange

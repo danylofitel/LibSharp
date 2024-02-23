@@ -47,7 +47,7 @@ namespace LibSharp.Caching
              *
              * Those additional instances will not be disposed of if they implement IDisposable.
              *
-             * Wrapping individual value caches in Lazy avoid that. This call to GetOrAdd only initializes the key-value pair,
+             * Wrapping individual value caches in Lazy avoids that. This call to GetOrAdd only initializes the key-value pair,
              * where value is a Lazy that has not been instantiated yet.
              *
              * This will not invoke the factory method yet.

@@ -112,13 +112,13 @@ LibSharp consists of the following namespaces:
         IDictionary<string, string> result = dictionary.CopyTo(destination);
 
         // IEnumerable extensions
-        IEnumerable<List<int>> chunks = Enumerable.Range(0, 10).Chunk(10, item => item).ToList();   // [ [0, 1, 2, 3, 4, 5], [6, 7], [8, 9] ]
+        List<List<int>> chunks = Enumerable.Range(0, 10).Chunk(20, item => item).ToList();  // [ [0, 1, 2, 3, 4, 5], [6, 7], [8, 9] ]
 
         IEnumerable<int> enumerable = Enumerable.Range(100).Concat(Enumerable.Range(100)).ToList();
         int firstIndex = enumerable.FirstIndexOf(51);
         int lastIndex = enumerable.LastIndexOf(51);
 
-        IEnumerable<int> shuffled = enumerable.Shuffle();
+        int[] shuffled = enumerable.Shuffle();
 
         // Min priority queue
         MinPriorityQueue<int> minPq = new MinPriorityQueue<int>();

@@ -30,10 +30,7 @@ namespace LibSharp.Collections.UnitTests
             string[] items = new[] { "value" };
 
             // Act
-            List<List<string>> chunks = items
-                .Chunk(100, _ => 1)
-                .Select(batch => batch.ToList())
-                .ToList();
+            List<List<string>> chunks = items.Chunk(100, _ => 1).ToList();
 
             // Act
             Assert.AreEqual(1, chunks.Count);
@@ -48,10 +45,7 @@ namespace LibSharp.Collections.UnitTests
             List<int> items = Enumerable.Range(0, 10).ToList();
 
             // Act
-            List<List<int>> chunks = items
-                .Chunk(20, _ => 1)
-                .Select(batch => batch.ToList())
-                .ToList();
+            List<List<int>> chunks = items.Chunk(20, _ => 1).ToList();
 
             // Act
             Assert.AreEqual(1, chunks.Count);
@@ -70,10 +64,7 @@ namespace LibSharp.Collections.UnitTests
             List<int> items = Enumerable.Range(0, 10).ToList();
 
             // Act
-            List<List<int>> chunks = items
-                .Chunk(10, _ => 1)
-                .Select(batch => batch.ToList())
-                .ToList();
+            List<List<int>> chunks = items.Chunk(10, _ => 1).ToList();
 
             // Act
             Assert.AreEqual(1, chunks.Count);
@@ -92,10 +83,7 @@ namespace LibSharp.Collections.UnitTests
             List<int> items = Enumerable.Range(0, 100).Select(i => i % 10).ToList();
 
             // Act
-            List<List<int>> chunks = items
-                .Chunk(10, _ => 1)
-                .Select(batch => batch.ToList())
-                .ToList();
+            List<List<int>> chunks = items.Chunk(10, _ => 1).ToList();
 
             // Act
             Assert.AreEqual(10, chunks.Count);
@@ -118,10 +106,7 @@ namespace LibSharp.Collections.UnitTests
             List<int> items = Enumerable.Range(0, 101).Select(i => i % 10).ToList();
 
             // Act
-            List<List<int>> chunks = items
-                .Chunk(10, _ => 1)
-                .Select(batch => batch.ToList())
-                .ToList();
+            List<List<int>> chunks = items.Chunk(10, _ => 1).ToList();
 
             // Act
             Assert.AreEqual(11, chunks.Count);
@@ -257,10 +242,10 @@ namespace LibSharp.Collections.UnitTests
         public void Shuffle_EmptyEnumerable()
         {
             // Act
-            List<int> output = Enumerable.Empty<int>().Shuffle().ToList();
+            int[] output = Enumerable.Empty<int>().Shuffle();
 
             // Assert
-            Assert.AreEqual(0, output.Count);
+            Assert.AreEqual(0, output.Length);
         }
 
         [TestMethod]
@@ -270,7 +255,7 @@ namespace LibSharp.Collections.UnitTests
             List<int> input = new List<int> { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
 
             // Act
-            List<int> output = input.Shuffle().ToList();
+            int[] output = input.Shuffle();
 
             // Assert
             CollectionAssert.AreEquivalent(input, output);
