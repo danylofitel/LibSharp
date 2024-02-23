@@ -13,7 +13,7 @@ namespace LibSharp.UnitTests.Common
         public void XmlSerializationTest()
         {
             // Arrange
-            List<string> original = ["a", "bb", "ccc"];
+            List<string> original = new List<string> { "a", "bb", "ccc" };
 
             // Act
             string serialized = original.SerializeToXml();
