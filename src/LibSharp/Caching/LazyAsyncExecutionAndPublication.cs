@@ -61,6 +61,11 @@ namespace LibSharp.Caching
         /// <returns>The value.</returns>
         public async Task<T> GetValueAsync(CancellationToken cancellationToken = default)
         {
+            if (m_isDisposed)
+            {
+                throw new ObjectDisposedException(GetType().FullName);
+            }
+
             if (!m_hasValue)
             {
                 await m_semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);

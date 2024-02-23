@@ -12,6 +12,45 @@ namespace LibSharp.Caching.UnitTests
     public class ValueCacheAsyncUnitTests
     {
         [TestMethod]
+        [ExpectedException(typeof(ObjectDisposedException))]
+        public void HasValue_ThrowsWhenDisposed()
+        {
+            // Arrange
+            Func<CancellationToken, Task<int>> factory = Substitute.For<Func<CancellationToken, Task<int>>>();
+            ValueCacheAsync<int> cache = new ValueCacheAsync<int>(factory, TimeSpan.FromMinutes(1));
+            cache.Dispose();
+
+            // Act
+            _ = cache.HasValue;
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(ObjectDisposedException))]
+        public void Expiration_ThrowsWhenDisposed()
+        {
+            // Arrange
+            Func<CancellationToken, Task<int>> factory = Substitute.For<Func<CancellationToken, Task<int>>>();
+            ValueCacheAsync<int> cache = new ValueCacheAsync<int>(factory, TimeSpan.FromMinutes(1));
+            cache.Dispose();
+
+            // Act
+            _ = cache.Expiration;
+        }
+
+        [TestMethod]
+        [ExpectedException(typeof(ObjectDisposedException))]
+        public async Task GetValueAsync_ThrowsWhenDisposed()
+        {
+            // Arrange
+            Func<CancellationToken, Task<int>> factory = Substitute.For<Func<CancellationToken, Task<int>>>();
+            ValueCacheAsync<int> cache = new ValueCacheAsync<int>(factory, TimeSpan.FromMinutes(1));
+            cache.Dispose();
+
+            // Act
+            _ = await cache.GetValueAsync(CancellationToken.None).ConfigureAwait(false);
+        }
+
+        [TestMethod]
         public async Task FromValueFactory_WhenCacheExpires_RefreshesCache()
         {
             // Arrange
