@@ -46,7 +46,7 @@ namespace LibSharp.Common
         /// <inheritdoc/>
         public bool Equals(T other)
         {
-            return (!HasValue && other == null)
+            return (!HasValue && other is null)
                 || (HasValue && Value.Equals(other));
         }
 

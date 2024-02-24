@@ -15,7 +15,7 @@ namespace LibSharp.Caching
     public class InitializerAsyncPublicationOnly<T> : IInitializerAsync<T>
     {
         /// <inheritdoc/>
-        public bool HasValue => m_value != null;
+        public bool HasValue => m_value is not null;
 
         /// <inheritdoc/>
         public async Task<T> GetValueAsync(Func<CancellationToken, Task<T>> factory, CancellationToken cancellationToken = default)

@@ -288,7 +288,7 @@ namespace LibSharp.Collections
             for (int i = 1; i <= Count; ++i)
             {
                 T currentItem = m_heap[i];
-                if ((item == null && currentItem == null) || (item != null && item.Equals(currentItem)))
+                if ((item is null && currentItem is null) || (item is not null && item.Equals(currentItem)))
                 {
                     return i;
                 }

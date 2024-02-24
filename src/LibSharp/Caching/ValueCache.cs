@@ -1,7 +1,6 @@
 ﻿// Copyright (c) LibSharp. All rights reserved.
 
 using System;
-using System.Diagnostics;
 using LibSharp.Common;
 
 namespace LibSharp.Caching
@@ -24,7 +23,7 @@ namespace LibSharp.Caching
             Argument.GreaterThanOrEqualTo(timeToLive, TimeSpan.Zero, nameof(timeToLive));
 
             m_createFactory = factory;
-            m_timeToLive = timeToLive;
+            m_expirationFunction = _ => GetExpiration(timeToLive);
         }
 
         /// <summary>
@@ -55,7 +54,7 @@ namespace LibSharp.Caching
 
             m_createFactory = createFactory;
             m_updateFactory = updateFactory;
-            m_timeToLive = timeToLive;
+            m_expirationFunction = _ => GetExpiration(timeToLive);
         }
 
         /// <summary>
@@ -76,7 +75,7 @@ namespace LibSharp.Caching
         }
 
         /// <inheritdoc/>
-        public bool HasValue => m_boxed != null;
+        public bool HasValue => m_boxed is not null;
 
         /// <inheritdoc/>
         public DateTime? Expiration => m_boxed?.Expiration;
@@ -84,11 +83,11 @@ namespace LibSharp.Caching
         /// <inheritdoc/>
         public T GetValue()
         {
-            if (m_boxed == null || DateTime.UtcNow >= m_boxed.Expiration)
+            if (m_boxed is null || DateTime.UtcNow >= m_boxed.Expiration)
             {
                 lock (m_lock)
                 {
-                    if (m_boxed == null || DateTime.UtcNow >= m_boxed.Expiration)
+                    if (m_boxed is null || DateTime.UtcNow >= m_boxed.Expiration)
                     {
                         Refresh();
                     }
@@ -98,13 +97,15 @@ namespace LibSharp.Caching
             return m_boxed.Value;
         }
 
-        /// <summary>
-        /// Initializes or updates the cache.
-        /// </summary>
+        private static DateTime GetExpiration(TimeSpan timeToLive)
+        {
+            return timeToLive == TimeSpan.MaxValue ? DateTime.MaxValue : DateTime.UtcNow.Add(timeToLive);
+        }
+
         private void Refresh()
         {
             T newValue;
-            if (m_updateFactory == null || m_boxed == null)
+            if (m_updateFactory is null || m_boxed is null)
             {
                 newValue = m_createFactory();
             }
@@ -113,23 +114,7 @@ namespace LibSharp.Caching
                 newValue = m_updateFactory(m_boxed.Value);
             }
 
-            DateTime newExpiration;
-            if (m_timeToLive.HasValue)
-            {
-                if (m_timeToLive.Value == TimeSpan.MaxValue)
-                {
-                    newExpiration = DateTime.MaxValue;
-                }
-                else
-                {
-                    newExpiration = DateTime.UtcNow.Add(m_timeToLive.Value);
-                }
-            }
-            else
-            {
-                Debug.Assert(m_expirationFunction != null, "Expiration function cannot be null if time to live is null.");
-                newExpiration = m_expirationFunction(newValue);
-            }
+            DateTime newExpiration = m_expirationFunction(newValue);
 
             m_boxed = new ValueReference<T>(newValue, newExpiration);
         }
@@ -138,7 +123,6 @@ namespace LibSharp.Caching
 
         private readonly Func<T> m_createFactory;
         private readonly Func<T, T> m_updateFactory;
-        private readonly TimeSpan? m_timeToLive;
         private readonly Func<T, DateTime> m_expirationFunction;
 
         private ValueReference<T> m_boxed;

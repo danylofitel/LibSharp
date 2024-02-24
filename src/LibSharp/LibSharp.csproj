@@ -10,7 +10,7 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <WarningsAsErrors />
     <PackageId>LibSharp</PackageId>
-    <Version>1.1.1</Version>
+    <Version>1.1.2</Version>
     <Authors>Danylo Fitel</Authors>
     <Copyright>Copyright (c) Danylo Fitel 2024</Copyright>
     <Description>
@@ -24,13 +24,14 @@ Contains:
 - Argument validation methods.
     </Description>
     <PackageReleaseNotes>
-- 1.1.1: Changed return type of Shuffle extension method to return an array instead of IEnumerable to not force the callers to create extra copies.
+- 1.1.2: Added more constructors to KeyValueCache and KeyValueCacheAsync that allow to provide separate factories for creates and updates, and to specify custom expiration function.
+- 1.1.1: Changed return type of Shuffle extension method to return an array instead of an IEnumerable to not force the callers to create extra copies.
          Fixed the signature of SerializeToXml extension method so it can be called as an extension method.
          Updated all IDisposable types to throw ObjectDisposedException if a property is accessed on a disposed instance.
 - 1.1.0: Added support for .NET Standard 2.0, .NET Standard 2.1, .NET 5.0, .NET 6.0, .NET 7.0. Updated documentation and added examples.
 - 1.0.0: Initial release. Supports .NET 8.0 only.
     </PackageReleaseNotes>
-    <PackageTags>LibSharp;Async;Lazy;Cache;Caching;Collections;Extensions</PackageTags>
+    <PackageTags>LibSharp;Async Lazy;Cache;Async Cache;Thread Safe Cache;Priority Queue;Collections;Extensions</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <PackageProjectUrl>https://www.nuget.org/packages/LibSharp</PackageProjectUrl>
