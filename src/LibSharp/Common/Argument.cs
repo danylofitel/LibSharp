@@ -18,12 +18,12 @@ namespace LibSharp.Common
         /// <typeparam name="T">Argument type.</typeparam>
         public static void EqualTo<T>(T value, T equalValue, string name)
         {
-            if (value == null && equalValue == null)
+            if (value is null && equalValue is null)
             {
                 return;
             }
 
-            if (value == null && equalValue != null)
+            if (value is null && equalValue is not null)
             {
                 throw new ArgumentNullException(name, $"Argument is null and is not equal to {equalValue}");
             }
@@ -115,12 +115,12 @@ namespace LibSharp.Common
         /// <typeparam name="T">Argument type.</typeparam>
         public static void NotEqualTo<T>(T value, T notEqualValue, string name)
         {
-            if (value == null && notEqualValue == null)
+            if (value is null && notEqualValue is null)
             {
                 throw new ArgumentNullException(name);
             }
 
-            if (value == null || notEqualValue == null)
+            if (value is null || notEqualValue is null)
             {
                 return;
             }
@@ -138,7 +138,7 @@ namespace LibSharp.Common
         /// <param name="name">Argument name.</param>
         public static void NotNull(object value, string name)
         {
-            if (value == null)
+            if (value is null)
             {
                 throw new ArgumentNullException(name);
             }

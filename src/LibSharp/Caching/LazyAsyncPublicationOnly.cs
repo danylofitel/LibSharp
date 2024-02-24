@@ -39,7 +39,7 @@ namespace LibSharp.Caching
         /// <summary>
         /// Gets a value indicating whether the value has been initialized.
         /// </summary>
-        public bool HasValue => m_value != null;
+        public bool HasValue => m_value is not null;
 
         /// <summary>
         /// Gets the value.

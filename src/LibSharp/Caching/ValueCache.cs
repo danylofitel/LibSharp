@@ -75,7 +75,7 @@ namespace LibSharp.Caching
         }
 
         /// <inheritdoc/>
-        public bool HasValue => m_boxed != null;
+        public bool HasValue => m_boxed is not null;
 
         /// <inheritdoc/>
         public DateTime? Expiration => m_boxed?.Expiration;
@@ -83,11 +83,11 @@ namespace LibSharp.Caching
         /// <inheritdoc/>
         public T GetValue()
         {
-            if (m_boxed == null || DateTime.UtcNow >= m_boxed.Expiration)
+            if (m_boxed is null || DateTime.UtcNow >= m_boxed.Expiration)
             {
                 lock (m_lock)
                 {
-                    if (m_boxed == null || DateTime.UtcNow >= m_boxed.Expiration)
+                    if (m_boxed is null || DateTime.UtcNow >= m_boxed.Expiration)
                     {
                         Refresh();
                     }
@@ -105,7 +105,7 @@ namespace LibSharp.Caching
         private void Refresh()
         {
             T newValue;
-            if (m_updateFactory == null || m_boxed == null)
+            if (m_updateFactory is null || m_boxed is null)
             {
                 newValue = m_createFactory();
             }

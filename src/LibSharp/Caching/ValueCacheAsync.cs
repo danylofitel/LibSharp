@@ -86,7 +86,7 @@ namespace LibSharp.Caching
                     throw new ObjectDisposedException(GetType().FullName);
                 }
 
-                return m_boxed != null;
+                return m_boxed is not null;
             }
         }
 
@@ -112,13 +112,13 @@ namespace LibSharp.Caching
                 throw new ObjectDisposedException(GetType().FullName);
             }
 
-            if (m_boxed == null || DateTime.UtcNow >= m_boxed.Expiration)
+            if (m_boxed is null || DateTime.UtcNow >= m_boxed.Expiration)
             {
                 await m_semaphore.WaitAsync(cancellationToken).ConfigureAwait(false);
 
                 try
                 {
-                    if (m_boxed == null || DateTime.UtcNow >= m_boxed.Expiration)
+                    if (m_boxed is null || DateTime.UtcNow >= m_boxed.Expiration)
                     {
                         await Refresh(cancellationToken).ConfigureAwait(false);
                     }
@@ -166,7 +166,7 @@ namespace LibSharp.Caching
         private async Task Refresh(CancellationToken cancellationToken)
         {
             T newValue;
-            if (m_updateFactory == null || m_boxed == null)
+            if (m_updateFactory is null || m_boxed is null)
             {
                 newValue = await m_createFactory(cancellationToken).ConfigureAwait(false);
             }
