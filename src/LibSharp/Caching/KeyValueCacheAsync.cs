@@ -26,8 +26,56 @@ namespace LibSharp.Caching
             Argument.NotNull(factory, nameof(factory));
             Argument.GreaterThanOrEqualTo(timeToLive, TimeSpan.Zero, nameof(timeToLive));
 
-            m_factory = factory;
+            m_createFactory = factory;
             m_timeToLive = timeToLive;
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="KeyValueCacheAsync{TKey, TValue}"/> class from a value factory.
+        /// </summary>
+        /// <param name="factory">The value factory.</param>
+        /// <param name="expirationFunction">Function to calculate expiration of a value.</param>
+        public KeyValueCacheAsync(Func<TKey, CancellationToken, Task<TValue>> factory, Func<TKey, TValue, DateTime> expirationFunction)
+        {
+            Argument.NotNull(factory, nameof(factory));
+            Argument.NotNull(expirationFunction, nameof(expirationFunction));
+
+            m_createFactory = factory;
+            m_expirationFunction = expirationFunction;
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="KeyValueCacheAsync{TKey, TValue}"/> class from a creation factory, used to initialize the cache, and update factory, used to refresh it.
+        /// </summary>
+        /// <param name="createFactory">The creation factory.</param>
+        /// <param name="updateFactory">The update factory.</param>
+        /// <param name="timeToLive">Cache time-to-live.</param>
+        public KeyValueCacheAsync(Func<TKey, CancellationToken, Task<TValue>> createFactory, Func<TKey, TValue, CancellationToken, Task<TValue>> updateFactory, TimeSpan timeToLive)
+        {
+            Argument.NotNull(createFactory, nameof(createFactory));
+            Argument.NotNull(updateFactory, nameof(updateFactory));
+            Argument.GreaterThanOrEqualTo(timeToLive, TimeSpan.Zero, nameof(timeToLive));
+
+            m_createFactory = createFactory;
+            m_updateFactory = updateFactory;
+            m_timeToLive = timeToLive;
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="KeyValueCacheAsync{TKey, TValue}"/> class from a creation factory, used to initialize the cache, and update factory, used to refresh it.
+        /// </summary>
+        /// <param name="createFactory">The creation factory.</param>
+        /// <param name="updateFactory">The update factory.</param>
+        /// <param name="expirationFunction">Function to calculate expiration of a value.</param>
+        public KeyValueCacheAsync(Func<TKey, CancellationToken, Task<TValue>> createFactory, Func<TKey, TValue, CancellationToken, Task<TValue>> updateFactory, Func<TKey, TValue, DateTime> expirationFunction)
+        {
+            Argument.NotNull(createFactory, nameof(createFactory));
+            Argument.NotNull(updateFactory, nameof(updateFactory));
+            Argument.NotNull(expirationFunction, nameof(expirationFunction));
+
+            m_createFactory = createFactory;
+            m_updateFactory = updateFactory;
+            m_expirationFunction = expirationFunction;
         }
 
         /// <inheritdoc/>
@@ -55,7 +103,7 @@ namespace LibSharp.Caching
             Lazy<ValueCacheAsync<TValue>> lazyValueCache = m_cache.GetOrAdd(
                 key,
                 cacheKey => new Lazy<ValueCacheAsync<TValue>>(
-                    () => new ValueCacheAsync<TValue>((token) => m_factory(cacheKey, token), m_timeToLive),
+                    () => CreateValueCache(cacheKey),
                     LazyThreadSafetyMode.ExecutionAndPublication));
 
             /*
@@ -108,10 +156,26 @@ namespace LibSharp.Caching
             }
         }
 
+        private ValueCacheAsync<TValue> CreateValueCache(TKey key)
+        {
+            if (m_updateFactory is null)
+            {
+                return m_timeToLive.HasValue
+                    ? new ValueCacheAsync<TValue>((token) => m_createFactory(key, token), m_timeToLive.Value)
+                    : new ValueCacheAsync<TValue>((token) => m_createFactory(key, token), value => m_expirationFunction(key, value));
+            }
+
+            return m_timeToLive.HasValue
+                ? new ValueCacheAsync<TValue>((token) => m_createFactory(key, token), (value, token) => m_updateFactory(key, value, token), m_timeToLive.Value)
+                : new ValueCacheAsync<TValue>((token) => m_createFactory(key, token), (value, token) => m_updateFactory(key, value, token), value => m_expirationFunction(key, value));
+        }
+
         private readonly ConcurrentDictionary<TKey, Lazy<ValueCacheAsync<TValue>>> m_cache = new ConcurrentDictionary<TKey, Lazy<ValueCacheAsync<TValue>>>();
 
-        private readonly Func<TKey, CancellationToken, Task<TValue>> m_factory;
-        private readonly TimeSpan m_timeToLive;
+        private readonly Func<TKey, CancellationToken, Task<TValue>> m_createFactory;
+        private readonly Func<TKey, TValue, CancellationToken, Task<TValue>> m_updateFactory;
+        private readonly TimeSpan? m_timeToLive;
+        private readonly Func<TKey, TValue, DateTime> m_expirationFunction;
 
         private bool m_isDisposed;
     }
