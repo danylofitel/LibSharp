@@ -31,6 +31,19 @@ namespace LibSharp.UnitTests.Common
         }
 
         [TestMethod]
+        public void ValueType_Default_WhenCopied_RetainsState()
+        {
+            // Arrange
+            Box<DateTime> box = default;
+
+            // Act
+            Box<DateTime> copy = CopyBox(box);
+
+            // Assert
+            Assert.IsFalse(copy.HasValue);
+        }
+
+        [TestMethod]
         public void ValueType_FromValue()
         {
             // Arrange
@@ -39,6 +52,20 @@ namespace LibSharp.UnitTests.Common
             // Assert
             Assert.IsTrue(box.HasValue);
             Assert.AreEqual(DateTimeExtensions.UnixEpoch, box.Value);
+        }
+
+        [TestMethod]
+        public void ValueType_FromValue_WhenCopied_RetainsState()
+        {
+            // Arrange
+            Box<DateTime> box = new Box<DateTime>(DateTimeExtensions.UnixEpoch);
+
+            // Act
+            Box<DateTime> copy = CopyBox(box);
+
+            // Assert
+            Assert.IsTrue(copy.HasValue);
+            Assert.AreEqual(box.Value, copy.Value);
         }
 
         [TestMethod]
@@ -71,6 +98,19 @@ namespace LibSharp.UnitTests.Common
         }
 
         [TestMethod]
+        public void ReferenceType_Default_WhenCopied_RetainsState()
+        {
+            // Arrange
+            Box<string> box = default;
+
+            // Act
+            Box<string> copy = CopyBox(box);
+
+            // Assert
+            Assert.IsFalse(copy.HasValue);
+        }
+
+        [TestMethod]
         public void ReferenceType_FromValue()
         {
             // Arrange
@@ -79,6 +119,20 @@ namespace LibSharp.UnitTests.Common
             // Assert
             Assert.IsTrue(box.HasValue);
             Assert.AreEqual("boxed", box.Value);
+        }
+
+        [TestMethod]
+        public void ReferenceType_FromValue_WhenCopied_RetainsState()
+        {
+            // Arrange
+            Box<string> box = new Box<string>("boxed");
+
+            // Act
+            Box<string> copy = CopyBox(box);
+
+            // Assert
+            Assert.IsTrue(copy.HasValue);
+            Assert.AreEqual(box.Value, copy.Value);
         }
 
         [TestMethod]
@@ -237,6 +291,11 @@ namespace LibSharp.UnitTests.Common
             Assert.IsTrue(new Box<object>(new object()) != new Box<object>(new object()));
             Assert.IsTrue(new Box<int>(5) != new Box<int>(7));
             Assert.IsTrue(new Box<string>("value") != new Box<string>("other"));
+        }
+
+        private static Box<T> CopyBox<T>(Box<T> original)
+        {
+            return original;
         }
     }
 }
