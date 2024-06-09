@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>netstandard2.0;netstandard2.1;net5.0;net6.0;net7.0;net8.0</TargetFrameworks>
+    <TargetFrameworks>netstandard2.0;netstandard2.1;net5.0;net6.0;net7.0;net8.0;net9.0</TargetFrameworks>
     <IsPackable>true</IsPackable>
     <LangVersion>latest</LangVersion>
     <AssemblyName>LibSharp</AssemblyName>
@@ -10,26 +10,24 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <WarningsAsErrors />
     <PackageId>LibSharp</PackageId>
-    <Version>1.1.3</Version>
+    <Title>LibSharp</Title>
+    <Version>1.1.4</Version>
     <Authors>Danylo Fitel</Authors>
     <Copyright>Copyright (c) Danylo Fitel 2024</Copyright>
-    <Description>
-Extends the standard library with:
-- Async lazy (both for LazyThreadSafetyMode.PublicationOnly and LazyThreadSafetyMode.ExecutionAndPublication modes).
+    <Description>Extends the standard library with:
+- Async lazy (PublicationOnly and ExecutionAndPublication thread safety modes).
 - Sync and async in-memory value cache.
 - Sync and async in-memory key-value cache.
 - Min and max priority queues.
 - Argument validation methods.
 - Extension methods for collection interfaces.
-- Extension methods for standard library types like string and DateTime.
-    </Description>
-    <PackageReleaseNotes>
+- Extension methods for standard library types like string and DateTime.</Description>
+    <PackageReleaseNotes>- 1.1.4: Added support for .NET 9.
 - 1.1.3: Updated tags and description.
 - 1.1.2: Added more constructors to KeyValueCache and KeyValueCacheAsync that allow to provide separate factories for creates and updates, and to specify custom expiration function.
 - 1.1.1: Changed return type of Shuffle extension method to return an array instead of an IEnumerable. Fixed the signature of SerializeToXml extension method so it can be called as an extension. Updated all IDisposable types to throw ObjectDisposedException if a property is accessed on a disposed instance.
 - 1.1.0: Added support for .NET Standard 2.0, .NET Standard 2.1, .NET 5.0, .NET 6.0, .NET 7.0.
-- 1.0.0: Initial release for .NET 8.0.
-    </PackageReleaseNotes>
+- 1.0.0: Initial release for .NET 8.0.</PackageReleaseNotes>
     <PackageTags>LibSharp;AsyncLazy;LazyAsync;Cache;AsyncCache;ThreadSafeCache;PriorityQueue;Collections;Extensions;ArgumentValidation</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
