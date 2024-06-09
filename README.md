@@ -2,7 +2,7 @@
 
 ## Introduction
 
-A library of C# core components that enhance the standard library. Supports .NET Standard 2.0, .NET Standard 2.1, .NET 5.0, .NET 6.0, .NET 7.0, .NET 8.0.
+A library of C# core components that enhance the standard library. Supports .NET Standard 2.0, .NET Standard 2.1, .NET 5.0, .NET 6.0, .NET 7.0, .NET 8.0, .NET 9.0.
 
 * Source code: <https://github.com/danylofitel/LibSharp>.
 * NuGet package: <https://www.nuget.org/packages/LibSharp>.
