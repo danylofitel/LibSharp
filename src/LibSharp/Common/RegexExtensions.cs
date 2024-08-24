@@ -11,12 +11,6 @@ namespace LibSharp.Common
     public static class RegexExtensions
     {
         /// <summary>
-        /// The value of this constant is equivalent to 00:00:00.0000000 UTC, January 1, 1970, in the Gregorian calendar.
-        /// UnixEpoch defines the point in time when Unix time is equal to 0.
-        /// </summary>
-        public static DateTime UnixEpoch { get; } = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-
-        /// <summary>
         /// Indicates whether the regex finds a match in a specified input string.
         /// Does not throw if the regex times out.
         /// </summary>
@@ -25,6 +19,9 @@ namespace LibSharp.Common
         /// <returns>True if a match was found, false if not or if the regex timed out.</returns>
         public static bool TryIsMatch(this Regex regex, string value)
         {
+            Argument.NotNull(regex, nameof(regex));
+            Argument.NotNull(value, nameof(value));
+
             try
             {
                 return regex.IsMatch(value);
@@ -44,6 +41,9 @@ namespace LibSharp.Common
         /// <returns>A match if it was found, an empty match if not or if the regex timed out.</returns>
         public static Match TryMatch(this Regex regex, string value)
         {
+            Argument.NotNull(regex, nameof(regex));
+            Argument.NotNull(value, nameof(value));
+
             try
             {
                 return regex.Match(value);
@@ -65,6 +65,10 @@ namespace LibSharp.Common
         /// <returns>A string with all occurrence of input replaced. Returns the original string if the regex times out.</returns>
         public static string TryReplace(this Regex regex, string input, string replacement)
         {
+            Argument.NotNull(regex, nameof(regex));
+            Argument.NotNull(input, nameof(input));
+            Argument.NotNull(replacement, nameof(replacement));
+
             try
             {
                 return regex.Replace(input, replacement);
@@ -86,6 +90,10 @@ namespace LibSharp.Common
         /// <returns>A string with all matched substrings replaced. Returns the original string if the regex times out.</returns>
         public static string TryReplace(this Regex regex, string input, MatchEvaluator evaluator)
         {
+            Argument.NotNull(regex, nameof(regex));
+            Argument.NotNull(input, nameof(input));
+            Argument.NotNull(evaluator, nameof(evaluator));
+
             try
             {
                 return regex.Replace(input, evaluator);
