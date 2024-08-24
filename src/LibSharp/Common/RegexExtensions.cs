@@ -1,6 +1,5 @@
 // Copyright (c) LibSharp. All rights reserved.
 
-using System;
 using System.Text.RegularExpressions;
 
 namespace LibSharp.Common
