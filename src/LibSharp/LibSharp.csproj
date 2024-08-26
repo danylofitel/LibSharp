@@ -22,7 +22,7 @@
 - Argument validation methods.
 - Extension methods for collection interfaces.
 - Extension methods for standard library types like string and DateTime.</Description>
-    <PackageReleaseNotes>- 1.1.5: Added Regex extension methods that handle regex timeouts.
+    <PackageReleaseNotes>- 1.1.5: Added Regex extension methods that handle regex timeouts. Added Func extension methods that run asynchronous operations with a timeout.
 - 1.1.4: Added support for .NET 9.0.
 - 1.1.3: Updated tags and description.
 - 1.1.2: Added more constructors to KeyValueCache and KeyValueCacheAsync that allow to provide separate factories for creates and updates, and to specify custom expiration function.

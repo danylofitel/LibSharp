@@ -1,11 +1,11 @@
-// Copyright (c) LibSharp. All rights reserved.
+﻿// Copyright (c) LibSharp. All rights reserved.
 
 using System;
 using System.Text.RegularExpressions;
 using LibSharp.Common;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace LibSharp.UnitTests
+namespace LibSharp.UnitTests.Common
 {
     [TestClass]
     public class RegexExtensionsUnitTests
