@@ -22,7 +22,7 @@ LibSharp consists of the following namespaces:
 ```csharp
     using LibSharp.Common;
 
-    public static void CommonExamples(string stringParam, long longParam, object objectParam)
+    public static void CommonExamples(string stringParam, long longParam, object objectParam, CancellationToken cancellationToken)
     {
         // Argument validation
         Argument.EqualTo(stringParam, "Hello world", nameof(stringParam));
@@ -44,6 +44,21 @@ LibSharp consists of the following namespaces:
         DateTime fromEpochSeconds = longParam.FromEpochSeconds();
         long epochMilliseconds = DateTime.UtcNow.ToEpochMilliseconds();
         long epochSeconds = DateTime.UtcNow.ToEpochSeconds();
+
+        // Func extensions
+        Func<CancellationToken, Task<int>> task = async cancellationToken =>
+        {
+            // Long-running operation that may not respect the cancellation token
+            await Task.CompletedTask.ConfigureAwait(false); 
+
+            return 99;
+        };
+
+        int taskResult = await task.RunWithTimeout(TimeSpan.FromSeconds(1), cancellationToken).ConfigureAwait(false);
+
+        // Regex extensions
+        Regex regex = new Regex(pattern: "\\s+brown\\s+", options: RegexOptions.None, matchTimeout: TimeSpan.FromSeconds(1));
+        string regexResult = regex.TryReplace("the quick brown fox", " red ");
 
         // String extensions
         string base64Encoded = stringParam.Base64Encode();
