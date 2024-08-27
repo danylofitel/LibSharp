@@ -3,6 +3,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using LibSharp.Common;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace LibSharp.UnitTests.Common

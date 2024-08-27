@@ -3,7 +3,7 @@
 using System.Collections;
 using System.Collections.Generic;
 
-namespace LibSharp.Collections.UnitTests
+namespace LibSharp.UnitTests.Collections
 {
     internal class GenericCollection<T> : ICollection<T>
     {

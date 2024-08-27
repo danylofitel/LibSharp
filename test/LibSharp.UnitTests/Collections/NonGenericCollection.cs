@@ -4,7 +4,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 
-namespace LibSharp.Collections.UnitTests
+namespace LibSharp.UnitTests.Collections
 {
     internal class NonGenericCollection<T> : IEnumerable<T>, ICollection
     {

@@ -3,10 +3,11 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using LibSharp.Caching;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
-namespace LibSharp.Caching.UnitTests
+namespace LibSharp.UnitTests.Caching
 {
     [TestClass]
     public class ValueCacheAsyncUnitTests
@@ -132,7 +133,7 @@ namespace LibSharp.Caching.UnitTests
 
             Func<int, CancellationToken, Task<int>> updateFactory = Substitute.For<Func<int, CancellationToken, Task<int>>>();
 
-            _ = updateFactory(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(x => ((int)x[0]) + 1);
+            _ = updateFactory(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(x => (int)x[0] + 1);
 
             using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
             {
@@ -173,7 +174,7 @@ namespace LibSharp.Caching.UnitTests
 
             Func<int, CancellationToken, Task<int>> updateFactory = Substitute.For<Func<int, CancellationToken, Task<int>>>();
 
-            _ = updateFactory(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(x => ((int)x[0]) + 1);
+            _ = updateFactory(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(x => (int)x[0] + 1);
 
             using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
             {

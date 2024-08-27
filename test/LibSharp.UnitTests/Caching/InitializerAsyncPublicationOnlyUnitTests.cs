@@ -3,10 +3,11 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using LibSharp.Caching;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
-namespace LibSharp.Caching.UnitTests
+namespace LibSharp.UnitTests.Caching
 {
     [TestClass]
     public class InitializerAsyncPublicationOnlyUnitTests

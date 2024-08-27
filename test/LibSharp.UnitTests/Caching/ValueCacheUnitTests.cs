@@ -1,10 +1,11 @@
 ﻿// Copyright (c) LibSharp. All rights reserved.
 
 using System;
+using LibSharp.Caching;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
-namespace LibSharp.Caching.UnitTests
+namespace LibSharp.UnitTests.Caching
 {
     [TestClass]
     public class ValueCacheUnitTests
@@ -247,7 +248,7 @@ namespace LibSharp.Caching.UnitTests
 
             Func<int, int> updateFactory = Substitute.For<Func<int, int>>();
 
-            _ = updateFactory(Arg.Any<int>()).Returns<int>(x => ((int)x[0]) + 1);
+            _ = updateFactory(Arg.Any<int>()).Returns(x => (int)x[0] + 1);
 
             ValueCache<int> cache = new ValueCache<int>(createFactory, updateFactory, TimeSpan.Zero);
 
@@ -281,7 +282,7 @@ namespace LibSharp.Caching.UnitTests
 
             Func<int, int> updateFactory = Substitute.For<Func<int, int>>();
 
-            _ = updateFactory(Arg.Any<int>()).Returns<int>(x => ((int)x[0]) + 1);
+            _ = updateFactory(Arg.Any<int>()).Returns(x => (int)x[0] + 1);
 
             ValueCache<int> cache = new ValueCache<int>(createFactory, updateFactory, _ => DateTime.UtcNow.AddMinutes(-1));
 

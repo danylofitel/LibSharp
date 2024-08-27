@@ -1,10 +1,11 @@
 ﻿// Copyright (c) LibSharp. All rights reserved.
 
 using System;
+using LibSharp.Caching;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
-namespace LibSharp.Caching.UnitTests
+namespace LibSharp.UnitTests.Caching
 {
     [TestClass]
     public class InitializerUnitTests

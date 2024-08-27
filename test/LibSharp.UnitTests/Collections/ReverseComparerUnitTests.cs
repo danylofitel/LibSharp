@@ -2,9 +2,10 @@
 
 using System;
 using System.Collections.Generic;
+using LibSharp.Collections;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace LibSharp.Collections.UnitTests
+namespace LibSharp.UnitTests.Collections
 {
     [TestClass]
     public class ReverseComparerUnitTests
