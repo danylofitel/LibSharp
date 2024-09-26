@@ -56,6 +56,9 @@ LibSharp consists of the following namespaces:
 
         int taskResult = await task.RunWithTimeout(TimeSpan.FromSeconds(1), cancellationToken).ConfigureAwait(false);
 
+        // Int extensions
+        bool converted = 200.TryConvertToEnum<HttpStatusCode>(out HttpStatusCode statusCode);
+
         // Regex extensions
         Regex regex = new Regex(pattern: "\\s+brown\\s+", options: RegexOptions.None, matchTimeout: TimeSpan.FromSeconds(1));
         string regexResult = regex.TryReplace("the quick brown fox", " red ");
