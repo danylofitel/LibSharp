@@ -1,5 +1,7 @@
 ﻿// Copyright (c) LibSharp. All rights reserved.
 
+using System;
+using System.Net;
 using LibSharp.Common;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -96,6 +98,86 @@ namespace LibSharp.UnitTests.Common
             Assert.AreEqual("aB", "aBc".Truncate(2));
             Assert.AreEqual("aBc", "aBc".Truncate(3));
             Assert.AreEqual("aBc", "aBc".Truncate(int.MaxValue));
+        }
+
+        [TestMethod]
+        public void TryConvertToEnum_HttpStatusCode()
+        {
+            // Arrange
+            HttpStatusCode result;
+
+            // Assert
+            Assert.IsFalse(((string)null).TryConvertToEnum<HttpStatusCode>(out _));
+            Assert.IsFalse(string.Empty.TryConvertToEnum<HttpStatusCode>(out _));
+            Assert.IsFalse(" ".TryConvertToEnum<HttpStatusCode>(out _));
+            Assert.IsFalse("abc".TryConvertToEnum<HttpStatusCode>(out _));
+            Assert.IsFalse("ok".TryConvertToEnum<HttpStatusCode>(out _));
+            Assert.IsFalse("notfound".TryConvertToEnum<HttpStatusCode>(out _));
+            Assert.IsFalse("-1".TryConvertToEnum<HttpStatusCode>(out _));
+            Assert.IsFalse("0".TryConvertToEnum<HttpStatusCode>(out _));
+            Assert.IsFalse("99".TryConvertToEnum<HttpStatusCode>(out _));
+            Assert.IsFalse("600".TryConvertToEnum<HttpStatusCode>(out _));
+
+            Assert.IsTrue("Continue".TryConvertToEnum<HttpStatusCode>(out result));
+            Assert.AreEqual(HttpStatusCode.Continue, result);
+
+            Assert.IsTrue("SwitchingProtocols".TryConvertToEnum<HttpStatusCode>(out result));
+            Assert.AreEqual(HttpStatusCode.SwitchingProtocols, result);
+
+            Assert.IsTrue("OK".TryConvertToEnum<HttpStatusCode>(out result));
+            Assert.AreEqual(HttpStatusCode.OK, result);
+
+            Assert.IsTrue("BadRequest".TryConvertToEnum<HttpStatusCode>(out result));
+            Assert.AreEqual(HttpStatusCode.BadRequest, result);
+
+            Assert.IsTrue("Unauthorized".TryConvertToEnum<HttpStatusCode>(out result));
+            Assert.AreEqual(HttpStatusCode.Unauthorized, result);
+
+            Assert.IsTrue("Forbidden".TryConvertToEnum<HttpStatusCode>(out result));
+            Assert.AreEqual(HttpStatusCode.Forbidden, result);
+
+            Assert.IsTrue("NotFound".TryConvertToEnum<HttpStatusCode>(out result));
+            Assert.AreEqual(HttpStatusCode.NotFound, result);
+
+            Assert.IsTrue("InternalServerError".TryConvertToEnum<HttpStatusCode>(out result));
+            Assert.AreEqual(HttpStatusCode.InternalServerError, result);
+
+            Assert.IsTrue("HttpVersionNotSupported".TryConvertToEnum<HttpStatusCode>(out result));
+            Assert.AreEqual(HttpStatusCode.HttpVersionNotSupported, result);
+        }
+
+        [TestMethod]
+        public void TryConvertToEnum_StringComparison()
+        {
+            // Arrange
+            StringComparison result;
+
+            // Assert
+            Assert.IsFalse(((string)null).TryConvertToEnum<StringComparison>(out _));
+            Assert.IsFalse(string.Empty.TryConvertToEnum<StringComparison>(out _));
+            Assert.IsFalse(" ".TryConvertToEnum<StringComparison>(out _));
+            Assert.IsFalse("abc".TryConvertToEnum<StringComparison>(out _));
+            Assert.IsFalse("ordinal".TryConvertToEnum<StringComparison>(out _));
+            Assert.IsFalse("-1".TryConvertToEnum<StringComparison>(out _));
+            Assert.IsFalse("6".TryConvertToEnum<StringComparison>(out _));
+
+            Assert.IsTrue("CurrentCulture".TryConvertToEnum<StringComparison>(out result));
+            Assert.AreEqual(StringComparison.CurrentCulture, result);
+
+            Assert.IsTrue("CurrentCultureIgnoreCase".TryConvertToEnum<StringComparison>(out result));
+            Assert.AreEqual(StringComparison.CurrentCultureIgnoreCase, result);
+
+            Assert.IsTrue("InvariantCulture".TryConvertToEnum<StringComparison>(out result));
+            Assert.AreEqual(StringComparison.InvariantCulture, result);
+
+            Assert.IsTrue("InvariantCultureIgnoreCase".TryConvertToEnum<StringComparison>(out result));
+            Assert.AreEqual(StringComparison.InvariantCultureIgnoreCase, result);
+
+            Assert.IsTrue("Ordinal".TryConvertToEnum<StringComparison>(out result));
+            Assert.AreEqual(StringComparison.Ordinal, result);
+
+            Assert.IsTrue("OrdinalIgnoreCase".TryConvertToEnum<StringComparison>(out result));
+            Assert.AreEqual(StringComparison.OrdinalIgnoreCase, result);
         }
     }
 }

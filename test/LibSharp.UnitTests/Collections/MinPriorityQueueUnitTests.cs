@@ -746,7 +746,7 @@ namespace LibSharp.UnitTests.Collections
         public void GetEnumerator_NonEmptyQueue_IteratesThroughAllElements()
         {
             // Arrange
-            List<int> collection = Enumerable.Range(0, 100).Shuffle().ToList();
+            List<int> collection = IEnumerableExtensions.Shuffle(Enumerable.Range(0, 100)).ToList();
             MinPriorityQueue<int> queue = new MinPriorityQueue<int>(collection);
 
             // Act
@@ -764,7 +764,7 @@ namespace LibSharp.UnitTests.Collections
         public void GetWeakEnumerator_NonEmptyQueue_IteratesThroughAllElements()
         {
             // Arrange
-            List<int> collection = Enumerable.Range(0, 100).Shuffle().ToList();
+            List<int> collection = IEnumerableExtensions.Shuffle(Enumerable.Range(0, 100)).ToList();
             IEnumerable queue = new MinPriorityQueue<int>(collection);
 
             // Act
@@ -783,7 +783,7 @@ namespace LibSharp.UnitTests.Collections
         public void GetEnumerator_AfterEnumeratingAllElements_Current_Throws()
         {
             // Arrange
-            MinPriorityQueue<int> queue = new MinPriorityQueue<int>(Enumerable.Range(0, 10).Shuffle());
+            MinPriorityQueue<int> queue = new MinPriorityQueue<int>(IEnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
 
             using (IEnumerator<int> enumerator = queue.GetEnumerator())
             {
@@ -803,7 +803,7 @@ namespace LibSharp.UnitTests.Collections
         public void GetEnumerator_AfterEnumeratingAllElements_MoveNext_ReturnsFalse()
         {
             // Arrange
-            MinPriorityQueue<int> queue = new MinPriorityQueue<int>(Enumerable.Range(0, 10).Shuffle());
+            MinPriorityQueue<int> queue = new MinPriorityQueue<int>(IEnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
 
             using (IEnumerator<int> enumerator = queue.GetEnumerator())
             {
@@ -824,7 +824,7 @@ namespace LibSharp.UnitTests.Collections
         public void GetEnumerator_AfterEnumeratingAllElements_Reset_ResetsEnumerator()
         {
             // Arrange
-            MinPriorityQueue<int> queue = new MinPriorityQueue<int>(Enumerable.Range(0, 10).Shuffle());
+            MinPriorityQueue<int> queue = new MinPriorityQueue<int>(IEnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
 
             using (IEnumerator<int> enumerator = queue.GetEnumerator())
             {
@@ -853,7 +853,7 @@ namespace LibSharp.UnitTests.Collections
         public void GetEnumerator_QueueModifiedDuringEnumeration_Current_Throws()
         {
             // Arrange
-            MinPriorityQueue<int> queue = new MinPriorityQueue<int>(Enumerable.Range(0, 10).Shuffle());
+            MinPriorityQueue<int> queue = new MinPriorityQueue<int>(IEnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
 
             using (IEnumerator<int> enumerator = queue.GetEnumerator())
             {
@@ -873,7 +873,7 @@ namespace LibSharp.UnitTests.Collections
         public void GetEnumerator_QueueModifiedDuringEnumeration_MoveNext_Throws()
         {
             // Arrange
-            MinPriorityQueue<int> queue = new MinPriorityQueue<int>(Enumerable.Range(0, 10).Shuffle());
+            MinPriorityQueue<int> queue = new MinPriorityQueue<int>(IEnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
 
             using (IEnumerator<int> enumerator = queue.GetEnumerator())
             {
@@ -893,7 +893,7 @@ namespace LibSharp.UnitTests.Collections
         public void GetEnumerator_QueueModifiedDuringEnumeration_Reset_Throws()
         {
             // Arrange
-            MinPriorityQueue<int> queue = new MinPriorityQueue<int>(Enumerable.Range(0, 10).Shuffle());
+            MinPriorityQueue<int> queue = new MinPriorityQueue<int>(IEnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
 
             using (IEnumerator<int> enumerator = queue.GetEnumerator())
             {
@@ -913,7 +913,7 @@ namespace LibSharp.UnitTests.Collections
         public void GetEnumerator_AfterDisposing_Current_Throws()
         {
             // Arrange
-            MinPriorityQueue<int> queue = new MinPriorityQueue<int>(Enumerable.Range(0, 10).Shuffle());
+            MinPriorityQueue<int> queue = new MinPriorityQueue<int>(IEnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
 
             IEnumerator<int> enumerator;
             using (enumerator = queue.GetEnumerator())
@@ -933,7 +933,7 @@ namespace LibSharp.UnitTests.Collections
         public void GetEnumerator_AfterDisposing_MoveNext_Throws()
         {
             // Arrange
-            MinPriorityQueue<int> queue = new MinPriorityQueue<int>(Enumerable.Range(0, 10).Shuffle());
+            MinPriorityQueue<int> queue = new MinPriorityQueue<int>(IEnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
 
             IEnumerator<int> enumerator;
             using (enumerator = queue.GetEnumerator())
@@ -953,7 +953,7 @@ namespace LibSharp.UnitTests.Collections
         public void GetEnumerator_AfterDisposing_Reset_Throws()
         {
             // Arrange
-            MinPriorityQueue<int> queue = new MinPriorityQueue<int>(Enumerable.Range(0, 10).Shuffle());
+            MinPriorityQueue<int> queue = new MinPriorityQueue<int>(IEnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
 
             IEnumerator<int> enumerator;
             using (enumerator = queue.GetEnumerator())

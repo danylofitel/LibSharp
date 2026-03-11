@@ -243,7 +243,7 @@ namespace LibSharp.UnitTests.Collections
         public void Shuffle_EmptyEnumerable()
         {
             // Act
-            int[] output = Enumerable.Empty<int>().Shuffle();
+            int[] output = IEnumerableExtensions.Shuffle(Enumerable.Empty<int>());
 
             // Assert
             Assert.AreEqual(0, output.Length);
@@ -256,7 +256,7 @@ namespace LibSharp.UnitTests.Collections
             List<int> input = new List<int> { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
 
             // Act
-            int[] output = input.Shuffle();
+            int[] output = IEnumerableExtensions.Shuffle(input);
 
             // Assert
             CollectionAssert.AreEquivalent(input, output);

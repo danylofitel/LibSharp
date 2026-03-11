@@ -5,5 +5,5 @@
 // Project-level suppressions either have no target or are given
 // a specific target and scoped to a namespace, type, member, etc.
 [assembly: System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1710:Identifiers should have correct suffix", Justification = "Priority queue interface.", Scope = "type", Target = "~T:LibSharp.Collections.IPriorityQueue`1")]
-[assembly: System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1710:Identifiers should have correct suffix", Justification = "Max priority queue implmenentation.", Scope = "type", Target = "~T:LibSharp.Collections.MaxPriorityQueue`1")]
-[assembly: System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1710:Identifiers should have correct suffix", Justification = "Min priority queue implmenentation.", Scope = "type", Target = "~T:LibSharp.Collections.MinPriorityQueue`1")]
+[assembly: System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1710:Identifiers should have correct suffix", Justification = "Max priority queue implementation.", Scope = "type", Target = "~T:LibSharp.Collections.MaxPriorityQueue`1")]
+[assembly: System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1710:Identifiers should have correct suffix", Justification = "Min priority queue implementation.", Scope = "type", Target = "~T:LibSharp.Collections.MinPriorityQueue`1")]

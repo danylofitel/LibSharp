@@ -124,14 +124,13 @@ namespace LibSharp.Collections
         {
             Argument.NotNull(source, nameof(source));
 
-            Random generator = new Random();
             TSource[] elements = source.ToArray();
 
             int count = elements.Length;
             while (count > 1)
             {
                 --count;
-                int k = generator.Next(count + 1);
+                int k = Random.Shared.Next(count + 1);
                 (elements[count], elements[k]) = (elements[k], elements[count]);
             }
 

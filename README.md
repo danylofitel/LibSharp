@@ -2,7 +2,7 @@
 
 ## Introduction
 
-A library of C# core components that enhance the standard library. Supports .NET Standard 2.0, .NET Standard 2.1, .NET 5.0, .NET 6.0, .NET 7.0, .NET 8.0, .NET 9.0.
+A library of C# core components that enhance the standard library. Supports .NET 8.0, .NET 9.0, .NET 10.0.
 
 * Source code: <https://github.com/danylofitel/LibSharp>.
 * NuGet package: <https://www.nuget.org/packages/LibSharp>.
@@ -22,7 +22,7 @@ LibSharp consists of the following namespaces:
 ```csharp
     using LibSharp.Common;
 
-    public static void CommonExamples(string stringParam, long longParam, object objectParam, CancellationToken cancellationToken)
+    public static async Task CommonExamples(string stringParam, long longParam, object objectParam, CancellationToken cancellationToken)
     {
         // Argument validation
         Argument.EqualTo(stringParam, "Hello world", nameof(stringParam));
@@ -35,7 +35,7 @@ LibSharp consists of the following namespaces:
 
         Argument.NotNull(stringParam, nameof(stringParam));
         Argument.NotNullOrEmpty(stringParam, nameof(stringParam));
-        Argument.IsNullOrWhiteSpace(stringParam, nameof(stringParam));
+        Argument.NotNullOrWhiteSpace(stringParam, nameof(stringParam));
 
         Argument.OfType(objectParam, typeof(List<string>), nameof(objectParam));
 
@@ -57,7 +57,10 @@ LibSharp consists of the following namespaces:
         int taskResult = await task.RunWithTimeout(TimeSpan.FromSeconds(1), cancellationToken).ConfigureAwait(false);
 
         // Int extensions
-        bool converted = 200.TryConvertToEnum<HttpStatusCode>(out HttpStatusCode statusCode);
+        bool convertedFromInt = 200.TryConvertToEnum<HttpStatusCode>(out HttpStatusCode statusCode);
+
+        // String extensions (TryConvertToEnum)
+        bool convertedFromString = "OK".TryConvertToEnum<HttpStatusCode>(out HttpStatusCode statusCode2);
 
         // Regex extensions
         Regex regex = new Regex(pattern: "\\s+brown\\s+", options: RegexOptions.None, matchTimeout: TimeSpan.FromSeconds(1));
@@ -132,9 +135,9 @@ LibSharp consists of the following namespaces:
         // IEnumerable extensions
         List<List<int>> chunks = Enumerable.Range(0, 10).Chunk(20, item => item).ToList();  // [ [0, 1, 2, 3, 4, 5], [6, 7], [8, 9] ]
 
-        IEnumerable<int> enumerable = Enumerable.Range(100).Concat(Enumerable.Range(100)).ToList();
-        int firstIndex = enumerable.FirstIndexOf(51);
-        int lastIndex = enumerable.LastIndexOf(51);
+        IEnumerable<int> enumerable = Enumerable.Range(0, 100).Concat(Enumerable.Range(0, 100)).ToList();
+        int firstIndex = enumerable.FirstIndexOf(x => x == 51);
+        int lastIndex = enumerable.LastIndexOf(x => x == 51);
 
         int[] shuffled = enumerable.Shuffle();
 
@@ -149,7 +152,7 @@ LibSharp consists of the following namespaces:
         _ = minPq.Dequeue();    // 3
 
         // Max priority queue
-        MinPriorityQueue<int> maxPq = new MinPriorityQueue<int>();
+        MaxPriorityQueue<int> maxPq = new MaxPriorityQueue<int>();
         maxPq.Enqueue(2);
         maxPq.Enqueue(1);
         maxPq.Enqueue(3);
@@ -268,11 +271,11 @@ Note that `ValueCacheAsync` guarantees `LazyThreadSafetyMode.ExecutionAndPublica
         using ValueCacheAsync<int> cache = new ValueCacheAsync<int>(factory, TimeSpan.FromMilliseconds(1));
 
         bool hasValue = cache.HasValue;                                     // false
-        int value = await cache.GetValueAsync(factory, cancellationToken);  // factory invoked
+        int value = await cache.GetValueAsync(cancellationToken);           // factory invoked
         hasValue = cache.HasValue;                                          // true
 
         await Task.Delay(10);
-        value = await cache.GetValueAsync(factory, cancellationToken);      // factory invoked
+        value = await cache.GetValueAsync(cancellationToken);               // factory invoked
         hasValue = cache.HasValue;                                          // true
     }
 ```
@@ -299,12 +302,31 @@ Key-value caches allow to cache and automatically refresh multiple values within
     {
         using KeyValueCacheAsync<string, int> cache = new KeyValueCacheAsync<string, int>(factory, TimeSpan.FromMinutes(1));
 
-        KeyValueCache<string, int> cache = new KeyValueCache<string, int>(factory, TimeSpan.FromMinutes(1));
-
         int valueA = await cache.GetValueAsync("a", cancellationToken); // factory invoked for "a"
         int valueB = await cache.GetValueAsync("b", cancellationToken); // factory invoked for "b"
 
         valueA = await cache.GetValueAsync("a", cancellationToken);     // factory not invoked
         valueB = await cache.GetValueAsync("b", cancellationToken);     // factory not invoked
+    }
+```
+
+#### Proactive Async Cache
+
+`ProactiveAsyncCache` is an async cache that proactively refreshes its value in the background before it expires. It starts a background loop that re-fetches the value at a configurable interval. A pre-fetch offset allows the refresh to happen before the current value expires, ensuring callers always get a fresh value without waiting for the factory.
+
+```csharp
+    using LibSharp.Caching;
+
+    public static async Task ProactiveAsyncCacheExample(Func<CancellationToken, Task<int>> factory, CancellationToken cancellationToken)
+    {
+        await using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            factory,
+            refreshInterval: TimeSpan.FromMinutes(5),
+            preFetchOffset: TimeSpan.FromSeconds(30));
+
+        bool hasValue = cache.HasValue;                                     // false (until first background fetch completes)
+        int value = await cache.GetValueAsync(cancellationToken);           // factory invoked if background fetch hasn't completed yet
+        hasValue = cache.HasValue;                                          // true
+        value = await cache.GetValueAsync(cancellationToken);               // returns cached value
     }
 ```
