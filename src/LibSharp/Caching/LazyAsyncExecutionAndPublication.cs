@@ -77,6 +77,8 @@ namespace LibSharp.Caching
                         m_value = await m_factory(cancellationToken).ConfigureAwait(false);
                         m_hasValue = true;
                     }
+
+                    return m_value;
                 }
                 finally
                 {
@@ -102,7 +104,11 @@ namespace LibSharp.Caching
         {
             if (!m_isDisposed)
             {
-                m_semaphore.Dispose();
+                if (disposing)
+                {
+                    m_semaphore.Dispose();
+                }
+
                 m_isDisposed = true;
             }
         }
@@ -110,9 +116,9 @@ namespace LibSharp.Caching
         private readonly SemaphoreSlim m_semaphore = new SemaphoreSlim(1, 1);
 
         private readonly Func<CancellationToken, Task<T>> m_factory;
-        private bool m_hasValue;
+        private volatile bool m_hasValue;
         private T m_value;
 
-        private bool m_isDisposed;
+        private volatile bool m_isDisposed;
     }
 }

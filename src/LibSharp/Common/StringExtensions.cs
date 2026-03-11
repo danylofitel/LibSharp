@@ -1,6 +1,9 @@
 ﻿// Copyright (c) LibSharp. All rights reserved.
 
 using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
 using System.Text;
 
 namespace LibSharp.Common
@@ -47,9 +50,32 @@ namespace LibSharp.Common
         {
             Argument.NotNull(input, nameof(input));
 
-            char[] characters = input.ToCharArray();
-            Array.Reverse(characters);
-            return new string(characters);
+            int[] characterIndexes = StringInfo.ParseCombiningCharacters(input);
+
+            Array.Reverse(characterIndexes);
+
+            IEnumerable<string> elements = characterIndexes.Select(i => StringInfo.GetNextTextElement(input, i));
+
+            return string.Concat(elements);
+        }
+
+        /// <summary>
+        /// Converts a string to an enum value if possible.
+        /// </summary>
+        /// <typeparam name="T">Enum type.</typeparam>
+        /// <param name="value">String value.</param>
+        /// <param name="result">Enum value.</param>
+        /// <returns>True if the value is defined and was successfully converted, false otherwise.</returns>
+        public static bool TryConvertToEnum<T>(this string value, out T result)
+            where T : struct, Enum
+        {
+            if (Enum.TryParse(value, out result) && Enum.IsDefined(typeof(T), result))
+            {
+                return true;
+            }
+
+            result = default;
+            return false;
         }
 
         /// <summary>

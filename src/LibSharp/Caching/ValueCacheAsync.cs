@@ -122,6 +122,8 @@ namespace LibSharp.Caching
                     {
                         await Refresh(cancellationToken).ConfigureAwait(false);
                     }
+
+                    return m_boxed.Value;
                 }
                 finally
                 {
@@ -160,7 +162,9 @@ namespace LibSharp.Caching
 
         private static DateTime GetExpiration(TimeSpan timeToLive)
         {
-            return timeToLive == TimeSpan.MaxValue ? DateTime.MaxValue : DateTime.UtcNow.Add(timeToLive);
+            return timeToLive >= DateTime.MaxValue - DateTime.UtcNow
+                ? DateTime.MaxValue
+                : DateTime.UtcNow.Add(timeToLive);
         }
 
         private async Task Refresh(CancellationToken cancellationToken)
@@ -186,8 +190,8 @@ namespace LibSharp.Caching
         private readonly Func<T, CancellationToken, Task<T>> m_updateFactory;
         private readonly Func<T, DateTime> m_expirationFunction;
 
-        private ValueReference<T> m_boxed;
+        private volatile ValueReference<T> m_boxed;
 
-        private bool m_isDisposed;
+        private volatile bool m_isDisposed;
     }
 }

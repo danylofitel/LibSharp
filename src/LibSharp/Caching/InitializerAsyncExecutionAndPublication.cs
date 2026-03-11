@@ -3,6 +3,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using LibSharp.Common;
 
 namespace LibSharp.Caching
 {
@@ -30,6 +31,8 @@ namespace LibSharp.Caching
         /// <inheritdoc/>
         public async Task<T> GetValueAsync(Func<CancellationToken, Task<T>> factory, CancellationToken cancellationToken = default)
         {
+            Argument.NotNull(factory, nameof(factory));
+
             if (m_isDisposed)
             {
                 throw new ObjectDisposedException(GetType().FullName);
@@ -46,6 +49,8 @@ namespace LibSharp.Caching
                         m_value = await factory(cancellationToken).ConfigureAwait(false);
                         m_hasValue = true;
                     }
+
+                    return m_value;
                 }
                 finally
                 {
@@ -71,15 +76,19 @@ namespace LibSharp.Caching
         {
             if (!m_isDisposed)
             {
-                m_semaphore.Dispose();
+                if (disposing)
+                {
+                    m_semaphore.Dispose();
+                }
+
                 m_isDisposed = true;
             }
         }
 
         private readonly SemaphoreSlim m_semaphore = new SemaphoreSlim(1, 1);
 
-        private bool m_hasValue;
+        private volatile bool m_hasValue;
         private T m_value;
-        private bool m_isDisposed;
+        private volatile bool m_isDisposed;
     }
 }

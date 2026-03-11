@@ -30,7 +30,7 @@ namespace LibSharp.Common
 
             if (!value.Equals(equalValue))
             {
-                throw new ArgumentException(name, $"{value} must be equal to {equalValue}.");
+                throw new ArgumentException($"{value} must be equal to {equalValue}.", name);
             }
         }
 
@@ -127,7 +127,7 @@ namespace LibSharp.Common
 
             if (value.Equals(notEqualValue))
             {
-                throw new ArgumentException(name, $"{value} must not be equal to {notEqualValue}.");
+                throw new ArgumentException($"{value} must not be equal to {notEqualValue}.", name);
             }
         }
 

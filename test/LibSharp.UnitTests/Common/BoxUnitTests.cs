@@ -47,18 +47,18 @@ namespace LibSharp.UnitTests.Common
         public void ValueType_FromValue()
         {
             // Arrange
-            Box<DateTime> box = new Box<DateTime>(DateTimeExtensions.UnixEpoch);
+            Box<DateTime> box = new Box<DateTime>(DateTime.UnixEpoch);
 
             // Assert
             Assert.IsTrue(box.HasValue);
-            Assert.AreEqual(DateTimeExtensions.UnixEpoch, box.Value);
+            Assert.AreEqual(DateTime.UnixEpoch, box.Value);
         }
 
         [TestMethod]
         public void ValueType_FromValue_WhenCopied_RetainsState()
         {
             // Arrange
-            Box<DateTime> box = new Box<DateTime>(DateTimeExtensions.UnixEpoch);
+            Box<DateTime> box = new Box<DateTime>(DateTime.UnixEpoch);
 
             // Act
             Box<DateTime> copy = CopyBox(box);
@@ -198,7 +198,7 @@ namespace LibSharp.UnitTests.Common
             // Assert
             Assert.IsFalse(box.Equals((object)null));
             Assert.IsFalse(box.Equals(1));
-            Assert.IsFalse(box.Equals(DateTimeExtensions.UnixEpoch));
+            Assert.IsFalse(box.Equals(DateTime.UnixEpoch));
             Assert.IsFalse(box.Equals(new Box<object>(new object())));
             Assert.IsFalse(box.Equals(new Box<object>("boxed")));
             Assert.IsFalse(box.Equals((object)"boxed"));
@@ -217,7 +217,7 @@ namespace LibSharp.UnitTests.Common
             // Assert
             Assert.IsFalse(box.Equals((object)null));
             Assert.IsFalse(box.Equals(1));
-            Assert.IsFalse(box.Equals(DateTimeExtensions.UnixEpoch));
+            Assert.IsFalse(box.Equals(DateTime.UnixEpoch));
             Assert.IsFalse(box.Equals(new Box<object>(new object())));
             Assert.IsFalse(box.Equals(new Box<object>("boxed")));
 

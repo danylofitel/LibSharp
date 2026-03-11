@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Concurrent;
+using System.Threading;
 using LibSharp.Common;
 
 namespace LibSharp.Caching
@@ -11,6 +12,11 @@ namespace LibSharp.Caching
     /// </summary>
     /// <typeparam name="TKey">Key type.</typeparam>
     /// <typeparam name="TValue">Value type.</typeparam>
+    /// <remarks>
+    /// Entries are never evicted from the cache.
+    /// This is by design for bounded key spaces.
+    /// Do not use with unbounded key spaces as memory will grow monotonically.
+    /// </remarks>
     public class KeyValueCache<TKey, TValue> : IKeyValueCache<TKey, TValue>
         where TKey : notnull
     {
@@ -81,9 +87,13 @@ namespace LibSharp.Caching
         {
             Argument.NotNull(key, nameof(key));
 
-            ValueCache<TValue> valueCache = m_cache.GetOrAdd(key, CreateValueCache);
+            Lazy<ValueCache<TValue>> lazyValueCache = m_cache.GetOrAdd(
+                key,
+                cacheKey => new Lazy<ValueCache<TValue>>(
+                    () => CreateValueCache(cacheKey),
+                    LazyThreadSafetyMode.ExecutionAndPublication));
 
-            return valueCache.GetValue();
+            return lazyValueCache.Value.GetValue();
         }
 
         private ValueCache<TValue> CreateValueCache(TKey key)
@@ -100,7 +110,7 @@ namespace LibSharp.Caching
                 : new ValueCache<TValue>(() => m_createFactory(key), value => m_updateFactory(key, value), value => m_expirationFunction(key, value));
         }
 
-        private readonly ConcurrentDictionary<TKey, ValueCache<TValue>> m_cache = new ConcurrentDictionary<TKey, ValueCache<TValue>>();
+        private readonly ConcurrentDictionary<TKey, Lazy<ValueCache<TValue>>> m_cache = new ConcurrentDictionary<TKey, Lazy<ValueCache<TValue>>>();
 
         private readonly Func<TKey, TValue> m_createFactory;
         private readonly Func<TKey, TValue, TValue> m_updateFactory;

@@ -22,7 +22,7 @@ namespace LibSharp.Common
         {
             Argument.NotNullOrWhiteSpace(xmlString, nameof(xmlString));
 
-            StringReader stringReader = new StringReader(xmlString);
+            using StringReader stringReader = new StringReader(xmlString);
             using XmlReader xmlReader = XmlReader.Create(stringReader, xmlReaderSettings ?? s_xmlReaderSettings);
             XmlSerializer serializer = new XmlSerializer(typeof(T));
             return (T)serializer.Deserialize(xmlReader);

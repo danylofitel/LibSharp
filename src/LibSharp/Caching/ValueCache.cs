@@ -1,6 +1,7 @@
 ﻿// Copyright (c) LibSharp. All rights reserved.
 
 using System;
+using System.Threading;
 using LibSharp.Common;
 
 namespace LibSharp.Caching
@@ -91,6 +92,8 @@ namespace LibSharp.Caching
                     {
                         Refresh();
                     }
+
+                    return m_boxed.Value;
                 }
             }
 
@@ -99,7 +102,9 @@ namespace LibSharp.Caching
 
         private static DateTime GetExpiration(TimeSpan timeToLive)
         {
-            return timeToLive == TimeSpan.MaxValue ? DateTime.MaxValue : DateTime.UtcNow.Add(timeToLive);
+            return timeToLive >= DateTime.MaxValue - DateTime.UtcNow
+                ? DateTime.MaxValue
+                : DateTime.UtcNow.Add(timeToLive);
         }
 
         private void Refresh()
@@ -125,6 +130,6 @@ namespace LibSharp.Caching
         private readonly Func<T, T> m_updateFactory;
         private readonly Func<T, DateTime> m_expirationFunction;
 
-        private ValueReference<T> m_boxed;
+        private volatile ValueReference<T> m_boxed;
     }
 }

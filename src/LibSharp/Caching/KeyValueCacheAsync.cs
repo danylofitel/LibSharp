@@ -13,6 +13,11 @@ namespace LibSharp.Caching
     /// </summary>
     /// <typeparam name="TKey">Key type.</typeparam>
     /// <typeparam name="TValue">Value type.</typeparam>
+    /// <remarks>
+    /// Entries are never evicted from the cache.
+    /// This is by design for bounded key spaces.
+    /// Do not use with unbounded key spaces as memory will grow monotonically.
+    /// </remarks>
     public class KeyValueCacheAsync<TKey, TValue> : IKeyValueCacheAsync<TKey, TValue>, IDisposable
         where TKey : notnull
     {
@@ -106,6 +111,12 @@ namespace LibSharp.Caching
                     () => CreateValueCache(cacheKey),
                     LazyThreadSafetyMode.ExecutionAndPublication));
 
+            // Re-check after GetOrAdd to avoid leaking entries added concurrently with Dispose.
+            if (m_isDisposed)
+            {
+                throw new ObjectDisposedException(GetType().FullName);
+            }
+
             /*
              * Now that the value cache for the key has been initialized with a single instance,
              * get the value cache from the Lazy wrapper.
@@ -141,6 +152,8 @@ namespace LibSharp.Caching
         {
             if (!m_isDisposed)
             {
+                m_isDisposed = true;
+
                 if (disposing)
                 {
                     foreach (Lazy<ValueCacheAsync<TValue>> cache in m_cache.Values)
@@ -150,9 +163,9 @@ namespace LibSharp.Caching
                             cache.Value.Dispose();
                         }
                     }
-                }
 
-                m_isDisposed = true;
+                    m_cache.Clear();
+                }
             }
         }
 
@@ -177,6 +190,6 @@ namespace LibSharp.Caching
         private readonly TimeSpan? m_timeToLive;
         private readonly Func<TKey, TValue, DateTime> m_expirationFunction;
 
-        private bool m_isDisposed;
+        private volatile bool m_isDisposed;
     }
 }
