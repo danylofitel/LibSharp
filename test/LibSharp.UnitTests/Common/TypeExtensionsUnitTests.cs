@@ -1,4 +1,4 @@
-﻿// Copyright (c) LibSharp. All rights reserved.
+// Copyright (c) LibSharp. All rights reserved.
 
 using System;
 using System.Collections.Generic;
@@ -11,11 +11,10 @@ namespace LibSharp.UnitTests.Common
     public class TypeExtensionsUnitTests
     {
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void GetDefaultComparer_NonComparableType_Throws()
         {
             // Act
-            _ = TypeExtensions.GetDefaultComparer<object>();
+            _ = Assert.ThrowsExactly<ArgumentException>(() => TypeExtensions.GetDefaultComparer<object>());
         }
 
         [TestMethod]

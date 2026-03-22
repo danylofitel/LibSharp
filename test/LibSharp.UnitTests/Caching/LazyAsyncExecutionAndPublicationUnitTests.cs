@@ -1,4 +1,4 @@
-﻿// Copyright (c) LibSharp. All rights reserved.
+// Copyright (c) LibSharp. All rights reserved.
 
 using System;
 using System.Threading;
@@ -13,7 +13,6 @@ namespace LibSharp.UnitTests.Caching
     public class LazyAsyncExecutionAndPublicationUnitTests
     {
         [TestMethod]
-        [ExpectedException(typeof(ObjectDisposedException))]
         public void HasValue_ThrowsWhenDisposed()
         {
             // Arrange
@@ -22,11 +21,10 @@ namespace LibSharp.UnitTests.Caching
             lazy.Dispose();
 
             // Act
-            _ = lazy.HasValue;
+            _ = Assert.ThrowsExactly<ObjectDisposedException>(() => _ = lazy.HasValue);
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ObjectDisposedException))]
         public async Task GetValueAsync_ThrowsWhenDisposed()
         {
             // Arrange
@@ -35,7 +33,7 @@ namespace LibSharp.UnitTests.Caching
             lazy.Dispose();
 
             // Act
-            _ = await lazy.GetValueAsync(CancellationToken.None).ConfigureAwait(false);
+            _ = await Assert.ThrowsExactlyAsync<ObjectDisposedException>(async () => await lazy.GetValueAsync(CancellationToken.None).ConfigureAwait(false)).ConfigureAwait(false);
         }
 
         [TestMethod]
@@ -101,7 +99,6 @@ namespace LibSharp.UnitTests.Caching
         }
 
         [TestMethod]
-        [ExpectedException(typeof(TaskCanceledException))]
         public async Task FromValueFactory_TokenCanceled_Throws()
         {
             // Arrange
@@ -114,7 +111,7 @@ namespace LibSharp.UnitTests.Caching
                     cancellationTokenSource.Cancel();
 
                     // Act
-                    _ = await lazy.GetValueAsync(cancellationTokenSource.Token).ConfigureAwait(false);
+                    _ = await Assert.ThrowsExactlyAsync<TaskCanceledException>(async () => await lazy.GetValueAsync(cancellationTokenSource.Token).ConfigureAwait(false)).ConfigureAwait(false);
                 }
             }
         }

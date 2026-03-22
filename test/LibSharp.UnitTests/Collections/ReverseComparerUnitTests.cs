@@ -1,4 +1,4 @@
-﻿// Copyright (c) LibSharp. All rights reserved.
+// Copyright (c) LibSharp. All rights reserved.
 
 using System;
 using System.Collections.Generic;
@@ -11,11 +11,10 @@ namespace LibSharp.UnitTests.Collections
     public class ReverseComparerUnitTests
     {
         [TestMethod]
-        [ExpectedException(typeof(ArgumentNullException))]
         public void Constructor_NullComparer_Throws()
         {
             // Act
-            _ = new ReverseComparer<int>(null);
+            _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ReverseComparer<int>(null));
         }
 
         [TestMethod]

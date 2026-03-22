@@ -1,4 +1,4 @@
-﻿// Copyright (c) LibSharp. All rights reserved.
+// Copyright (c) LibSharp. All rights reserved.
 
 using System;
 using System.Collections.Generic;
@@ -159,14 +159,13 @@ namespace LibSharp.UnitTests.Collections
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void Chunk_SingleItemWeightMoreThanChunkWeight_Throws()
         {
             // Arrange
             List<double> items = new List<double> { 101.0 };
 
             // Act
-            _ = items.Chunk(100.0, x => x).ToList();
+            _ = Assert.ThrowsExactly<ArgumentException>(() => items.Chunk(100.0, x => x).ToList());
         }
 
         [TestMethod]

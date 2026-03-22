@@ -1,4 +1,4 @@
-﻿// Copyright (c) LibSharp. All rights reserved.
+// Copyright (c) LibSharp. All rights reserved.
 
 using System;
 using System.Threading;
@@ -13,7 +13,6 @@ namespace LibSharp.UnitTests.Caching
     public class ValueCacheAsyncUnitTests
     {
         [TestMethod]
-        [ExpectedException(typeof(ObjectDisposedException))]
         public void HasValue_ThrowsWhenDisposed()
         {
             // Arrange
@@ -22,11 +21,10 @@ namespace LibSharp.UnitTests.Caching
             cache.Dispose();
 
             // Act
-            _ = cache.HasValue;
+            _ = Assert.ThrowsExactly<ObjectDisposedException>(() => _ = cache.HasValue);
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ObjectDisposedException))]
         public void Expiration_ThrowsWhenDisposed()
         {
             // Arrange
@@ -35,11 +33,10 @@ namespace LibSharp.UnitTests.Caching
             cache.Dispose();
 
             // Act
-            _ = cache.Expiration;
+            _ = Assert.ThrowsExactly<ObjectDisposedException>(() => _ = cache.Expiration);
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ObjectDisposedException))]
         public async Task GetValueAsync_ThrowsWhenDisposed()
         {
             // Arrange
@@ -48,7 +45,7 @@ namespace LibSharp.UnitTests.Caching
             cache.Dispose();
 
             // Act
-            _ = await cache.GetValueAsync(CancellationToken.None).ConfigureAwait(false);
+            _ = await Assert.ThrowsExactlyAsync<ObjectDisposedException>(async () => await cache.GetValueAsync(CancellationToken.None).ConfigureAwait(false)).ConfigureAwait(false);
         }
 
         [TestMethod]
@@ -356,7 +353,6 @@ namespace LibSharp.UnitTests.Caching
         }
 
         [TestMethod]
-        [ExpectedException(typeof(TaskCanceledException))]
         public async Task FromValueFactory_CanceledToken_Throws()
         {
             // Arrange
@@ -369,13 +365,12 @@ namespace LibSharp.UnitTests.Caching
                 using (ValueCacheAsync<int> cache = new ValueCacheAsync<int>(factory, TimeSpan.Zero))
                 {
                     // Act
-                    _ = await cache.GetValueAsync(cancellationTokenSource.Token).ConfigureAwait(false);
+                    _ = await Assert.ThrowsExactlyAsync<TaskCanceledException>(async () => await cache.GetValueAsync(cancellationTokenSource.Token).ConfigureAwait(false)).ConfigureAwait(false);
                 }
             }
         }
 
         [TestMethod]
-        [ExpectedException(typeof(TaskCanceledException))]
         public async Task FromValueFactoryWithExpirationFunction_CanceledToken_Throws()
         {
             // Arrange
@@ -388,13 +383,12 @@ namespace LibSharp.UnitTests.Caching
                 using (ValueCacheAsync<int> cache = new ValueCacheAsync<int>(factory, _ => DateTime.UtcNow.AddMinutes(-1)))
                 {
                     // Act
-                    _ = await cache.GetValueAsync(cancellationTokenSource.Token).ConfigureAwait(false);
+                    _ = await Assert.ThrowsExactlyAsync<TaskCanceledException>(async () => await cache.GetValueAsync(cancellationTokenSource.Token).ConfigureAwait(false)).ConfigureAwait(false);
                 }
             }
         }
 
         [TestMethod]
-        [ExpectedException(typeof(TaskCanceledException))]
         public async Task FromUpdateFactory_CanceledToken_Throws()
         {
             // Arrange
@@ -409,13 +403,12 @@ namespace LibSharp.UnitTests.Caching
                 using (ValueCacheAsync<int> cache = new ValueCacheAsync<int>(createFactory, updateFactory, TimeSpan.Zero))
                 {
                     // Act
-                    _ = await cache.GetValueAsync(cancellationTokenSource.Token).ConfigureAwait(false);
+                    _ = await Assert.ThrowsExactlyAsync<TaskCanceledException>(async () => await cache.GetValueAsync(cancellationTokenSource.Token).ConfigureAwait(false)).ConfigureAwait(false);
                 }
             }
         }
 
         [TestMethod]
-        [ExpectedException(typeof(TaskCanceledException))]
         public async Task FromUpdateFactoryWithExpirationFunction_CanceledToken_Throws()
         {
             // Arrange
@@ -430,7 +423,7 @@ namespace LibSharp.UnitTests.Caching
                 using (ValueCacheAsync<int> cache = new ValueCacheAsync<int>(createFactory, updateFactory, _ => DateTime.UtcNow.AddMinutes(-1)))
                 {
                     // Act
-                    _ = await cache.GetValueAsync(cancellationTokenSource.Token).ConfigureAwait(false);
+                    _ = await Assert.ThrowsExactlyAsync<TaskCanceledException>(async () => await cache.GetValueAsync(cancellationTokenSource.Token).ConfigureAwait(false)).ConfigureAwait(false);
                 }
             }
         }

@@ -1,4 +1,4 @@
-﻿// Copyright (c) LibSharp. All rights reserved.
+// Copyright (c) LibSharp. All rights reserved.
 
 using System;
 using LibSharp.Common;
@@ -20,14 +20,13 @@ namespace LibSharp.UnitTests.Common
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public void ValueType_Default_Value_Throws()
         {
             // Arrange
             Box<DateTime> box = default;
 
             // Act
-            _ = box.Value;
+            _ = Assert.ThrowsExactly<InvalidOperationException>(() => _ = box.Value);
         }
 
         [TestMethod]
@@ -79,22 +78,20 @@ namespace LibSharp.UnitTests.Common
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public void ReferenceType_Default_Value_Throws()
         {
             // Arrange
             Box<string> box = default;
 
             // Act
-            _ = box.Value;
+            _ = Assert.ThrowsExactly<InvalidOperationException>(() => _ = box.Value);
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentNullException))]
         public void ReferenceType_FromNullValue_Throws()
         {
             // Act
-            _ = new Box<string>(null);
+            _ = Assert.ThrowsExactly<ArgumentNullException>(() => new Box<string>(null));
         }
 
         [TestMethod]

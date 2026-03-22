@@ -1,4 +1,4 @@
-﻿// Copyright (c) LibSharp. All rights reserved.
+// Copyright (c) LibSharp. All rights reserved.
 
 using System;
 using System.Collections.Generic;
@@ -11,27 +11,24 @@ namespace LibSharp.UnitTests.Common
     public class ArgumentUnitTests
     {
         [TestMethod]
-        [ExpectedException(typeof(ArgumentNullException))]
         public void EqualTo_Null_ExpectedNotNull_Throws()
         {
             // Act
-            Argument.EqualTo(null, "not null", "name");
+            _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.EqualTo(null, "not null", "name"));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void EqualTo_NotNull_ExpectedNull_Throws()
         {
             // Act
-            Argument.EqualTo("not null", null, "name");
+            _ = Assert.ThrowsExactly<ArgumentException>(() => Argument.EqualTo("not null", null, "name"));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void EqualTo_NotEqual_Throws()
         {
             // Act
-            Argument.EqualTo("value 1", "value 2", "name");
+            _ = Assert.ThrowsExactly<ArgumentException>(() => Argument.EqualTo("value 1", "value 2", "name"));
         }
 
         [TestMethod]
@@ -52,11 +49,10 @@ namespace LibSharp.UnitTests.Common
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentNullException))]
         public void GreaterThan_Null_Throws()
         {
             // Act
-            Argument.GreaterThan(null, "1", "name");
+            _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.GreaterThan(null, "1", "name"));
         }
 
         [TestMethod]
@@ -67,27 +63,24 @@ namespace LibSharp.UnitTests.Common
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentOutOfRangeException))]
         public void GreaterThan_Equal_Throws()
         {
             // Act
-            Argument.GreaterThan(1, 1, "name");
+            _ = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => Argument.GreaterThan(1, 1, "name"));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentOutOfRangeException))]
         public void GreaterThan_LessThan_Throws()
         {
             // Act
-            Argument.GreaterThan(0, 1, "name");
+            _ = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => Argument.GreaterThan(0, 1, "name"));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentNullException))]
         public void GreaterThanOrEqualTo_Null_Throws()
         {
             // Act
-            Argument.GreaterThanOrEqualTo(null, "1", "name");
+            _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.GreaterThanOrEqualTo(null, "1", "name"));
         }
 
         [TestMethod]
@@ -105,19 +98,17 @@ namespace LibSharp.UnitTests.Common
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentOutOfRangeException))]
         public void GreaterThanOrEqualTo_LessThan_Throws()
         {
             // Act
-            Argument.GreaterThanOrEqualTo(0, 1, "name");
+            _ = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => Argument.GreaterThanOrEqualTo(0, 1, "name"));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentNullException))]
         public void LessThan_Null_Throws()
         {
             // Act
-            Argument.LessThan(null, "1", "name");
+            _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.LessThan(null, "1", "name"));
         }
 
         [TestMethod]
@@ -128,27 +119,24 @@ namespace LibSharp.UnitTests.Common
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentOutOfRangeException))]
         public void LessThan_Equal_Throws()
         {
             // Act
-            Argument.LessThan(1, 1, "name");
+            _ = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => Argument.LessThan(1, 1, "name"));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentOutOfRangeException))]
         public void LessThan_GreaterThan_Throws()
         {
             // Act
-            Argument.LessThan(2, 1, "name");
+            _ = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => Argument.LessThan(2, 1, "name"));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentNullException))]
         public void LessThanOrEqualTo_Null_Throws()
         {
             // Act
-            Argument.LessThanOrEqualTo(null, "1", "name");
+            _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.LessThanOrEqualTo(null, "1", "name"));
         }
 
         [TestMethod]
@@ -166,27 +154,24 @@ namespace LibSharp.UnitTests.Common
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentOutOfRangeException))]
         public void LessThanOrEqualTo_GreaterThan_Throws()
         {
             // Act
-            Argument.LessThanOrEqualTo(2, 1, "name");
+            _ = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => Argument.LessThanOrEqualTo(2, 1, "name"));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentNullException))]
         public void NotEqualTo_BothNull_Throws()
         {
             // Act
-            Argument.NotEqualTo((string)null, null, "name");
+            _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.NotEqualTo((string)null, null, "name"));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void NotEqualTo_Same_Throws()
         {
             // Act
-            Argument.NotEqualTo("value", "value", "name");
+            _ = Assert.ThrowsExactly<ArgumentException>(() => Argument.NotEqualTo("value", "value", "name"));
         }
 
         [TestMethod]
@@ -213,11 +198,10 @@ namespace LibSharp.UnitTests.Common
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentNullException))]
         public void NotNull_Null_Throws()
         {
             // Act
-            Argument.NotNull(null, "name");
+            _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.NotNull(null, "name"));
         }
 
         [TestMethod]
@@ -228,19 +212,17 @@ namespace LibSharp.UnitTests.Common
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentNullException))]
         public void NotNullOrEmpty_Null_Throws()
         {
             // Act
-            Argument.NotNullOrEmpty(null, "name");
+            _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.NotNullOrEmpty(null, "name"));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void NotNullOrEmpty_Empty_Throws()
         {
             // Act
-            Argument.NotNullOrEmpty(string.Empty, "name");
+            _ = Assert.ThrowsExactly<ArgumentException>(() => Argument.NotNullOrEmpty(string.Empty, "name"));
         }
 
         [TestMethod]
@@ -258,27 +240,24 @@ namespace LibSharp.UnitTests.Common
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentNullException))]
         public void NotNullOrWhiteSpace_Null_Throws()
         {
             // Act
-            Argument.NotNullOrWhiteSpace(null, "name");
+            _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.NotNullOrWhiteSpace(null, "name"));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void NotNullOrWhiteSpace_Empty_Throws()
         {
             // Act
-            Argument.NotNullOrWhiteSpace(string.Empty, "name");
+            _ = Assert.ThrowsExactly<ArgumentException>(() => Argument.NotNullOrWhiteSpace(string.Empty, "name"));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void NotNullOrWhiteSpace_WhiteSpace_Throws()
         {
             // Act
-            Argument.NotNullOrWhiteSpace("   ", "name");
+            _ = Assert.ThrowsExactly<ArgumentException>(() => Argument.NotNullOrWhiteSpace("   ", "name"));
         }
 
         [TestMethod]
@@ -303,27 +282,24 @@ namespace LibSharp.UnitTests.Common
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentNullException))]
         public void OfType_Null_Throws()
         {
             // Act
-            Argument.OfType(null, typeof(string), "name");
+            _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.OfType(null, typeof(string), "name"));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentNullException))]
         public void OfType_NullType_Throws()
         {
             // Act
-            Argument.OfType("hello world", null, "name");
+            _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.OfType("hello world", null, "name"));
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void OfType_DifferentType_Throws()
         {
             // Act
-            Argument.OfType("hello world", typeof(DateTime), "name");
+            _ = Assert.ThrowsExactly<ArgumentException>(() => Argument.OfType("hello world", typeof(DateTime), "name"));
         }
     }
 }

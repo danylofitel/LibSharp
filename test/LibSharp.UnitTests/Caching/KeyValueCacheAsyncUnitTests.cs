@@ -1,4 +1,4 @@
-﻿// Copyright (c) LibSharp. All rights reserved.
+// Copyright (c) LibSharp. All rights reserved.
 
 using System;
 using System.Threading;
@@ -13,7 +13,6 @@ namespace LibSharp.UnitTests.Caching
     public class KeyValueCacheAsyncUnitTests
     {
         [TestMethod]
-        [ExpectedException(typeof(ObjectDisposedException))]
         public async Task GetValueAsync_ThrowsWhenDisposed()
         {
             // Arrange
@@ -22,7 +21,7 @@ namespace LibSharp.UnitTests.Caching
             cache.Dispose();
 
             // Act
-            _ = await cache.GetValueAsync(1, CancellationToken.None).ConfigureAwait(false);
+            _ = await Assert.ThrowsExactlyAsync<ObjectDisposedException>(async () => await cache.GetValueAsync(1, CancellationToken.None).ConfigureAwait(false)).ConfigureAwait(false);
         }
 
         [TestMethod]

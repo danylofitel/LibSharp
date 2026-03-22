@@ -12,31 +12,27 @@ namespace LibSharp.UnitTests.Caching
     public class ProactiveAsyncCacheUnitTests
     {
         [TestMethod]
-        [ExpectedException(typeof(ArgumentNullException))]
         public void Constructor_ThrowsOnNullFactory()
         {
-            using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(null, TimeSpan.FromMinutes(1), TimeSpan.FromSeconds(10));
+            _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ProactiveAsyncCache<int>(null, TimeSpan.FromMinutes(1), TimeSpan.FromSeconds(10)).Dispose());
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentOutOfRangeException))]
         public void Constructor_ThrowsOnZeroRefreshInterval()
         {
-            using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.Zero, TimeSpan.Zero);
+            _ = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.Zero, TimeSpan.Zero).Dispose());
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentOutOfRangeException))]
         public void Constructor_ThrowsOnNegativePreFetchOffset()
         {
-            using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.FromMinutes(1), TimeSpan.FromSeconds(-1));
+            _ = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.FromMinutes(1), TimeSpan.FromSeconds(-1)).Dispose());
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentOutOfRangeException))]
         public void Constructor_ThrowsWhenPreFetchOffsetExceedsRefreshInterval()
         {
-            using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(2));
+            _ = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(2)).Dispose());
         }
 
         [TestMethod]
@@ -145,7 +141,6 @@ namespace LibSharp.UnitTests.Caching
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ObjectDisposedException))]
         public void HasValue_ThrowsWhenDisposed()
         {
             // Arrange
@@ -153,11 +148,10 @@ namespace LibSharp.UnitTests.Caching
             cache.Dispose();
 
             // Act
-            _ = cache.HasValue;
+            _ = Assert.ThrowsExactly<ObjectDisposedException>(() => _ = cache.HasValue);
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ObjectDisposedException))]
         public void Expiration_ThrowsWhenDisposed()
         {
             // Arrange
@@ -165,11 +159,10 @@ namespace LibSharp.UnitTests.Caching
             cache.Dispose();
 
             // Act
-            _ = cache.Expiration;
+            _ = Assert.ThrowsExactly<ObjectDisposedException>(() => _ = cache.Expiration);
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ObjectDisposedException))]
         public async Task GetValueAsync_ThrowsWhenDisposed()
         {
             // Arrange
@@ -177,7 +170,7 @@ namespace LibSharp.UnitTests.Caching
             cache.Dispose();
 
             // Act
-            _ = await cache.GetValueAsync().ConfigureAwait(false);
+            _ = await Assert.ThrowsExactlyAsync<ObjectDisposedException>(async () => await cache.GetValueAsync().ConfigureAwait(false)).ConfigureAwait(false);
         }
 
         [TestMethod]
@@ -188,9 +181,6 @@ namespace LibSharp.UnitTests.Caching
 
             // Act
             await cache.DisposeAsync().ConfigureAwait(false);
-
-            // Assert — should not throw
-            Assert.IsTrue(true);
         }
 
         [TestMethod]
@@ -212,9 +202,6 @@ namespace LibSharp.UnitTests.Caching
             // Arrange & Act
             using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.FromHours(1), TimeSpan.Zero);
             cache.Start();
-
-            // Assert — should not throw
-            Assert.IsTrue(true);
         }
 
         [TestMethod]
@@ -230,7 +217,6 @@ namespace LibSharp.UnitTests.Caching
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ObjectDisposedException))]
         public void Start_ThrowsWhenDisposed()
         {
             // Arrange
@@ -238,7 +224,7 @@ namespace LibSharp.UnitTests.Caching
             cache.Dispose();
 
             // Act
-            cache.Start();
+            _ = Assert.ThrowsExactly<ObjectDisposedException>(() => cache.Start());
         }
 
         [TestMethod]
@@ -273,9 +259,6 @@ namespace LibSharp.UnitTests.Caching
 
             // Act — should stop the background task cleanly
             await cache.DisposeAsync().ConfigureAwait(false);
-
-            // Assert — should not throw
-            Assert.IsTrue(true);
         }
 
         [TestMethod]
@@ -777,7 +760,7 @@ namespace LibSharp.UnitTests.Caching
                 bool errorReceived = await errorSignal.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
                 Assert.IsTrue(errorReceived, "Error callback was not invoked.");
                 Assert.IsNotNull(capturedError);
-                Assert.IsInstanceOfType<InvalidOperationException>(capturedError);
+                _ = Assert.IsInstanceOfType<InvalidOperationException>(capturedError);
                 Assert.AreEqual("Background failure", capturedError.Message);
             }
             finally

@@ -1,4 +1,4 @@
-﻿// Copyright (c) LibSharp. All rights reserved.
+// Copyright (c) LibSharp. All rights reserved.
 
 using System;
 using System.Threading;
@@ -13,7 +13,6 @@ namespace LibSharp.UnitTests.Caching
     public class InitializerAsyncExecutionAndPublicationUnitTests
     {
         [TestMethod]
-        [ExpectedException(typeof(ObjectDisposedException))]
         public void HasValue_ThrowsWhenDisposed()
         {
             // Arrange
@@ -21,11 +20,10 @@ namespace LibSharp.UnitTests.Caching
             initializer.Dispose();
 
             // Act
-            _ = initializer.HasValue;
+            _ = Assert.ThrowsExactly<ObjectDisposedException>(() => _ = initializer.HasValue);
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ObjectDisposedException))]
         public async Task GetValueAsync_ThrowsWhenDisposed()
         {
             // Arrange
@@ -34,7 +32,7 @@ namespace LibSharp.UnitTests.Caching
             initializer.Dispose();
 
             // Act
-            _ = await initializer.GetValueAsync(factory, CancellationToken.None).ConfigureAwait(false);
+            _ = await Assert.ThrowsExactlyAsync<ObjectDisposedException>(async () => await initializer.GetValueAsync(factory, CancellationToken.None).ConfigureAwait(false)).ConfigureAwait(false);
         }
 
         [TestMethod]
@@ -71,7 +69,6 @@ namespace LibSharp.UnitTests.Caching
         }
 
         [TestMethod]
-        [ExpectedException(typeof(TaskCanceledException))]
         public async Task FromValueFactory_TokenCanceled_Throws()
         {
             // Arrange
@@ -84,7 +81,7 @@ namespace LibSharp.UnitTests.Caching
                     cancellationTokenSource.Cancel();
 
                     // Act
-                    _ = await initializer.GetValueAsync(factory, cancellationTokenSource.Token).ConfigureAwait(false);
+                    _ = await Assert.ThrowsExactlyAsync<TaskCanceledException>(async () => await initializer.GetValueAsync(factory, cancellationTokenSource.Token).ConfigureAwait(false)).ConfigureAwait(false);
                 }
             }
         }

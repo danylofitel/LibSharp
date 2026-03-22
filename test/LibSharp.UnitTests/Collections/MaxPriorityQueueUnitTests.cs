@@ -1,4 +1,4 @@
-﻿// Copyright (c) LibSharp. All rights reserved.
+// Copyright (c) LibSharp. All rights reserved.
 
 using System;
 using System.Collections;
@@ -29,11 +29,10 @@ namespace LibSharp.UnitTests.Collections
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void Constructor_NoArguments_NonComparableType_Throws()
         {
             // Act
-            _ = new MaxPriorityQueue<object>();
+            _ = Assert.ThrowsExactly<ArgumentException>(() => new MaxPriorityQueue<object>());
         }
 
         [TestMethod]
@@ -145,11 +144,10 @@ namespace LibSharp.UnitTests.Collections
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ArgumentException))]
         public void Constructor_FromCollection_NonComparableType_Throws()
         {
             // Act
-            _ = new MaxPriorityQueue<object>(new[] { new object(), new object(), new object() });
+            _ = Assert.ThrowsExactly<ArgumentException>(() => new MaxPriorityQueue<object>(new[] { new object(), new object(), new object() }));
         }
 
         [TestMethod]
@@ -340,25 +338,23 @@ namespace LibSharp.UnitTests.Collections
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public void Peek_ThrowsForEmptyQueue()
         {
             // Arrange
             MaxPriorityQueue<int> queue = new MaxPriorityQueue<int>();
 
             // Act
-            _ = queue.Peek();
+            _ = Assert.ThrowsExactly<InvalidOperationException>(() => queue.Peek());
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public void Dequeue_ThrowsForEmptyQueue()
         {
             // Arrange
             MaxPriorityQueue<int> queue = new MaxPriorityQueue<int>();
 
             // Act
-            _ = queue.Dequeue();
+            _ = Assert.ThrowsExactly<InvalidOperationException>(() => queue.Dequeue());
         }
 
         [TestMethod]
@@ -779,7 +775,6 @@ namespace LibSharp.UnitTests.Collections
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public void GetEnumerator_AfterEnumeratingAllElements_Current_Throws()
         {
             // Arrange
@@ -795,7 +790,7 @@ namespace LibSharp.UnitTests.Collections
                 Assert.IsFalse(enumerator.MoveNext());
 
                 // Act
-                _ = enumerator.Current;
+                _ = Assert.ThrowsExactly<InvalidOperationException>(() => _ = enumerator.Current);
             }
         }
 
@@ -849,7 +844,6 @@ namespace LibSharp.UnitTests.Collections
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public void GetEnumerator_QueueModifiedDuringEnumeration_Current_Throws()
         {
             // Arrange
@@ -864,12 +858,11 @@ namespace LibSharp.UnitTests.Collections
 
                 // Act
                 queue.Enqueue(11);
-                _ = enumerator.Current;
+                _ = Assert.ThrowsExactly<InvalidOperationException>(() => _ = enumerator.Current);
             }
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public void GetEnumerator_QueueModifiedDuringEnumeration_MoveNext_Throws()
         {
             // Arrange
@@ -884,12 +877,11 @@ namespace LibSharp.UnitTests.Collections
 
                 // Act
                 queue.Enqueue(11);
-                _ = enumerator.MoveNext();
+                _ = Assert.ThrowsExactly<InvalidOperationException>(() => enumerator.MoveNext());
             }
         }
 
         [TestMethod]
-        [ExpectedException(typeof(InvalidOperationException))]
         public void GetEnumerator_QueueModifiedDuringEnumeration_Reset_Throws()
         {
             // Arrange
@@ -904,12 +896,11 @@ namespace LibSharp.UnitTests.Collections
 
                 // Act
                 queue.Enqueue(11);
-                enumerator.Reset();
+                _ = Assert.ThrowsExactly<InvalidOperationException>(() => enumerator.Reset());
             }
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ObjectDisposedException))]
         public void GetEnumerator_AfterDisposing_Current_Throws()
         {
             // Arrange
@@ -925,11 +916,10 @@ namespace LibSharp.UnitTests.Collections
             }
 
             // Act
-            _ = enumerator.Current;
+            _ = Assert.ThrowsExactly<ObjectDisposedException>(() => _ = enumerator.Current);
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ObjectDisposedException))]
         public void GetEnumerator_AfterDisposing_MoveNext_Throws()
         {
             // Arrange
@@ -945,11 +935,10 @@ namespace LibSharp.UnitTests.Collections
             }
 
             // Act
-            _ = enumerator.MoveNext();
+            _ = Assert.ThrowsExactly<ObjectDisposedException>(() => enumerator.MoveNext());
         }
 
         [TestMethod]
-        [ExpectedException(typeof(ObjectDisposedException))]
         public void GetEnumerator_AfterDisposing_Reset_Throws()
         {
             // Arrange
@@ -965,7 +954,7 @@ namespace LibSharp.UnitTests.Collections
             }
 
             // Act
-            enumerator.Reset();
+            _ = Assert.ThrowsExactly<ObjectDisposedException>(() => enumerator.Reset());
         }
 
         private class WrapperClass
