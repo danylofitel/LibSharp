@@ -45,10 +45,7 @@ namespace LibSharp.Caching
         {
             get
             {
-                if (m_isDisposed)
-                {
-                    throw new ObjectDisposedException(GetType().FullName);
-                }
+                ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
 
                 return m_hasValue;
             }
@@ -61,10 +58,7 @@ namespace LibSharp.Caching
         /// <returns>The value.</returns>
         public async Task<T> GetValueAsync(CancellationToken cancellationToken = default)
         {
-            if (m_isDisposed)
-            {
-                throw new ObjectDisposedException(GetType().FullName);
-            }
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
 
             if (!m_hasValue)
             {
@@ -102,14 +96,14 @@ namespace LibSharp.Caching
         /// <param name="disposing">True if the method was called by Dispose(), false if by the finalizer.</param>
         protected virtual void Dispose(bool disposing)
         {
-            if (!m_isDisposed)
+            if (Interlocked.Exchange(ref m_isDisposed, 1) != 0)
             {
-                if (disposing)
-                {
-                    m_semaphore.Dispose();
-                }
+                return;
+            }
 
-                m_isDisposed = true;
+            if (disposing)
+            {
+                m_semaphore.Dispose();
             }
         }
 
@@ -119,6 +113,6 @@ namespace LibSharp.Caching
         private volatile bool m_hasValue;
         private T m_value;
 
-        private volatile bool m_isDisposed;
+        private int m_isDisposed;
     }
 }

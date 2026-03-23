@@ -81,10 +81,7 @@ namespace LibSharp.Caching
         {
             get
             {
-                if (m_isDisposed)
-                {
-                    throw new ObjectDisposedException(GetType().FullName);
-                }
+                ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
 
                 return m_boxed is not null;
             }
@@ -95,10 +92,7 @@ namespace LibSharp.Caching
         {
             get
             {
-                if (m_isDisposed)
-                {
-                    throw new ObjectDisposedException(GetType().FullName);
-                }
+                ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
 
                 return m_boxed?.Expiration;
             }
@@ -107,10 +101,7 @@ namespace LibSharp.Caching
         /// <inheritdoc/>
         public async Task<T> GetValueAsync(CancellationToken cancellationToken = default)
         {
-            if (m_isDisposed)
-            {
-                throw new ObjectDisposedException(GetType().FullName);
-            }
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
 
             if (m_boxed is null || DateTime.UtcNow >= m_boxed.Expiration)
             {
@@ -149,14 +140,14 @@ namespace LibSharp.Caching
         /// <param name="disposing">True if the method was called during disposal, false otherwise.</param>
         protected virtual void Dispose(bool disposing)
         {
-            if (!m_isDisposed)
+            if (Interlocked.Exchange(ref m_isDisposed, 1) != 0)
             {
-                if (disposing)
-                {
-                    m_semaphore.Dispose();
-                }
+                return;
+            }
 
-                m_isDisposed = true;
+            if (disposing)
+            {
+                m_semaphore.Dispose();
             }
         }
 
@@ -192,6 +183,6 @@ namespace LibSharp.Caching
 
         private volatile ValueReference<T> m_boxed;
 
-        private volatile bool m_isDisposed;
+        private int m_isDisposed;
     }
 }

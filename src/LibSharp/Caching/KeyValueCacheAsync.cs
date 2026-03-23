@@ -88,10 +88,7 @@ namespace LibSharp.Caching
         {
             Argument.NotNull(key, nameof(key));
 
-            if (m_isDisposed)
-            {
-                throw new ObjectDisposedException(GetType().FullName);
-            }
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
 
             /* ValueCacheAsync is disposable, so we should to call Dispose() on every created instance.
              *
@@ -112,10 +109,7 @@ namespace LibSharp.Caching
                     LazyThreadSafetyMode.ExecutionAndPublication));
 
             // Re-check after GetOrAdd to avoid leaking entries added concurrently with Dispose.
-            if (m_isDisposed)
-            {
-                throw new ObjectDisposedException(GetType().FullName);
-            }
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
 
             /*
              * Now that the value cache for the key has been initialized with a single instance,
@@ -150,22 +144,22 @@ namespace LibSharp.Caching
         /// <param name="disposing">True if the method was called during disposal, false otherwise.</param>
         protected virtual void Dispose(bool disposing)
         {
-            if (!m_isDisposed)
+            if (Interlocked.Exchange(ref m_isDisposed, 1) != 0)
             {
-                m_isDisposed = true;
+                return;
+            }
 
-                if (disposing)
+            if (disposing)
+            {
+                foreach (Lazy<ValueCacheAsync<TValue>> cache in m_cache.Values)
                 {
-                    foreach (Lazy<ValueCacheAsync<TValue>> cache in m_cache.Values)
+                    if (cache.IsValueCreated)
                     {
-                        if (cache.IsValueCreated)
-                        {
-                            cache.Value.Dispose();
-                        }
+                        cache.Value.Dispose();
                     }
-
-                    m_cache.Clear();
                 }
+
+                m_cache.Clear();
             }
         }
 
@@ -190,6 +184,6 @@ namespace LibSharp.Caching
         private readonly TimeSpan? m_timeToLive;
         private readonly Func<TKey, TValue, DateTime> m_expirationFunction;
 
-        private volatile bool m_isDisposed;
+        private int m_isDisposed;
     }
 }
