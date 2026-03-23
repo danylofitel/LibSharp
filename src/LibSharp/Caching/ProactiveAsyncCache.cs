@@ -206,34 +206,50 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, I
         try
         {
             // Perform the initial fetch so the cache is warm without waiting for
-            // the first GetValueAsync call.
-            try
+            // the first GetValueAsync call. Retry until it succeeds or the cache
+            // is disposed, because the refresh loop below requires a valid snapshot.
+            while (!m_firstValueSignal.Task.IsCompleted)
             {
-                _ = await GetOrCreateFetchTask().ConfigureAwait(false);
-            }
-            catch (OperationCanceledException)
-            {
-                return;
-            }
-            catch (ObjectDisposedException)
-            {
-                return;
-            }
-            catch (Exception ex)
-            {
-                // Initial fetch failed — notify and wait before retrying.
                 try
                 {
-                    m_onBackgroundRefreshError?.Invoke(ex);
+                    _ = await GetOrCreateFetchTask().ConfigureAwait(false);
                 }
-                catch
+                catch (OperationCanceledException)
                 {
-                    // Never let a callback exception crash the background loop.
+                    return;
+                }
+                catch (ObjectDisposedException)
+                {
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    try
+                    {
+                        m_onBackgroundRefreshError?.Invoke(ex);
+                    }
+                    catch
+                    {
+                        // Never let a callback exception crash the background loop.
+                    }
+
+                    // Wait before retrying to avoid tight-looping on persistent failures.
+                    try
+                    {
+                        TimeSpan retryDelay = m_refreshInterval - m_preFetchOffset;
+                        if (retryDelay < s_minimumRetryDelay)
+                        {
+                            retryDelay = s_minimumRetryDelay;
+                        }
+
+                        await Task.Delay(retryDelay, m_cts.Token).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        return;
+                    }
                 }
             }
-
-            // Wait for the first value to be populated before entering the refresh cycle.
-            await m_firstValueSignal.Task.WaitAsync(m_cts.Token).ConfigureAwait(false);
 
             while (!m_cts.Token.IsCancellationRequested)
             {
