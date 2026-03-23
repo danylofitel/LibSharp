@@ -11,7 +11,7 @@ namespace LibSharp.Caching;
 /// An async cache that proactively refreshes its value in the background before it expires.
 /// </summary>
 /// <typeparam name="T">Value type.</typeparam>
-public class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, IAsyncDisposable
+public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, IAsyncDisposable
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="ProactiveAsyncCache{T}"/> class.
@@ -110,50 +110,6 @@ public class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, IAsyncDi
     /// <inheritdoc/>
     public async ValueTask DisposeAsync()
     {
-        await DisposeAsyncCore().ConfigureAwait(false);
-        Dispose(false);
-        GC.SuppressFinalize(this);
-    }
-
-    /// <inheritdoc/>
-    public void Dispose()
-    {
-        Dispose(true);
-        GC.SuppressFinalize(this);
-    }
-
-    /// <summary>
-    /// Disposes of the cache.
-    /// </summary>
-    /// <param name="disposing">True if the method was called during disposal, false otherwise.</param>
-    protected virtual void Dispose(bool disposing)
-    {
-        if (Interlocked.Exchange(ref m_isDisposed, 1) != 0)
-        {
-            return;
-        }
-
-        if (disposing)
-        {
-            m_cts.Cancel();
-
-            Task backgroundTask = Volatile.Read(ref m_backgroundTask);
-            if (backgroundTask is not null && !backgroundTask.Wait(TimeSpan.FromSeconds(30)))
-            {
-                // The background task did not complete in time — the value factory may be
-                // ignoring CancellationToken. Prefer DisposeAsync for graceful shutdown.
-            }
-
-            m_cts.Dispose();
-        }
-    }
-
-    /// <summary>
-    /// Performs async disposal of the cache resources.
-    /// </summary>
-    /// <returns>A task representing the async dispose operation.</returns>
-    protected virtual async ValueTask DisposeAsyncCore()
-    {
         if (Interlocked.Exchange(ref m_isDisposed, 1) != 0)
         {
             return;
@@ -165,6 +121,26 @@ public class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, IAsyncDi
         if (backgroundTask is not null)
         {
             await backgroundTask.ConfigureAwait(false);
+        }
+
+        m_cts.Dispose();
+    }
+
+    /// <inheritdoc/>
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref m_isDisposed, 1) != 0)
+        {
+            return;
+        }
+
+        m_cts.Cancel();
+
+        Task backgroundTask = Volatile.Read(ref m_backgroundTask);
+        if (backgroundTask is not null && !backgroundTask.Wait(TimeSpan.FromSeconds(30)))
+        {
+            // The background task did not complete in time — the value factory may be
+            // ignoring CancellationToken. Prefer DisposeAsync for graceful shutdown.
         }
 
         m_cts.Dispose();
