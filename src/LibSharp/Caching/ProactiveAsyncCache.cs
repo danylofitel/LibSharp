@@ -20,18 +20,25 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, I
     /// <param name="refreshInterval">The interval at which the cache should be refreshed.</param>
     /// <param name="preFetchOffset">The offset before the refresh interval to pre-fetch the value.</param>
     /// <param name="allowStaleReads">When true, readers receive the stale cached value immediately while a background refresh runs. When false (default), readers block until the refresh completes.</param>
+    /// <param name="refreshTimeout">Optional timeout for each individual refresh operation. When set, a refresh that exceeds this duration is cancelled.</param>
     /// <param name="onBackgroundRefreshError">Optional callback invoked when a background refresh fails with a non-cancellation exception.</param>
     public ProactiveAsyncCache(
         Func<CancellationToken, Task<T>> valueFactory,
         TimeSpan refreshInterval,
         TimeSpan preFetchOffset,
         bool allowStaleReads = false,
+        TimeSpan? refreshTimeout = null,
         Action<Exception> onBackgroundRefreshError = null)
     {
         Argument.NotNull(valueFactory, nameof(valueFactory));
         Argument.GreaterThan(refreshInterval, TimeSpan.Zero, nameof(refreshInterval));
         Argument.GreaterThanOrEqualTo(preFetchOffset, TimeSpan.Zero, nameof(preFetchOffset));
         Argument.LessThan(preFetchOffset, refreshInterval, nameof(preFetchOffset));
+
+        if (refreshTimeout.HasValue)
+        {
+            Argument.GreaterThan(refreshTimeout.Value, TimeSpan.Zero, nameof(refreshTimeout));
+        }
 
         m_cts = new CancellationTokenSource();
         m_lock = new object();
@@ -40,6 +47,7 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, I
         m_refreshInterval = refreshInterval;
         m_preFetchOffset = preFetchOffset;
         m_allowStaleReads = allowStaleReads;
+        m_refreshTimeout = refreshTimeout;
         m_onBackgroundRefreshError = onBackgroundRefreshError;
     }
 
@@ -194,11 +202,32 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, I
 
     private async Task<CacheSnapshot> FetchAndUpdateAsync()
     {
-        T value = await m_fetchFunc(m_cts.Token).ConfigureAwait(false);
-        CacheSnapshot snapshot = new CacheSnapshot(value, DateTime.UtcNow + m_refreshInterval);
-        m_snapshot = snapshot;
-        _ = m_firstValueSignal.TrySetResult();
-        return snapshot;
+        CancellationToken token;
+        CancellationTokenSource timeoutCts = null;
+
+        try
+        {
+            if (m_refreshTimeout.HasValue)
+            {
+                timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(m_cts.Token);
+                timeoutCts.CancelAfter(m_refreshTimeout.Value);
+                token = timeoutCts.Token;
+            }
+            else
+            {
+                token = m_cts.Token;
+            }
+
+            T value = await m_fetchFunc(token).ConfigureAwait(false);
+            CacheSnapshot snapshot = new CacheSnapshot(value, DateTime.UtcNow + m_refreshInterval);
+            m_snapshot = snapshot;
+            _ = m_firstValueSignal.TrySetResult();
+            return snapshot;
+        }
+        finally
+        {
+            timeoutCts?.Dispose();
+        }
     }
 
     private async Task StartBackgroundRefresh()
@@ -335,6 +364,7 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, I
     private readonly TimeSpan m_refreshInterval;
     private readonly TimeSpan m_preFetchOffset;
     private readonly bool m_allowStaleReads;
+    private readonly TimeSpan? m_refreshTimeout;
     private readonly Action<Exception> m_onBackgroundRefreshError;
 
     // Volatile: the reference must be immediately visible to all threads because the hot

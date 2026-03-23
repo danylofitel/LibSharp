@@ -901,5 +901,125 @@ namespace LibSharp.UnitTests.Caching
             Assert.AreEqual(2, third);
             Assert.AreEqual(2, callCount);
         }
+
+        [TestMethod]
+        public void Constructor_ThrowsOnZeroRefreshTimeout()
+        {
+            _ = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
+                new ProactiveAsyncCache<int>(
+                    _ => Task.FromResult(42),
+                    TimeSpan.FromMinutes(1),
+                    TimeSpan.Zero,
+                    refreshTimeout: TimeSpan.Zero).Dispose());
+        }
+
+        [TestMethod]
+        public void Constructor_ThrowsOnNegativeRefreshTimeout()
+        {
+            _ = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
+                new ProactiveAsyncCache<int>(
+                    _ => Task.FromResult(42),
+                    TimeSpan.FromMinutes(1),
+                    TimeSpan.Zero,
+                    refreshTimeout: TimeSpan.FromSeconds(-1)).Dispose());
+        }
+
+        [TestMethod]
+        public async Task RefreshTimeout_CancelsSlowFactory()
+        {
+            // Arrange — factory that never completes on its own
+            int callCount = 0;
+
+            using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+                async (CancellationToken ct) =>
+                {
+                    int count = Interlocked.Increment(ref callCount);
+                    if (count == 1)
+                    {
+                        return 42;
+                    }
+
+                    // Second call: simulate a hang that respects cancellation
+                    await Task.Delay(Timeout.InfiniteTimeSpan, ct).ConfigureAwait(false);
+                    return 99; // Never reached
+                },
+                TimeSpan.FromMilliseconds(100),
+                TimeSpan.Zero,
+                refreshTimeout: TimeSpan.FromMilliseconds(200));
+
+            // Act — first call succeeds normally
+            int first = await cache.GetValueAsync().ConfigureAwait(false);
+            Assert.AreEqual(42, first);
+
+            // Wait for expiration
+            await Task.Delay(150).ConfigureAwait(false);
+
+            // Second call should fail because the factory hangs and the timeout fires
+            _ = await Assert.ThrowsExactlyAsync<TaskCanceledException>(
+                () => cache.GetValueAsync()).ConfigureAwait(false);
+        }
+
+        [TestMethod]
+        public async Task RefreshTimeout_AllowStaleReads_ReturnsStaleWhileTimeoutFires()
+        {
+            // Arrange
+            int callCount = 0;
+
+            using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+                async (CancellationToken ct) =>
+                {
+                    int count = Interlocked.Increment(ref callCount);
+                    if (count == 1)
+                    {
+                        return 100;
+                    }
+
+                    // Hang until cancelled by timeout
+                    await Task.Delay(Timeout.InfiniteTimeSpan, ct).ConfigureAwait(false);
+                    return 999;
+                },
+                TimeSpan.FromMilliseconds(100),
+                TimeSpan.Zero,
+                allowStaleReads: true,
+                refreshTimeout: TimeSpan.FromMilliseconds(200));
+
+            // First call succeeds
+            int first = await cache.GetValueAsync().ConfigureAwait(false);
+            Assert.AreEqual(100, first);
+
+            // Wait for expiration
+            await Task.Delay(150).ConfigureAwait(false);
+
+            // Stale read returns immediately, does not block
+            int stale = await cache.GetValueAsync().ConfigureAwait(false);
+            Assert.AreEqual(100, stale);
+
+            // Wait for the timeout to fire and cancel the hung fetch
+            await Task.Delay(300).ConfigureAwait(false);
+
+            // The fetch should have been cancelled; a new attempt can be made
+            Assert.AreEqual(2, callCount);
+        }
+
+        [TestMethod]
+        public async Task RefreshTimeout_SuccessfulFetchWithinTimeout()
+        {
+            // Arrange — factory completes well within the timeout
+            using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+                async (CancellationToken ct) =>
+                {
+                    await Task.Delay(50, ct).ConfigureAwait(false);
+                    return 42;
+                },
+                TimeSpan.FromHours(1),
+                TimeSpan.Zero,
+                refreshTimeout: TimeSpan.FromSeconds(5));
+
+            // Act
+            int value = await cache.GetValueAsync().ConfigureAwait(false);
+
+            // Assert
+            Assert.AreEqual(42, value);
+        }
     }
 }
