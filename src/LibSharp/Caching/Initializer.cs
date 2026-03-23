@@ -1,7 +1,6 @@
 ﻿// Copyright (c) LibSharp. All rights reserved.
 
 using System;
-using System.Threading;
 using LibSharp.Common;
 
 namespace LibSharp.Caching
