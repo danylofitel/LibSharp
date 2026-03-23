@@ -239,15 +239,39 @@ namespace LibSharp.UnitTests.Caching
         }
 
         [TestMethod]
-        public void Start_IsIdempotent()
+        public async Task Start_IsIdempotent()
         {
             // Arrange
-            using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.FromHours(1), TimeSpan.Zero);
+            int callCount = 0;
+            using SemaphoreSlim fetchSignal = new SemaphoreSlim(0);
 
-            // Act — calling Start multiple times should not throw
-            cache.Start();
-            cache.Start();
-            cache.Start();
+            ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+                (CancellationToken ct) =>
+                {
+                    _ = Interlocked.Increment(ref callCount);
+                    _ = fetchSignal.Release();
+                    return Task.FromResult(42);
+                },
+                TimeSpan.FromHours(1),
+                TimeSpan.Zero);
+
+            try
+            {
+                // Act — calling Start multiple times should trigger exactly one fetch
+                cache.Start();
+                cache.Start();
+                cache.Start();
+
+                _ = await fetchSignal.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+                await Task.Delay(50).ConfigureAwait(false);
+
+                // Assert — factory called exactly once
+                Assert.AreEqual(1, callCount);
+            }
+            finally
+            {
+                await cache.DisposeAsync().ConfigureAwait(false);
+            }
         }
 
         [TestMethod]
@@ -954,7 +978,8 @@ namespace LibSharp.UnitTests.Caching
             // Wait for expiration
             await Task.Delay(150).ConfigureAwait(false);
 
-            // Second call should fail because the factory hangs and the timeout fires
+            // Second call blocks on the pending fetch which will be cancelled by the
+            // timeout, surfacing the cancellation to the caller.
             _ = await Assert.ThrowsExactlyAsync<TaskCanceledException>(
                 () => cache.GetValueAsync()).ConfigureAwait(false);
         }
@@ -1069,6 +1094,175 @@ namespace LibSharp.UnitTests.Caching
             Assert.IsTrue(callCount >= 3, $"Expected at least 3 factory calls, got {callCount}.");
 
             await cache.DisposeAsync().ConfigureAwait(false);
+        }
+
+        [TestMethod]
+        [Timeout(30_000)]
+        public async Task Start_InitialFetchFails_RetriesUntilSuccess()
+        {
+            // Arrange — first call fails, second succeeds. Exercises the initial-fetch
+            // retry loop in StartBackgroundRefresh, including the error callback and retry delay.
+            int callCount = 0;
+            Exception capturedError = null;
+            using SemaphoreSlim errorSignal = new SemaphoreSlim(0);
+            TaskCompletionSource firstValueReady = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+                (CancellationToken ct) =>
+                {
+                    int count = Interlocked.Increment(ref callCount);
+                    if (count == 1)
+                    {
+                        throw new InvalidOperationException("Initial fetch failure");
+                    }
+
+                    _ = firstValueReady.TrySetResult();
+                    return Task.FromResult(99);
+                },
+                // Use a small interval so retryDelay < s_minimumRetryDelay (5s), testing the floor.
+                TimeSpan.FromMilliseconds(200),
+                TimeSpan.FromMilliseconds(50),
+                onBackgroundRefreshError: ex =>
+                {
+                    capturedError = ex;
+                    _ = errorSignal.Release();
+                });
+
+            cache.Start();
+
+            try
+            {
+                // Wait for the error callback to fire
+                bool errorReceived = await errorSignal.WaitAsync(TimeSpan.FromSeconds(10)).ConfigureAwait(false);
+                Assert.IsTrue(errorReceived, "Error callback was not invoked for initial fetch failure.");
+                Assert.IsNotNull(capturedError);
+                _ = Assert.IsInstanceOfType<InvalidOperationException>(capturedError);
+
+                // Wait for the retry to succeed (will take ~5s due to minimum retry delay)
+                await firstValueReady.Task.WaitAsync(TimeSpan.FromSeconds(15)).ConfigureAwait(false);
+
+                // The value should now be available
+                int value = await cache.GetValueAsync().ConfigureAwait(false);
+                Assert.AreEqual(99, value);
+                Assert.IsTrue(callCount >= 2);
+            }
+            finally
+            {
+                await cache.DisposeAsync().ConfigureAwait(false);
+            }
+        }
+
+        [TestMethod]
+        [Timeout(30_000)]
+        public async Task BackgroundRefresh_ErrorCallbackThrows_LoopContinues()
+        {
+            // Arrange — the error callback itself throws. The background loop must
+            // swallow the callback exception and continue retrying.
+            int callCount = 0;
+            TaskCompletionSource thirdCallDone = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+                (CancellationToken ct) =>
+                {
+                    int count = Interlocked.Increment(ref callCount);
+                    if (count == 2)
+                    {
+                        throw new InvalidOperationException("Transient failure");
+                    }
+
+                    if (count >= 3)
+                    {
+                        _ = thirdCallDone.TrySetResult();
+                    }
+
+                    return Task.FromResult(count);
+                },
+                TimeSpan.FromMilliseconds(200),
+                TimeSpan.FromMilliseconds(50),
+                onBackgroundRefreshError: ex =>
+                {
+                    throw new InvalidOperationException("Callback threw!");
+                });
+
+            cache.Start();
+
+            try
+            {
+                int first = await cache.GetValueAsync().ConfigureAwait(false);
+                Assert.AreEqual(1, first);
+
+                // Wait for the background loop to fail (call 2), swallow the callback
+                // exception, and retry (call 3).
+                await thirdCallDone.Task.WaitAsync(TimeSpan.FromSeconds(15)).ConfigureAwait(false);
+                Assert.IsTrue(callCount >= 3, $"Expected at least 3 calls, got {callCount}.");
+            }
+            finally
+            {
+                await cache.DisposeAsync().ConfigureAwait(false);
+            }
+        }
+
+        [TestMethod]
+        public async Task Dispose_WithBackgroundTaskRunning_CompletesCleanly()
+        {
+            // Arrange — exercises the sync Dispose() path with an active background task.
+            ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+                _ => Task.FromResult(42),
+                TimeSpan.FromHours(1),
+                TimeSpan.Zero);
+
+            cache.Start();
+            _ = await cache.GetValueAsync().ConfigureAwait(false);
+
+            // Act — sync dispose should cancel and wait for the background task
+            cache.Dispose();
+
+            // Assert — accessing the cache after Dispose should throw
+            _ = Assert.ThrowsExactly<ObjectDisposedException>(() => _ = cache.HasValue);
+        }
+
+        [TestMethod]
+        [Timeout(30_000)]
+        public async Task Start_InitialFetchFails_ErrorCallbackThrows_LoopContinues()
+        {
+            // Arrange — initial fetch fails AND the error callback throws.
+            // The background loop must survive both and eventually succeed.
+            int callCount = 0;
+            TaskCompletionSource secondCallDone = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+                (CancellationToken ct) =>
+                {
+                    int count = Interlocked.Increment(ref callCount);
+                    if (count == 1)
+                    {
+                        throw new InvalidOperationException("Initial failure");
+                    }
+
+                    _ = secondCallDone.TrySetResult();
+                    return Task.FromResult(77);
+                },
+                TimeSpan.FromMilliseconds(200),
+                TimeSpan.FromMilliseconds(50),
+                onBackgroundRefreshError: ex =>
+                {
+                    throw new InvalidOperationException("Callback explodes");
+                });
+
+            cache.Start();
+
+            try
+            {
+                await secondCallDone.Task.WaitAsync(TimeSpan.FromSeconds(15)).ConfigureAwait(false);
+
+                int value = await cache.GetValueAsync().ConfigureAwait(false);
+                Assert.AreEqual(77, value);
+                Assert.IsTrue(callCount >= 2);
+            }
+            finally
+            {
+                await cache.DisposeAsync().ConfigureAwait(false);
+            }
         }
     }
 }
