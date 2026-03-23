@@ -1021,5 +1021,54 @@ namespace LibSharp.UnitTests.Caching
             // Assert
             Assert.AreEqual(42, value);
         }
+
+        [TestMethod]
+        [Timeout(30_000)]
+        public async Task RefreshTimeout_BackgroundLoopSurvivesTimeoutAndRetries()
+        {
+            // Arrange — call 1 succeeds, call 2 hangs (times out), call 3 succeeds again.
+            // Validates that a timeout does NOT kill the background refresh loop.
+            int callCount = 0;
+            TaskCompletionSource thirdCallCompleted = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+                async (CancellationToken ct) =>
+                {
+                    int count = Interlocked.Increment(ref callCount);
+
+                    if (count == 1)
+                    {
+                        return 10;
+                    }
+
+                    if (count == 2)
+                    {
+                        // Hang until cancelled by timeout
+                        await Task.Delay(Timeout.InfiniteTimeSpan, ct).ConfigureAwait(false);
+                        return -1;
+                    }
+
+                    // Third+ call succeeds
+                    _ = thirdCallCompleted.TrySetResult();
+                    return 30;
+                },
+                TimeSpan.FromMilliseconds(200),
+                TimeSpan.FromMilliseconds(50),
+                refreshTimeout: TimeSpan.FromMilliseconds(500));
+
+            cache.Start();
+
+            // Wait for initial fetch
+            int first = await cache.GetValueAsync().ConfigureAwait(false);
+            Assert.AreEqual(10, first);
+
+            // Wait for the background loop to trigger pre-fetch (call 2 — will timeout),
+            // then retry (call 3 — will succeed). The retry has a minimum delay of 5s.
+            await thirdCallCompleted.Task.WaitAsync(TimeSpan.FromSeconds(15)).ConfigureAwait(false);
+
+            Assert.IsTrue(callCount >= 3, $"Expected at least 3 factory calls, got {callCount}.");
+
+            await cache.DisposeAsync().ConfigureAwait(false);
+        }
     }
 }

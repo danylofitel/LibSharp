@@ -21,7 +21,7 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, I
     /// <param name="preFetchOffset">The offset before the refresh interval to pre-fetch the value.</param>
     /// <param name="allowStaleReads">When true, readers receive the stale cached value immediately while a background refresh runs. When false (default), readers block until the refresh completes.</param>
     /// <param name="refreshTimeout">Optional timeout for each individual refresh operation. When set, a refresh that exceeds this duration is cancelled.</param>
-    /// <param name="onBackgroundRefreshError">Optional callback invoked when a background refresh fails with a non-cancellation exception.</param>
+    /// <param name="onBackgroundRefreshError">Optional callback invoked when a background refresh fails (excluding disposal-triggered cancellation).</param>
     public ProactiveAsyncCache(
         Func<CancellationToken, Task<T>> valueFactory,
         TimeSpan refreshInterval,
@@ -154,6 +154,15 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, I
         m_cts.Dispose();
     }
 
+    private TimeSpan RetryDelay
+    {
+        get
+        {
+            TimeSpan delay = m_refreshInterval - m_preFetchOffset;
+            return delay < s_minimumRetryDelay ? s_minimumRetryDelay : delay;
+        }
+    }
+
     private Task<CacheSnapshot> GetOrCreateFetchTask(bool forceRefresh = false)
     {
         lock (m_lock)
@@ -243,7 +252,7 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, I
                 {
                     _ = await GetOrCreateFetchTask().ConfigureAwait(false);
                 }
-                catch (OperationCanceledException)
+                catch (OperationCanceledException) when (m_cts.IsCancellationRequested)
                 {
                     return;
                 }
@@ -265,13 +274,7 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, I
                     // Wait before retrying to avoid tight-looping on persistent failures.
                     try
                     {
-                        TimeSpan retryDelay = m_refreshInterval - m_preFetchOffset;
-                        if (retryDelay < s_minimumRetryDelay)
-                        {
-                            retryDelay = s_minimumRetryDelay;
-                        }
-
-                        await Task.Delay(retryDelay, m_cts.Token).ConfigureAwait(false);
+                        await Task.Delay(RetryDelay, m_cts.Token).ConfigureAwait(false);
                     }
                     catch (OperationCanceledException)
                     {
@@ -280,6 +283,7 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, I
                 }
             }
 
+            // Refresh loop.
             while (!m_cts.Token.IsCancellationRequested)
             {
                 try
@@ -307,7 +311,7 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, I
                     Task<CacheSnapshot> fetchTask = GetOrCreateFetchTask(forceRefresh: true);
                     _ = await fetchTask.ConfigureAwait(false);
                 }
-                catch (OperationCanceledException)
+                catch (OperationCanceledException) when (m_cts.IsCancellationRequested)
                 {
                     break;
                 }
@@ -330,13 +334,7 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, I
                     // when the snapshot is already expired.
                     try
                     {
-                        TimeSpan retryDelay = m_refreshInterval - m_preFetchOffset;
-                        if (retryDelay < s_minimumRetryDelay)
-                        {
-                            retryDelay = s_minimumRetryDelay;
-                        }
-
-                        await Task.Delay(retryDelay, m_cts.Token).ConfigureAwait(false);
+                        await Task.Delay(RetryDelay, m_cts.Token).ConfigureAwait(false);
                     }
                     catch (OperationCanceledException)
                     {
