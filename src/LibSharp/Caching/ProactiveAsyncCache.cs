@@ -44,8 +44,8 @@ public class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, IAsyncDi
     }
 
     /// <summary>
-    /// Starts the background refresh loop. Can be called multiple times safely; only the first
-    /// call has any effect.
+    /// Starts the background refresh loop, including the initial fetch. Can be called multiple
+    /// times safely; only the first call has any effect. The background task runs on the thread pool.
     /// </summary>
     public void Start()
     {
@@ -136,7 +136,14 @@ public class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, IAsyncDi
         if (disposing)
         {
             m_cts.Cancel();
-            Volatile.Read(ref m_backgroundTask)?.GetAwaiter().GetResult();
+
+            Task backgroundTask = Volatile.Read(ref m_backgroundTask);
+            if (backgroundTask is not null && !backgroundTask.Wait(TimeSpan.FromSeconds(30)))
+            {
+                // The background task did not complete in time — the value factory may be
+                // ignoring CancellationToken. Prefer DisposeAsync for graceful shutdown.
+            }
+
             m_cts.Dispose();
         }
     }
@@ -176,12 +183,29 @@ public class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, IAsyncDi
                 return m_pendingFetch;
             }
 
+            // Observe any faulted/cancelled completed task to prevent
+            // TaskScheduler.UnobservedTaskException from firing.
+            if (m_pendingFetch is not null && m_pendingFetch.IsFaulted)
+            {
+                _ = m_pendingFetch.Exception;
+            }
+
             if (!forceRefresh)
             {
                 // Re-check snapshot freshness under lock — another thread may have
                 // completed a fetch between our outer check and acquiring the lock.
                 CacheSnapshot snapshot = m_snapshot;
                 if (snapshot is not null && DateTime.UtcNow < snapshot.ExpirationTime)
+                {
+                    return Task.FromResult(snapshot);
+                }
+            }
+            else
+            {
+                // Background pre-fetch: skip if a concurrent GetValueAsync already
+                // refreshed the value while we were waiting to acquire the lock.
+                CacheSnapshot snapshot = m_snapshot;
+                if (snapshot is not null && DateTime.UtcNow < snapshot.ExpirationTime - m_preFetchOffset)
                 {
                     return Task.FromResult(snapshot);
                 }
@@ -205,6 +229,33 @@ public class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, IAsyncDi
     {
         try
         {
+            // Perform the initial fetch so the cache is warm without waiting for
+            // the first GetValueAsync call.
+            try
+            {
+                _ = await GetOrCreateFetchTask().ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+            catch (ObjectDisposedException)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                // Initial fetch failed — notify and wait before retrying.
+                try
+                {
+                    m_onBackgroundRefreshError?.Invoke(ex);
+                }
+                catch
+                {
+                    // Never let a callback exception crash the background loop.
+                }
+            }
+
             // Wait for the first value to be populated before entering the refresh cycle.
             await m_firstValueSignal.Task.WaitAsync(m_cts.Token).ConfigureAwait(false);
 
@@ -258,7 +309,13 @@ public class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, IAsyncDi
                     // when the snapshot is already expired.
                     try
                     {
-                        await Task.Delay(m_refreshInterval - m_preFetchOffset, m_cts.Token).ConfigureAwait(false);
+                        TimeSpan retryDelay = m_refreshInterval - m_preFetchOffset;
+                        if (retryDelay < s_minimumRetryDelay)
+                        {
+                            retryDelay = s_minimumRetryDelay;
+                        }
+
+                        await Task.Delay(retryDelay, m_cts.Token).ConfigureAwait(false);
                     }
                     catch (OperationCanceledException)
                     {
@@ -276,6 +333,8 @@ public class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, IAsyncDi
             // Cache was disposed before the first value arrived.
         }
     }
+
+    private static readonly TimeSpan s_minimumRetryDelay = TimeSpan.FromSeconds(5);
 
     private readonly CancellationTokenSource m_cts;
     private readonly object m_lock;

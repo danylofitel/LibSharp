@@ -57,6 +57,40 @@ namespace LibSharp.UnitTests.Caching
         }
 
         [TestMethod]
+        public async Task Start_TriggersInitialFetch()
+        {
+            // Arrange
+            int callCount = 0;
+            using SemaphoreSlim fetchSignal = new SemaphoreSlim(0);
+
+            ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+                (CancellationToken ct) =>
+                {
+                    _ = Interlocked.Increment(ref callCount);
+                    _ = fetchSignal.Release();
+                    return Task.FromResult(42);
+                },
+                TimeSpan.FromHours(1),
+                TimeSpan.Zero);
+
+            try
+            {
+                // Act
+                cache.Start();
+                bool fetched = await fetchSignal.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+
+                // Assert — Start should have triggered the initial fetch
+                Assert.IsTrue(fetched, "Start did not trigger the initial fetch.");
+                Assert.AreEqual(1, callCount);
+                Assert.IsTrue(cache.HasValue);
+            }
+            finally
+            {
+                await cache.DisposeAsync().ConfigureAwait(false);
+            }
+        }
+
+        [TestMethod]
         public void HasValue_ReturnsFalseBeforeFirstFetch()
         {
             // Arrange
@@ -631,8 +665,9 @@ namespace LibSharp.UnitTests.Caching
                 // The background will fail on the second fetch — wait for it
                 _ = await fetchSignal.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
 
-                // Wait for the background to retry (third fetch) which should succeed
-                bool retried = await fetchSignal.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
+                // Wait for the background to retry (third fetch) which should succeed.
+                // The minimum retry delay is 5 seconds, so allow extra time.
+                bool retried = await fetchSignal.WaitAsync(TimeSpan.FromSeconds(10)).ConfigureAwait(false);
                 Assert.IsTrue(retried, "Background did not retry after transient failure.");
 
                 // Allow snapshot update
