@@ -10,43 +10,49 @@ namespace LibSharp.Common
     public static class DateTimeExtensions
     {
         /// <summary>
-        /// Creates a DateTime from Epoch milliseconds.
+        /// Creates a UTC DateTime from Epoch milliseconds.
         /// </summary>
         /// <param name="epochMilliseconds">Epoch milliseconds.</param>
-        /// <returns>A DateTime value.</returns>
+        /// <returns>A UTC DateTime value.</returns>
         public static DateTime FromEpochMilliseconds(this long epochMilliseconds)
         {
             return DateTime.UnixEpoch.AddMilliseconds(epochMilliseconds);
         }
 
         /// <summary>
-        /// Creates a DateTime from Epoch seconds.
+        /// Creates a UTC DateTime from Epoch seconds.
         /// </summary>
         /// <param name="epochSeconds">Epoch seconds.</param>
-        /// <returns>A DateTime value.</returns>
+        /// <returns>A UTC DateTime value.</returns>
         public static DateTime FromEpochSeconds(this long epochSeconds)
         {
             return DateTime.UnixEpoch.AddSeconds(epochSeconds);
         }
 
         /// <summary>
-        /// Converts a DateTime to Epoch milliseconds.
+        /// Converts a UTC DateTime to Epoch milliseconds.
         /// </summary>
-        /// <param name="dateTime">DateTime value.</param>
+        /// <param name="dateTime">DateTime value. Must be UTC.</param>
         /// <returns>Epoch milliseconds.</returns>
+        /// <exception cref="ArgumentException">Thrown when dateTime.Kind is not UTC.</exception>
         public static long ToEpochMilliseconds(this DateTime dateTime)
         {
+            Argument.EqualTo(dateTime.Kind, DateTimeKind.Utc, nameof(dateTime));
+
             TimeSpan epochTimeSpan = dateTime.Subtract(DateTime.UnixEpoch);
             return Convert.ToInt64(epochTimeSpan.TotalMilliseconds);
         }
 
         /// <summary>
-        /// Converts a DateTime to Epoch seconds.
+        /// Converts a UTC DateTime to Epoch seconds.
         /// </summary>
-        /// <param name="dateTime">DateTime value.</param>
+        /// <param name="dateTime">DateTime value. Must be UTC.</param>
         /// <returns>Epoch seconds.</returns>
+        /// <exception cref="ArgumentException">Thrown when dateTime.Kind is not UTC.</exception>
         public static long ToEpochSeconds(this DateTime dateTime)
         {
+            Argument.EqualTo(dateTime.Kind, DateTimeKind.Utc, nameof(dateTime));
+
             TimeSpan epochTimeSpan = dateTime.Subtract(DateTime.UnixEpoch);
             return Convert.ToInt64(epochTimeSpan.TotalSeconds);
         }

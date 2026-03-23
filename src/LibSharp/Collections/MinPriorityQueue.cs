@@ -363,13 +363,7 @@ namespace LibSharp.Collections
             if (Count == m_heap.Length - 1)
             {
                 T[] largerPQ = new T[2 * m_heap.Length];
-
-                for (int i = 1; i <= Count; ++i)
-                {
-                    largerPQ[i] = m_heap[i];
-                    m_heap[i] = default;
-                }
-
+                Array.Copy(m_heap, 1, largerPQ, 1, Count);
                 m_heap = largerPQ;
             }
         }
@@ -382,13 +376,7 @@ namespace LibSharp.Collections
             if (Count * 4 < m_heap.Length && m_heap.Length >= InitialCapacity * 2)
             {
                 T[] smallerPQ = new T[m_heap.Length / 2];
-
-                for (int i = 1; i <= Count; ++i)
-                {
-                    smallerPQ[i] = m_heap[i];
-                    m_heap[i] = default;
-                }
-
+                Array.Copy(m_heap, 1, smallerPQ, 1, Count);
                 m_heap = smallerPQ;
             }
         }

@@ -39,7 +39,7 @@ namespace LibSharp.UnitTests.Common
             long fromEpoch = DateTime.UnixEpoch.ToEpochMilliseconds();
             Assert.AreEqual(0, fromEpoch);
 
-            long fromDayAfterEpoch = new DateTime(1970, 1, 2).ToEpochMilliseconds();
+            long fromDayAfterEpoch = new DateTime(1970, 1, 2, 0, 0, 0, DateTimeKind.Utc).ToEpochMilliseconds();
             Assert.AreEqual(24 * 60 * 60 * 1000, fromDayAfterEpoch);
 
             DateTime currentDate = new DateTime(2022, 2, 2, 2, 2, 2, DateTimeKind.Utc);

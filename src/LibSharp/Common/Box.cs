@@ -60,16 +60,16 @@ namespace LibSharp.Common
         /// <inheritdoc/>
         public override bool Equals(object obj)
         {
-            if (obj is T value)
-            {
-                return Equals(value);
-            }
-            else if (obj is Box<T> other)
+            if (obj is Box<T> other)
             {
                 return Equals(other);
             }
+            else if (obj is T value)
+            {
+                return Equals(value);
+            }
 
-            return false;
+            return !HasValue && obj is null;
         }
 
         /// <inheritdoc/>

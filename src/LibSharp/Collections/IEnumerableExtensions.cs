@@ -29,33 +29,7 @@ namespace LibSharp.Collections
             Argument.GreaterThan(chunkWeight, 0.0, nameof(chunkWeight));
             Argument.NotNull(itemWeight, nameof(itemWeight));
 
-            List<TSource> currentBatch = new List<TSource>();
-            double currentBatchWeight = 0.0;
-
-            foreach (TSource item in source)
-            {
-                double currentItemWeight = itemWeight(item);
-
-                if (currentItemWeight > chunkWeight)
-                {
-                    throw new ArgumentException($"Weight of an item {currentItemWeight} exceeds maximum chunk weight {chunkWeight}");
-                }
-
-                if (currentBatchWeight + currentItemWeight > chunkWeight)
-                {
-                    yield return currentBatch;
-                    currentBatch = new List<TSource>();
-                    currentBatchWeight = 0.0;
-                }
-
-                currentBatch.Add(item);
-                currentBatchWeight += currentItemWeight;
-            }
-
-            if (currentBatch.Count > 0)
-            {
-                yield return currentBatch;
-            }
+            return ChunkIterator(source, chunkWeight, itemWeight);
         }
 
         /// <summary>
@@ -135,6 +109,45 @@ namespace LibSharp.Collections
             }
 
             return elements;
+        }
+
+        private static IEnumerable<List<TSource>> ChunkIterator<TSource>(
+            IEnumerable<TSource> source,
+            double chunkWeight,
+            Func<TSource, double> itemWeight)
+        {
+            List<TSource> currentBatch = new List<TSource>();
+            double currentBatchWeight = 0.0;
+
+            foreach (TSource item in source)
+            {
+                double currentItemWeight = itemWeight(item);
+
+                if (currentItemWeight < 0.0)
+                {
+                    throw new ArgumentException($"Weight of an item {currentItemWeight} must not be negative.", nameof(itemWeight));
+                }
+
+                if (currentItemWeight > chunkWeight)
+                {
+                    throw new ArgumentException($"Weight of an item {currentItemWeight} exceeds maximum chunk weight {chunkWeight}.", nameof(itemWeight));
+                }
+
+                if (currentBatchWeight + currentItemWeight > chunkWeight)
+                {
+                    yield return currentBatch;
+                    currentBatch = new List<TSource>();
+                    currentBatchWeight = 0.0;
+                }
+
+                currentBatch.Add(item);
+                currentBatchWeight += currentItemWeight;
+            }
+
+            if (currentBatch.Count > 0)
+            {
+                yield return currentBatch;
+            }
         }
     }
 }

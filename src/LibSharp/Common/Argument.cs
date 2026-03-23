@@ -10,7 +10,7 @@ namespace LibSharp.Common
     public static class Argument
     {
         /// <summary>
-        /// Verifies that the argument is an instance of the given type.
+        /// Verifies that the argument is equal to the specified value.
         /// </summary>
         /// <param name="value">Argument value.</param>
         /// <param name="equalValue">Required argument value.</param>
@@ -44,7 +44,10 @@ namespace LibSharp.Common
         public static void GreaterThan<T>(T value, T minValueExclusive, string name)
             where T : IComparable<T>
         {
-            NotNull(value, name);
+            if (value is null)
+            {
+                throw new ArgumentNullException(name);
+            }
 
             if (value.CompareTo(minValueExclusive) <= 0)
             {
@@ -62,7 +65,10 @@ namespace LibSharp.Common
         public static void GreaterThanOrEqualTo<T>(T value, T minValueInclusive, string name)
             where T : IComparable<T>
         {
-            NotNull(value, name);
+            if (value is null)
+            {
+                throw new ArgumentNullException(name);
+            }
 
             if (value.CompareTo(minValueInclusive) < 0)
             {
@@ -80,7 +86,10 @@ namespace LibSharp.Common
         public static void LessThan<T>(T value, T maxValueExclusive, string name)
             where T : IComparable<T>
         {
-            NotNull(value, name);
+            if (value is null)
+            {
+                throw new ArgumentNullException(name);
+            }
 
             if (value.CompareTo(maxValueExclusive) >= 0)
             {
@@ -98,7 +107,10 @@ namespace LibSharp.Common
         public static void LessThanOrEqualTo<T>(T value, T maxValueInclusive, string name)
             where T : IComparable<T>
         {
-            NotNull(value, name);
+            if (value is null)
+            {
+                throw new ArgumentNullException(name);
+            }
 
             if (value.CompareTo(maxValueInclusive) > 0)
             {
@@ -107,7 +119,7 @@ namespace LibSharp.Common
         }
 
         /// <summary>
-        /// Verifies that the argument is an instance of the given type.
+        /// Verifies that the argument is not equal to the specified value.
         /// </summary>
         /// <param name="value">Argument value.</param>
         /// <param name="notEqualValue">Prohibited argument value.</param>
@@ -187,7 +199,7 @@ namespace LibSharp.Common
 
             if (!type.IsInstanceOfType(value))
             {
-                throw new ArgumentException($"{name} must be of type {type.FullName}.");
+                throw new ArgumentException($"{name} must be of type {type.FullName}.", name);
             }
         }
     }

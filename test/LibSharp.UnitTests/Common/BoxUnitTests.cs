@@ -193,7 +193,7 @@ namespace LibSharp.UnitTests.Common
             Box<string> box = default;
 
             // Assert
-            Assert.IsFalse(box.Equals((object)null));
+            Assert.IsTrue(box.Equals((object)null));
             Assert.IsFalse(box.Equals(1));
             Assert.IsFalse(box.Equals(DateTime.UnixEpoch));
             Assert.IsFalse(box.Equals(new Box<object>(new object())));
