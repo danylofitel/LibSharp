@@ -58,6 +58,6 @@ namespace LibSharp.Caching
         }
 
         private readonly Func<CancellationToken, Task<T>> m_factory;
-        private ValueReference<T> m_value;
+        private volatile ValueReference<T> m_value;
     }
 }

@@ -31,6 +31,6 @@ namespace LibSharp.Caching
             return m_value.Value;
         }
 
-        private ValueReference<T> m_value;
+        private volatile ValueReference<T> m_value;
     }
 }

@@ -154,14 +154,10 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, I
         m_cts.Dispose();
     }
 
-    private TimeSpan RetryDelay
-    {
-        get
-        {
-            TimeSpan delay = m_refreshInterval - m_preFetchOffset;
-            return delay < s_minimumRetryDelay ? s_minimumRetryDelay : delay;
-        }
-    }
+    // Half the quiet window between fetches: always positive (constructor enforces
+    // preFetchOffset < refreshInterval), scales with the configured interval, and
+    // is always less than refreshInterval so the background loop retries before expiration.
+    private TimeSpan RetryDelay => (m_refreshInterval - m_preFetchOffset) / 2;
 
     private Task<CacheSnapshot> GetOrCreateFetchTask(bool forceRefresh = false)
     {
@@ -352,8 +348,6 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, I
             // Cache was disposed before the first value arrived.
         }
     }
-
-    private static readonly TimeSpan s_minimumRetryDelay = TimeSpan.FromSeconds(5);
 
     private readonly CancellationTokenSource m_cts;
     private readonly object m_lock;

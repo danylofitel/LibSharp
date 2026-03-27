@@ -690,7 +690,7 @@ namespace LibSharp.UnitTests.Caching
                 _ = await fetchSignal.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
 
                 // Wait for the background to retry (third fetch) which should succeed.
-                // The minimum retry delay is 5 seconds, so allow extra time.
+                // Retry delay = (refreshInterval - preFetchOffset) / 2 = 75ms.
                 bool retried = await fetchSignal.WaitAsync(TimeSpan.FromSeconds(10)).ConfigureAwait(false);
                 Assert.IsTrue(retried, "Background did not retry after transient failure.");
 
@@ -1088,7 +1088,7 @@ namespace LibSharp.UnitTests.Caching
             Assert.AreEqual(10, first);
 
             // Wait for the background loop to trigger pre-fetch (call 2 — will timeout),
-            // then retry (call 3 — will succeed). The retry has a minimum delay of 5s.
+            // then retry (call 3 — will succeed). Retry delay = (refreshInterval - preFetchOffset) / 2 = 75ms.
             await thirdCallCompleted.Task.WaitAsync(TimeSpan.FromSeconds(15)).ConfigureAwait(false);
 
             Assert.IsTrue(callCount >= 3, $"Expected at least 3 factory calls, got {callCount}.");
@@ -1119,7 +1119,7 @@ namespace LibSharp.UnitTests.Caching
                     _ = firstValueReady.TrySetResult();
                     return Task.FromResult(99);
                 },
-                // Use a small interval so retryDelay < s_minimumRetryDelay (5s), testing the floor.
+                // Retry delay = (refreshInterval - preFetchOffset) / 2 = 75ms.
                 TimeSpan.FromMilliseconds(200),
                 TimeSpan.FromMilliseconds(50),
                 onBackgroundRefreshError: ex =>
@@ -1138,7 +1138,7 @@ namespace LibSharp.UnitTests.Caching
                 Assert.IsNotNull(capturedError);
                 _ = Assert.IsInstanceOfType<InvalidOperationException>(capturedError);
 
-                // Wait for the retry to succeed (will take ~5s due to minimum retry delay)
+                // Wait for the retry to succeed (retry delay ~75ms).
                 await firstValueReady.Task.WaitAsync(TimeSpan.FromSeconds(15)).ConfigureAwait(false);
 
                 // The value should now be available

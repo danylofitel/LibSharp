@@ -101,9 +101,10 @@ namespace LibSharp.Caching
 
         private static DateTime GetExpiration(TimeSpan timeToLive)
         {
-            return timeToLive >= DateTime.MaxValue - DateTime.UtcNow
+            DateTime now = DateTime.UtcNow;
+            return timeToLive >= DateTime.MaxValue - now
                 ? DateTime.MaxValue
-                : DateTime.UtcNow.Add(timeToLive);
+                : now.Add(timeToLive);
         }
 
         private void Refresh()
