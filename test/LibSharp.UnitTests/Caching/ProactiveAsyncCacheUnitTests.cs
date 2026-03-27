@@ -82,6 +82,11 @@ namespace LibSharp.UnitTests.Caching
                 // Assert — Start should have triggered the initial fetch
                 Assert.IsTrue(fetched, "Start did not trigger the initial fetch.");
                 Assert.AreEqual(1, callCount);
+
+                // fetchSignal fires inside the factory, before FetchAndUpdateAsync writes
+                // m_snapshot. GetValueAsync awaits the same fetch task, so it returns only
+                // after the snapshot is committed — eliminating the race on HasValue.
+                _ = await cache.GetValueAsync().ConfigureAwait(false);
                 Assert.IsTrue(cache.HasValue);
             }
             finally
