@@ -5,7 +5,10 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$After,
 
-    [string]$ResultsRoot
+    [string]$ResultsRoot,
+
+    # Exit with code 1 if any benchmark regresses by more than this percentage. 0 = disabled.
+    [double]$RegressionThreshold = 0
 )
 
 $ErrorActionPreference = "Stop"
@@ -135,6 +138,7 @@ function Get-BenchmarkResults
                 Benchmark = $benchmarkName
                 MeanRaw = $row.Mean
                 MeanNs = Convert-TimeToNanoseconds -InputValue $row.Mean
+                StdDevRaw = $row.StdDev
                 AllocRaw = $row.Allocated
                 AllocBytes = Convert-AllocatedToBytes -InputValue $row.Allocated
             }
@@ -176,6 +180,8 @@ $comparison = foreach ($benchmarkName in $allBenchmarkNames)
         BeforeMean = $beforeResult.MeanRaw
         AfterMean = $afterResult.MeanRaw
         MeanDeltaPercent = if ($null -ne $meanDeltaPercent) { [Math]::Round($meanDeltaPercent, 2) } else { $null }
+        BeforeStdDev = $beforeResult.StdDevRaw
+        AfterStdDev = $afterResult.StdDevRaw
         BeforeAllocated = $beforeResult.AllocRaw
         AfterAllocated = $afterResult.AllocRaw
         AllocDeltaBytes = if ($null -ne $allocDeltaBytes) { [Math]::Round($allocDeltaBytes, 2) } else { $null }
@@ -193,5 +199,16 @@ $comparison | Export-Csv -Path $outputPath -NoTypeInformation -Encoding UTF8
 
 Write-Host "Comparison written to: $outputPath"
 $comparison |
-    Select-Object Benchmark, BeforeMean, AfterMean, MeanDeltaPercent, BeforeAllocated, AfterAllocated, AllocDeltaBytes |
+    Select-Object Benchmark, BeforeMean, AfterMean, MeanDeltaPercent, BeforeStdDev, AfterStdDev, BeforeAllocated, AfterAllocated, AllocDeltaBytes |
     Format-Table -AutoSize
+
+if ($RegressionThreshold -gt 0)
+{
+    $regressions = @($comparison | Where-Object { $null -ne $_.MeanDeltaPercent -and $_.MeanDeltaPercent -gt $RegressionThreshold })
+    if ($regressions.Count -gt 0)
+    {
+        Write-Warning "$($regressions.Count) benchmark(s) regressed by more than $RegressionThreshold%:"
+        $regressions | Select-Object Benchmark, BeforeMean, AfterMean, MeanDeltaPercent | Format-Table -AutoSize
+        exit 1
+    }
+}

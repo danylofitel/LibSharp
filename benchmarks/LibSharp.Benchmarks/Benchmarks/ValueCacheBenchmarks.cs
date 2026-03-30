@@ -5,7 +5,6 @@ using LibSharp.Caching;
 
 namespace LibSharp.Benchmarks.Benchmarks
 {
-    [MemoryDiagnoser]
     public class ValueCacheBenchmarks
     {
         private ValueCache<int> m_cachedValueCache = null!;

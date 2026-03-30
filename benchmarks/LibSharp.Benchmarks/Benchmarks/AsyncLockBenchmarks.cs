@@ -5,7 +5,6 @@ using LibSharp.Common;
 
 namespace LibSharp.Benchmarks.Benchmarks
 {
-    [MemoryDiagnoser]
     public class AsyncLockBenchmarks
     {
         private AsyncLock m_asyncLock = null!;

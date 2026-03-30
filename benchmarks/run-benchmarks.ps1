@@ -17,12 +17,20 @@ $env:LIBSHARP_BENCHMARK_ARTIFACTS = $artifactsPath
 $env:LIBSHARP_BENCHMARK_LABEL = $Label
 
 $gitCommit = "unknown"
+$gitDirty = $false
 try
 {
     $gitCommit = (& git -C $repoRoot rev-parse HEAD).Trim()
+    $gitStatus = (& git -C $repoRoot status --porcelain).Trim()
+    $gitDirty = -not [string]::IsNullOrWhiteSpace($gitStatus)
 }
 catch
 {
+}
+
+if ($gitDirty)
+{
+    Write-Warning "Working directory has uncommitted changes. Results may not be reproducible against the recorded commit."
 }
 
 $metadataPath = Join-Path $artifactsPath "run-metadata.txt"
@@ -30,6 +38,7 @@ $metadataPath = Join-Path $artifactsPath "run-metadata.txt"
     "label=$Label"
     "createdUtc=$([DateTime]::UtcNow.ToString('o'))"
     "gitCommit=$gitCommit"
+    "gitDirty=$gitDirty"
     "filter=$Filter"
 ) | Set-Content -Path $metadataPath -Encoding UTF8
 

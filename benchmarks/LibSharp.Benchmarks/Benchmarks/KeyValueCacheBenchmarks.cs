@@ -5,7 +5,6 @@ using LibSharp.Caching;
 
 namespace LibSharp.Benchmarks.Benchmarks
 {
-    [MemoryDiagnoser]
     public class KeyValueCacheBenchmarks
     {
         private KeyValueCache<int, int> m_keyValueCache = null!;

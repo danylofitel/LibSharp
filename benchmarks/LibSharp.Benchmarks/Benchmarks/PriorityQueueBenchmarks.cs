@@ -4,7 +4,6 @@ using LibSharp.Collections;
 
 namespace LibSharp.Benchmarks.Benchmarks
 {
-    [MemoryDiagnoser]
     public class PriorityQueueBenchmarks
     {
         private int[] m_values = null!;

@@ -18,7 +18,6 @@ namespace LibSharp.Benchmarks
             _ = config.AddJob(Job.Default.WithId("Default"));
 
             config.Options |= ConfigOptions.JoinSummary;
-            config.Options |= ConfigOptions.DisableOptimizationsValidator;
             config.ArtifactsPath = ResolveArtifactsPath();
 
             return config;
