@@ -13,6 +13,10 @@ LibSharp consists of the following namespaces:
 * Collections - contains extension methods for standard .NET library collections, as well as additional collection types.
 * Caching - contains classes that enable in-memory value caching with custom time-to-live. Both synchronous and asynchronous versions are available.
 
+## Performance Benchmarks
+
+BenchmarkDotNet setup and benchmark scripts are available in [`benchmarks/`](benchmarks/README.md).
+
 ## Components and Usage
 
 ### Common

@@ -5,3 +5,5 @@ obj/
 TestResults/
 coveragereport/
 *.user
+benchmarks/results/
+BenchmarkDotNet.Artifacts/
