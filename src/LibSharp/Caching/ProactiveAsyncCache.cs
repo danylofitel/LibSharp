@@ -64,7 +64,18 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, I
             return;
         }
 
-        Volatile.Write(ref m_backgroundTask, Task.Run(StartBackgroundRefresh));
+        lock (m_lock)
+        {
+            // Re-check disposal under lock to close the race with DisposeAsync/Dispose.
+            // Without this, Dispose could read m_backgroundTask (null), return, dispose
+            // the CTS, and then this write starts a task against an already-disposed CTS.
+            if (Volatile.Read(ref m_isDisposed) != 0)
+            {
+                return;
+            }
+
+            m_backgroundTask = Task.Run(StartBackgroundRefresh);
+        }
     }
 
     /// <inheritdoc/>
@@ -125,7 +136,15 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, I
 
         m_cts.Cancel();
 
-        Task backgroundTask = Volatile.Read(ref m_backgroundTask);
+        // Read m_backgroundTask under lock to synchronize with Start(), which writes it
+        // under the same lock. Without this, we could read null, return, and dispose the
+        // CTS while Start() is about to launch (or has just launched) the background task.
+        Task backgroundTask;
+        lock (m_lock)
+        {
+            backgroundTask = m_backgroundTask;
+        }
+
         if (backgroundTask is not null)
         {
             await backgroundTask.ConfigureAwait(false);
@@ -144,7 +163,13 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, I
 
         m_cts.Cancel();
 
-        Task backgroundTask = Volatile.Read(ref m_backgroundTask);
+        // Read m_backgroundTask under lock to synchronize with Start() — see DisposeAsync.
+        Task backgroundTask;
+        lock (m_lock)
+        {
+            backgroundTask = m_backgroundTask;
+        }
+
         if (backgroundTask is not null && !backgroundTask.Wait(TimeSpan.FromSeconds(30)))
         {
             // The background task did not complete in time — the value factory may be
@@ -200,6 +225,13 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, I
                 }
             }
 
+            // FetchAndUpdateAsync runs synchronously until its first await. If the value
+            // factory returns a completed task (e.g. Task.FromResult(x)), the entire fetch
+            // including the snapshot write runs under this lock. This is intentional —
+            // the lock correctly protects invariants — but means concurrent GetValueAsync
+            // callers block for the duration of any synchronous work in the factory.
+            // If this becomes a bottleneck, wrapping in Task.Run would release the lock
+            // immediately at the cost of an extra thread-pool hop.
             m_pendingFetch = FetchAndUpdateAsync();
             return m_pendingFetch;
         }

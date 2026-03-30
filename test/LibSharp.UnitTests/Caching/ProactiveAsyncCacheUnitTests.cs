@@ -49,10 +49,7 @@ namespace LibSharp.UnitTests.Caching
                 TimeSpan.FromHours(1),
                 TimeSpan.Zero);
 
-            // Act — wait briefly to confirm nothing fires
-            Thread.Sleep(50);
-
-            // Assert
+            // Assert — factory cannot be called without Start() or GetValueAsync()
             Assert.AreEqual(0, callCount);
         }
 
@@ -268,9 +265,11 @@ namespace LibSharp.UnitTests.Caching
                 cache.Start();
 
                 _ = await fetchSignal.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
-                await Task.Delay(50).ConfigureAwait(false);
 
-                // Assert — factory called exactly once
+                // Assert — factory called exactly once. The signal fires inside the factory
+                // before it returns, and SemaphoreSlim resumes waiters asynchronously, so by
+                // the time WaitAsync returns the factory has already completed. With a 1-hour
+                // refresh interval no spontaneous re-trigger is possible.
                 Assert.AreEqual(1, callCount);
             }
             finally
@@ -355,10 +354,9 @@ namespace LibSharp.UnitTests.Caching
                 bool refreshed = await fetchSignal.WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
                 Assert.IsTrue(refreshed, "Background refresh did not occur within the expected time.");
 
-                // Allow the snapshot to be updated
-                await Task.Delay(50).ConfigureAwait(false);
-
-                // Assert — value should have been refreshed
+                // Assert — value should have been refreshed. The factory uses Task.FromResult
+                // (synchronous), so FetchAndUpdateAsync writes m_snapshot before the semaphore
+                // waiter is scheduled. The snapshot is already updated when WaitAsync returns.
                 int second = await cache.GetValueAsync().ConfigureAwait(false);
                 Assert.AreEqual(2, second);
             }
@@ -717,7 +715,7 @@ namespace LibSharp.UnitTests.Caching
             // Arrange
             int callCount = 0;
 
-            // refreshInterval = 5s, preFetchOffset = 4.5s → background fires at ~500ms
+            // refreshInterval = 500ms, preFetchOffset = 100ms → background fires at ~400ms.
             // But GetValueAsync will keep the value fresh, so the background should skip.
             ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
                 (CancellationToken ct) =>
