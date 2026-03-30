@@ -49,6 +49,32 @@ namespace LibSharp.UnitTests.Caching
         }
 
         [TestMethod]
+        public async Task FromNullValue_HasValueIsTrue_ReturnsNull()
+        {
+            // Arrange — null is a legitimate value to cache; HasValue reflects whether the
+            // lazy has been initialised, not whether the contained value is non-null.
+            using (LazyAsyncExecutionAndPublication<string> lazy = new LazyAsyncExecutionAndPublication<string>((string)null))
+            {
+                // Assert
+                Assert.IsTrue(lazy.HasValue);
+                Assert.IsNull(await lazy.GetValueAsync().ConfigureAwait(false));
+            }
+        }
+
+        [TestMethod]
+        public async Task FromFactory_NullResult_HasValueIsTrue_ReturnsNull()
+        {
+            // Arrange
+            using (LazyAsyncExecutionAndPublication<string> lazy = new LazyAsyncExecutionAndPublication<string>(_ => Task.FromResult<string>(null)))
+            {
+                // Assert
+                Assert.IsFalse(lazy.HasValue);
+                Assert.IsNull(await lazy.GetValueAsync().ConfigureAwait(false));
+                Assert.IsTrue(lazy.HasValue);
+            }
+        }
+
+        [TestMethod]
         public async Task FromValue_CanceledToken_Succeeds()
         {
             // Arrange

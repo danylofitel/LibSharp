@@ -20,8 +20,6 @@ namespace LibSharp.Caching
         /// <param name="value">The value to hold.</param>
         public LazyAsyncExecutionAndPublication(T value)
         {
-            Argument.NotNull(value, nameof(value));
-
             m_hasValue = true;
             m_value = value;
             m_disposalToken = m_disposalCts.Token;

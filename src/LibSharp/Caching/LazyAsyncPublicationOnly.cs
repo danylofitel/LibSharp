@@ -20,8 +20,6 @@ namespace LibSharp.Caching
         /// <param name="value">The value to hold.</param>
         public LazyAsyncPublicationOnly(T value)
         {
-            Argument.NotNull(value, nameof(value));
-
             m_value = new ValueReference<T>(value);
         }
 
