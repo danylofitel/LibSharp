@@ -122,6 +122,19 @@ namespace LibSharp.Caching
             ValueCacheAsync<TValue> valueCache = lazyValueCache.Value;
 
             /*
+             * Final disposal check after evaluating the Lazy. If Dispose ran between the
+             * previous check and here — either because the Lazy had IsValueCreated==false
+             * when Dispose iterated m_cache, or because ConcurrentDictionary's enumerator
+             * snapshot missed this entry — this ValueCacheAsync will not be cleaned up by
+             * the Dispose path. Detect that case and dispose it ourselves to prevent a leak.
+            */
+            if (Volatile.Read(ref m_isDisposed) != 0)
+            {
+                valueCache.Dispose();
+                throw new ObjectDisposedException(GetType().Name);
+            }
+
+            /*
              * Delegate the call to the value cache instance for the given key.
              *
              * This will invoke the factory method if the value has not been initialized yet or if it has expired.
