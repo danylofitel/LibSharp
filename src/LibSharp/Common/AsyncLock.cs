@@ -23,19 +23,20 @@ namespace LibSharp.Common
             /// <inheritdoc/>
             public void Dispose()
             {
-                // Suppress SemaphoreFullException on double-dispose and ObjectDisposedException
-                // if the semaphore is torn down while the critical section is still running.
-                try { _ = m_semaphore?.Release(); }
-                catch (SemaphoreFullException) { }
-                catch (ObjectDisposedException) { }
+                m_releaser?.Release();
             }
 
-            internal Handle(SemaphoreSlim semaphore)
+            private Handle(Releaser releaser)
             {
-                m_semaphore = semaphore;
+                m_releaser = releaser;
             }
 
-            private readonly SemaphoreSlim m_semaphore;
+            internal static Handle Create(SemaphoreSlim semaphore)
+            {
+                return new Handle(new Releaser(semaphore));
+            }
+
+            private readonly Releaser m_releaser;
         }
 
         /// <summary>
@@ -59,16 +60,36 @@ namespace LibSharp.Common
 
             try
             {
-                // Link the caller's token with the disposal token so that pending waiters
-                // are unblocked immediately when the lock is disposed.
-                using CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(m_disposalToken, cancellationToken);
-                await m_semaphore.WaitAsync(linked.Token).ConfigureAwait(false);
-                return new Handle(m_semaphore);
+                if (cancellationToken.CanBeCanceled)
+                {
+                    // Link caller cancellation with disposal cancellation so a blocked waiter wakes up for either signal.
+                    using CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(m_disposalToken, cancellationToken);
+                    await m_semaphore.WaitAsync(linked.Token).ConfigureAwait(false);
+                }
+                else
+                {
+                    // Fast path for default/non-cancelable token avoids linked CTS allocation.
+                    await m_semaphore.WaitAsync(m_disposalToken).ConfigureAwait(false);
+                }
+
+                // If disposal raced with a successful wait, release immediately and report disposal.
+                if (Volatile.Read(ref m_isDisposed) != 0)
+                {
+                    _ = m_semaphore.Release();
+                    throw new ObjectDisposedException(GetType().Name);
+                }
+
+                return Handle.Create(m_semaphore);
             }
             catch (OperationCanceledException) when (m_disposalToken.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
             {
                 // Disposal cancelled the wait — translate to ObjectDisposedException to match
                 // the contract established by the check at the top of this method.
+                throw new ObjectDisposedException(GetType().Name);
+            }
+            catch (ObjectDisposedException) when (Volatile.Read(ref m_isDisposed) != 0 && !cancellationToken.IsCancellationRequested)
+            {
+                // The disposal token source may be torn down while creating the linked token source.
                 throw new ObjectDisposedException(GetType().Name);
             }
         }
@@ -88,6 +109,32 @@ namespace LibSharp.Common
             // task-queue internals (no kernel handle), so GC reclamation is sufficient.
             m_disposalCts.Cancel();
             m_disposalCts.Dispose();
+        }
+
+        private sealed class Releaser
+        {
+            public Releaser(SemaphoreSlim semaphore)
+            {
+                m_semaphore = semaphore;
+            }
+
+            public void Release()
+            {
+                // Keep release idempotent across copied Handle structs.
+                if (Interlocked.Exchange(ref m_isReleased, 1) != 0)
+                {
+                    return;
+                }
+
+                // Suppress ObjectDisposedException if a future implementation disposes semaphore
+                // while critical sections are still unwinding.
+                try { _ = m_semaphore.Release(); }
+                catch (ObjectDisposedException) { }
+            }
+
+            private readonly SemaphoreSlim m_semaphore;
+
+            private int m_isReleased;
         }
 
         private readonly SemaphoreSlim m_semaphore = new SemaphoreSlim(1, 1);

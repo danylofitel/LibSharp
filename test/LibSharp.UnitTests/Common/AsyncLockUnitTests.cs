@@ -190,6 +190,92 @@ namespace LibSharp.UnitTests.Common
         }
 
         [TestMethod]
+        public async Task AcquireAsync_HighContention_OnlyOneCallerInsideCriticalSection()
+        {
+            // Arrange
+            using (AsyncLock asyncLock = new AsyncLock())
+            {
+                const int workerCount = 24;
+                const int iterationsPerWorker = 150;
+
+                int insideCount = 0;
+                int maxInsideCount = 0;
+                int enteredCount = 0;
+
+                Task[] workers = new Task[workerCount];
+
+                // Act
+                for (int i = 0; i < workers.Length; i++)
+                {
+                    workers[i] = Task.Run(async () =>
+                    {
+                        for (int j = 0; j < iterationsPerWorker; j++)
+                        {
+                            using (await asyncLock.AcquireAsync().ConfigureAwait(false))
+                            {
+                                int currentInsideCount = Interlocked.Increment(ref insideCount);
+                                _ = Interlocked.Increment(ref enteredCount);
+
+                                int observedMax;
+                                do
+                                {
+                                    observedMax = Volatile.Read(ref maxInsideCount);
+                                    if (currentInsideCount <= observedMax)
+                                    {
+                                        break;
+                                    }
+                                }
+                                while (Interlocked.CompareExchange(ref maxInsideCount, currentInsideCount, observedMax) != observedMax);
+
+                                await Task.Yield();
+
+                                _ = Interlocked.Decrement(ref insideCount);
+                            }
+                        }
+                    });
+                }
+
+                await Task.WhenAll(workers).ConfigureAwait(false);
+
+                // Assert
+                Assert.AreEqual(workerCount * iterationsPerWorker, enteredCount);
+                Assert.AreEqual(1, maxInsideCount);
+            }
+        }
+
+        [TestMethod]
+        public async Task Dispose_WithManyPendingWaiters_AllWaitersUnblocked()
+        {
+            // Arrange
+            AsyncLock asyncLock = new AsyncLock();
+            AsyncLock.Handle holder = await asyncLock.AcquireAsync().ConfigureAwait(false);
+
+            const int waiterCount = 64;
+            Task[] waiterTasks = new Task[waiterCount];
+
+            for (int i = 0; i < waiterCount; i++)
+            {
+                waiterTasks[i] = Task.Run(async () =>
+                {
+                    _ = await Assert.ThrowsExactlyAsync<ObjectDisposedException>(async () =>
+                        await asyncLock.AcquireAsync().ConfigureAwait(false)).ConfigureAwait(false);
+                });
+            }
+
+            // Allow waiters to start blocking.
+            await Task.Delay(50).ConfigureAwait(false);
+
+            // Act
+            asyncLock.Dispose();
+
+            // Assert
+            await AwaitWithTimeout(Task.WhenAll(waiterTasks), 3000).ConfigureAwait(false);
+
+            // Cleanup
+            holder.Dispose();
+        }
+
+        [TestMethod]
         public void Handle_DefaultInstance_DisposeDoesNotThrow()
         {
             // Arrange — default(Handle) has a null semaphore; Dispose must be safe to call.
@@ -215,6 +301,91 @@ namespace LibSharp.UnitTests.Common
         }
 
         [TestMethod]
+        public async Task Handle_DoubleDispose_DoesNotReleaseExtraPermit()
+        {
+            // Arrange
+            using (AsyncLock asyncLock = new AsyncLock())
+            {
+                AsyncLock.Handle firstHandle = await asyncLock.AcquireAsync().ConfigureAwait(false);
+                firstHandle.Dispose();
+
+                AsyncLock.Handle secondHandle = await asyncLock.AcquireAsync().ConfigureAwait(false);
+                Task<AsyncLock.Handle> thirdAcquireTask = asyncLock.AcquireAsync();
+
+                // Act + Assert — third acquisition should remain blocked while second holds lock.
+                await Task.Delay(50).ConfigureAwait(false);
+                Assert.IsFalse(thirdAcquireTask.IsCompleted);
+
+                // A second dispose on firstHandle must not release another permit.
+                firstHandle.Dispose();
+                await Task.Delay(50).ConfigureAwait(false);
+                Assert.IsFalse(thirdAcquireTask.IsCompleted);
+
+                // Once the current holder releases, the third waiter can proceed.
+                secondHandle.Dispose();
+                AsyncLock.Handle thirdHandle = await thirdAcquireTask.ConfigureAwait(false);
+                thirdHandle.Dispose();
+            }
+        }
+
+        [TestMethod]
+        public async Task Handle_CopiedStruct_DisposeFromBothCopies_ReleasesOnlyOnce()
+        {
+            // Arrange
+            using (AsyncLock asyncLock = new AsyncLock())
+            {
+                AsyncLock.Handle originalHandle = await asyncLock.AcquireAsync().ConfigureAwait(false);
+                AsyncLock.Handle copiedHandle = originalHandle;
+                originalHandle.Dispose();
+
+                AsyncLock.Handle secondHandle = await asyncLock.AcquireAsync().ConfigureAwait(false);
+                Task<AsyncLock.Handle> thirdAcquireTask = asyncLock.AcquireAsync();
+
+                await Task.Delay(50).ConfigureAwait(false);
+                Assert.IsFalse(thirdAcquireTask.IsCompleted);
+
+                // Disposing a copied handle must not release a second permit.
+                copiedHandle.Dispose();
+
+                await Task.Delay(50).ConfigureAwait(false);
+                Assert.IsFalse(thirdAcquireTask.IsCompleted);
+
+                secondHandle.Dispose();
+                AsyncLock.Handle thirdHandle = await thirdAcquireTask.ConfigureAwait(false);
+                thirdHandle.Dispose();
+            }
+        }
+
+        [TestMethod]
+        public async Task AcquireAsync_DisposeRace_DoesNotSurfaceOperationCanceledException()
+        {
+            // Arrange + Act + Assert
+            for (int i = 0; i < 400; i++)
+            {
+                AsyncLock asyncLock = new AsyncLock();
+
+                Task<AsyncLock.Handle> acquireTask = Task.Run(async () =>
+                    await asyncLock.AcquireAsync().ConfigureAwait(false));
+
+                asyncLock.Dispose();
+
+                try
+                {
+                    AsyncLock.Handle handle = await acquireTask.ConfigureAwait(false);
+                    handle.Dispose();
+                }
+                catch (ObjectDisposedException)
+                {
+                    // Expected for disposal races.
+                }
+                catch (OperationCanceledException exception)
+                {
+                    Assert.Fail($"Unexpected cancellation type from disposal race: {exception.GetType().Name}.");
+                }
+            }
+        }
+
+        [TestMethod]
         public async Task Dispose_IdempotentMultipleCalls_DoesNotThrow()
         {
             // Arrange
@@ -224,6 +395,17 @@ namespace LibSharp.UnitTests.Common
             // Act
             asyncLock.Dispose();
             asyncLock.Dispose();
+        }
+
+        private static async Task AwaitWithTimeout(Task task, int timeoutMs)
+        {
+            Task completedTask = await Task.WhenAny(task, Task.Delay(timeoutMs)).ConfigureAwait(false);
+            if (!ReferenceEquals(completedTask, task))
+            {
+                Assert.Fail($"Operation timed out after {timeoutMs}ms.");
+            }
+
+            await task.ConfigureAwait(false);
         }
     }
 }
