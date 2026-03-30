@@ -22,7 +22,6 @@ namespace LibSharp.Caching
         {
             m_hasValue = true;
             m_value = value;
-            m_disposalToken = m_disposalCts.Token;
         }
 
         /// <summary>
@@ -35,7 +34,6 @@ namespace LibSharp.Caching
 
             m_hasValue = false;
             m_factory = factory;
-            m_disposalToken = m_disposalCts.Token;
         }
 
         /// <summary>
@@ -62,37 +60,15 @@ namespace LibSharp.Caching
 
             if (!m_hasValue)
             {
-                try
+                using (await m_lock.AcquireAsync(cancellationToken).ConfigureAwait(false))
                 {
-                    // Link the caller's token with the disposal token so that pending waiters
-                    // are unblocked immediately when the lazy is disposed.
-                    using CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(m_disposalToken, cancellationToken);
-                    await m_semaphore.WaitAsync(linked.Token).ConfigureAwait(false);
-
-                    try
+                    if (!m_hasValue)
                     {
-                        if (!m_hasValue)
-                        {
-                            m_value = await m_factory(cancellationToken).ConfigureAwait(false);
-                            m_hasValue = true;
-                        }
+                        m_value = await m_factory(cancellationToken).ConfigureAwait(false);
+                        m_hasValue = true;
+                    }
 
-                        return m_value;
-                    }
-                    finally
-                    {
-                        // Disposal may have happened between WaitAsync and here; Release()
-                        // throws ObjectDisposedException in that case, which we suppress since
-                        // the semaphore is already gone and no waiters remain.
-                        try { _ = m_semaphore.Release(); }
-                        catch (ObjectDisposedException) { }
-                    }
-                }
-                catch (OperationCanceledException) when (m_disposalToken.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
-                {
-                    // Disposal cancelled the wait — honour the same ObjectDisposedException
-                    // contract as the check at the top of this method.
-                    throw new ObjectDisposedException(GetType().Name);
+                    return m_value;
                 }
             }
 
@@ -119,18 +95,11 @@ namespace LibSharp.Caching
 
             if (disposing)
             {
-                // Cancel first so any thread blocked on WaitAsync wakes up with
-                // OperationCanceledException before the semaphore is torn down.
-                m_disposalCts.Cancel();
-                m_disposalCts.Dispose();
-                m_semaphore.Dispose();
+                m_lock.Dispose();
             }
         }
 
-        private readonly SemaphoreSlim m_semaphore = new SemaphoreSlim(1, 1);
-        private readonly CancellationTokenSource m_disposalCts = new CancellationTokenSource();
-        private readonly CancellationToken m_disposalToken;
-
+        private readonly AsyncLock m_lock = new AsyncLock();
         private readonly Func<CancellationToken, Task<T>> m_factory;
         private volatile bool m_hasValue;
         private T m_value;

@@ -26,7 +26,6 @@ namespace LibSharp.Caching
 
             m_createFactory = factory;
             m_expirationFunction = _ => GetExpiration(timeToLive);
-            m_disposalToken = m_disposalCts.Token;
         }
 
         /// <summary>
@@ -41,7 +40,6 @@ namespace LibSharp.Caching
 
             m_createFactory = factory;
             m_expirationFunction = expirationFunction;
-            m_disposalToken = m_disposalCts.Token;
         }
 
         /// <summary>
@@ -59,7 +57,6 @@ namespace LibSharp.Caching
             m_createFactory = createFactory;
             m_updateFactory = updateFactory;
             m_expirationFunction = _ => GetExpiration(timeToLive);
-            m_disposalToken = m_disposalCts.Token;
         }
 
         /// <summary>
@@ -77,7 +74,6 @@ namespace LibSharp.Caching
             m_createFactory = createFactory;
             m_updateFactory = updateFactory;
             m_expirationFunction = expirationFunction;
-            m_disposalToken = m_disposalCts.Token;
         }
 
         /// <inheritdoc/>
@@ -109,36 +105,14 @@ namespace LibSharp.Caching
 
             if (m_boxed is null || DateTime.UtcNow >= m_boxed.Expiration)
             {
-                try
+                using (await m_lock.AcquireAsync(cancellationToken).ConfigureAwait(false))
                 {
-                    // Link the caller's token with the disposal token so that pending waiters
-                    // are unblocked immediately when the cache is disposed.
-                    using CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(m_disposalToken, cancellationToken);
-                    await m_semaphore.WaitAsync(linked.Token).ConfigureAwait(false);
-
-                    try
+                    if (m_boxed is null || DateTime.UtcNow >= m_boxed.Expiration)
                     {
-                        if (m_boxed is null || DateTime.UtcNow >= m_boxed.Expiration)
-                        {
-                            await Refresh(cancellationToken).ConfigureAwait(false);
-                        }
+                        await Refresh(cancellationToken).ConfigureAwait(false);
+                    }
 
-                        return m_boxed.Value;
-                    }
-                    finally
-                    {
-                        // Disposal may have happened between WaitAsync and here; Release()
-                        // throws ObjectDisposedException in that case, which we suppress since
-                        // the semaphore is already gone and no waiters remain.
-                        try { _ = m_semaphore.Release(); }
-                        catch (ObjectDisposedException) { }
-                    }
-                }
-                catch (OperationCanceledException) when (m_disposalToken.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
-                {
-                    // Disposal cancelled the wait — honour the same ObjectDisposedException
-                    // contract as the check at the top of this method.
-                    throw new ObjectDisposedException(GetType().Name);
+                    return m_boxed.Value;
                 }
             }
 
@@ -167,11 +141,7 @@ namespace LibSharp.Caching
 
             if (disposing)
             {
-                // Cancel first so any thread blocked on WaitAsync wakes up with
-                // OperationCanceledException before the semaphore is torn down.
-                m_disposalCts.Cancel();
-                m_disposalCts.Dispose();
-                m_semaphore.Dispose();
+                m_lock.Dispose();
             }
         }
 
@@ -200,10 +170,7 @@ namespace LibSharp.Caching
             m_boxed = new ValueReference<T>(newValue, newExpiration);
         }
 
-        private readonly SemaphoreSlim m_semaphore = new SemaphoreSlim(1, 1);
-        private readonly CancellationTokenSource m_disposalCts = new CancellationTokenSource();
-        private readonly CancellationToken m_disposalToken;
-
+        private readonly AsyncLock m_lock = new AsyncLock();
         private readonly Func<CancellationToken, Task<T>> m_createFactory;
         private readonly Func<T, CancellationToken, Task<T>> m_updateFactory;
         private readonly Func<T, DateTime> m_expirationFunction;
