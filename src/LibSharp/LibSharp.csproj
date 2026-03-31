@@ -21,6 +21,7 @@
 - Async lazy (PublicationOnly and ExecutionAndPublication thread safety modes).
 - Sync and async in-memory value cache.
 - Sync and async in-memory key-value cache.
+- Proactive async cache that refreshes values in the background before they expire.
 - Min and max priority queues.
 - Argument validation methods.
 - Extension methods for collection interfaces.

@@ -9,7 +9,7 @@ namespace LibSharp.Collections
     /// Interface for a priority queue.
     /// </summary>
     /// <typeparam name="T">Specifies the type of elements in the queue.</typeparam>
-    public interface IPriorityQueue<T> : IReadOnlyCollection<T>, ICollection<T>, ICollection
+    public interface IPriorityQueue<T> : ICollection<T>, ICollection
     {
         /// <summary>
         /// Returns the object at the beginning of the queue without removing it.
