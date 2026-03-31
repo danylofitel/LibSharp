@@ -1,4 +1,4 @@
-﻿// Copyright (c) LibSharp. All rights reserved.
+// Copyright (c) LibSharp. All rights reserved.
 
 using System;
 
@@ -23,9 +23,14 @@ public static class Argument
             return;
         }
 
-        if (value is null && equalValue is not null)
+        if (value is null)
         {
             throw new ArgumentNullException(name, $"Argument is null and is not equal to {equalValue}");
+        }
+
+        if (equalValue is null)
+        {
+            throw new ArgumentException($"{value} must be equal to null.", name);
         }
 
         if (!value.Equals(equalValue))
@@ -49,6 +54,11 @@ public static class Argument
             throw new ArgumentNullException(name);
         }
 
+        if (minValueExclusive is null)
+        {
+            throw new ArgumentNullException(nameof(minValueExclusive));
+        }
+
         if (value.CompareTo(minValueExclusive) <= 0)
         {
             throw new ArgumentOutOfRangeException(name, value, $"{name} must be greater than {minValueExclusive}.");
@@ -68,6 +78,11 @@ public static class Argument
         if (value is null)
         {
             throw new ArgumentNullException(name);
+        }
+
+        if (minValueInclusive is null)
+        {
+            throw new ArgumentNullException(nameof(minValueInclusive));
         }
 
         if (value.CompareTo(minValueInclusive) < 0)
@@ -91,6 +106,11 @@ public static class Argument
             throw new ArgumentNullException(name);
         }
 
+        if (maxValueExclusive is null)
+        {
+            throw new ArgumentNullException(nameof(maxValueExclusive));
+        }
+
         if (value.CompareTo(maxValueExclusive) >= 0)
         {
             throw new ArgumentOutOfRangeException(name, value, $"{name} must be less than {maxValueExclusive}.");
@@ -110,6 +130,11 @@ public static class Argument
         if (value is null)
         {
             throw new ArgumentNullException(name);
+        }
+
+        if (maxValueInclusive is null)
+        {
+            throw new ArgumentNullException(nameof(maxValueInclusive));
         }
 
         if (value.CompareTo(maxValueInclusive) > 0)
@@ -146,6 +171,21 @@ public static class Argument
     /// <summary>
     /// Verifies that the argument is not null.
     /// </summary>
+    /// <typeparam name="T">Argument type.</typeparam>
+    /// <param name="value">Argument value.</param>
+    /// <param name="name">Argument name.</param>
+    public static void NotNull<T>(T value, string name)
+        where T : class
+    {
+        if (value is null)
+        {
+            throw new ArgumentNullException(name);
+        }
+    }
+
+    /// <summary>
+    /// Verifies that the argument is not null.
+    /// </summary>
     /// <param name="value">Argument value.</param>
     /// <param name="name">Argument name.</param>
     public static void NotNull(object value, string name)
@@ -163,9 +203,12 @@ public static class Argument
     /// <param name="name">Argument name.</param>
     public static void NotNullOrEmpty(string value, string name)
     {
-        NotNull(value, name);
+        if (value is null)
+        {
+            throw new ArgumentNullException(name);
+        }
 
-        if (string.IsNullOrEmpty(value))
+        if (value.Length == 0)
         {
             throw new ArgumentException($"{name} must not be null or empty.", name);
         }
@@ -178,7 +221,10 @@ public static class Argument
     /// <param name="name">Argument name.</param>
     public static void NotNullOrWhiteSpace(string value, string name)
     {
-        NotNull(value, name);
+        if (value is null)
+        {
+            throw new ArgumentNullException(name);
+        }
 
         if (string.IsNullOrWhiteSpace(value))
         {

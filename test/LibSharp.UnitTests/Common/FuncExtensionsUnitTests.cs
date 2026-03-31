@@ -45,4 +45,22 @@ public class FuncExtensionsUnitTests
         // Assert
         Assert.AreEqual(99, result);
     }
+
+    [TestMethod]
+    public async Task RunWithTimeout_WithoutReturnType_ZeroTimeout_Throws()
+    {
+        // A zero timeout would create an already-expired CancellationToken, so it must be rejected.
+        // RunWithTimeout is async, so argument validation runs inside the state machine; we must await.
+        Func<CancellationToken, Task> task = _ => Task.CompletedTask;
+        _ = await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(() => task.RunWithTimeout(TimeSpan.Zero)).ConfigureAwait(false);
+    }
+
+    [TestMethod]
+    public async Task RunWithTimeout_WithReturnType_ZeroTimeout_Throws()
+    {
+        // A zero timeout would create an already-expired CancellationToken, so it must be rejected.
+        // RunWithTimeout is async, so argument validation runs inside the state machine; we must await.
+        Func<CancellationToken, Task<int>> task = _ => Task.FromResult(0);
+        _ = await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(() => task.RunWithTimeout(TimeSpan.Zero)).ConfigureAwait(false);
+    }
 }

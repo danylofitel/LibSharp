@@ -94,6 +94,6 @@ public static class StringExtensions
             return input;
         }
 
-        return input.Substring(0, maxLength);
+        return input[..maxLength];
     }
 }

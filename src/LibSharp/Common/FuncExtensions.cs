@@ -22,7 +22,7 @@ public static class FuncExtensions
     public static async Task RunWithTimeout(this Func<CancellationToken, Task> task, TimeSpan timeout, CancellationToken cancellationToken = default)
     {
         Argument.NotNull(task, nameof(task));
-        Argument.GreaterThanOrEqualTo(timeout, TimeSpan.Zero, nameof(timeout));
+        Argument.GreaterThan(timeout, TimeSpan.Zero, nameof(timeout));
 
         using CancellationTokenSource timeoutCancellationTokenSource = new CancellationTokenSource(timeout);
         using CancellationTokenSource combinedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCancellationTokenSource.Token);
@@ -41,7 +41,7 @@ public static class FuncExtensions
     public static async Task<T> RunWithTimeout<T>(this Func<CancellationToken, Task<T>> task, TimeSpan timeout, CancellationToken cancellationToken = default)
     {
         Argument.NotNull(task, nameof(task));
-        Argument.GreaterThanOrEqualTo(timeout, TimeSpan.Zero, nameof(timeout));
+        Argument.GreaterThan(timeout, TimeSpan.Zero, nameof(timeout));
 
         using CancellationTokenSource timeoutCancellationTokenSource = new CancellationTokenSource(timeout);
         using CancellationTokenSource combinedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCancellationTokenSource.Token);

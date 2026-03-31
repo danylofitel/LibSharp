@@ -20,6 +20,12 @@ public static class IEnumerableExtensions
     /// <param name="chunkWeight">The maximum total weight of elements in a chunk.</param>
     /// <param name="itemWeight">The item weight selector.</param>
     /// <returns>A sequence of chunks.</returns>
+    /// <remarks>
+    /// Weights are compared using <c>double</c> arithmetic. Accumulated floating-point
+    /// rounding errors may cause items whose combined weights are exactly equal to
+    /// <paramref name="chunkWeight"/> to occasionally spill into a new chunk.
+    /// Use weights with sufficient margin if exact budget boundaries are required.
+    /// </remarks>
     public static IEnumerable<List<TSource>> Chunk<TSource>(
         this IEnumerable<TSource> source,
         double chunkWeight,

@@ -1,5 +1,7 @@
-﻿// Copyright (c) LibSharp. All rights reserved.
+// Copyright (c) LibSharp. All rights reserved.
 
+using System;
+using System.Collections.Concurrent;
 using System.IO;
 using System.Xml;
 using System.Xml.Serialization;
@@ -24,8 +26,7 @@ public static class XmlSerializationExtensions
 
         using StringReader stringReader = new StringReader(xmlString);
         using XmlReader xmlReader = XmlReader.Create(stringReader, xmlReaderSettings ?? s_xmlReaderSettings);
-        XmlSerializer serializer = new XmlSerializer(typeof(T));
-        return (T)serializer.Deserialize(xmlReader);
+        return (T)GetSerializer(typeof(T)).Deserialize(xmlReader);
     }
 
     /// <summary>
@@ -38,14 +39,20 @@ public static class XmlSerializationExtensions
     {
         Argument.NotNull(objectToSerialize, nameof(objectToSerialize));
 
-        XmlSerializer serializer = new XmlSerializer(typeof(T));
         using StringWriter stringWriter = new StringWriter();
-        serializer.Serialize(stringWriter, objectToSerialize);
+        GetSerializer(typeof(T)).Serialize(stringWriter, objectToSerialize);
         return stringWriter.ToString();
+    }
+
+    private static XmlSerializer GetSerializer(Type type)
+    {
+        return s_serializerCache.GetOrAdd(type, static t => new XmlSerializer(t));
     }
 
     private static readonly XmlReaderSettings s_xmlReaderSettings = new XmlReaderSettings
     {
         DtdProcessing = DtdProcessing.Prohibit
     };
+
+    private static readonly ConcurrentDictionary<Type, XmlSerializer> s_serializerCache = new ConcurrentDictionary<Type, XmlSerializer>();
 }

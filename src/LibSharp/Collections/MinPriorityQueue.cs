@@ -280,15 +280,16 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>
 
     /// <summary>
     /// Gets the index of the first occurrence of the item in the heap.
+    /// Uses the queue's comparer so that <see cref="Contains"/> and <see cref="Remove"/>
+    /// are consistent with the ordering relation.
     /// </summary>
     /// <param name="item">The item to find.</param>
-    /// <returns>Index of the item in the heap, -1 if it was not found.</returns>
+    /// <returns>Index of the item in the heap, or -1 if it was not found.</returns>
     private int FirstIndexOf(T item)
     {
         for (int i = 1; i <= Count; ++i)
         {
-            T currentItem = m_heap[i];
-            if ((item is null && currentItem is null) || (item is not null && item.Equals(currentItem)))
+            if (m_comparer.Compare(item, m_heap[i]) == 0)
             {
                 return i;
             }
@@ -465,9 +466,9 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>
         /// </summary>
         private readonly void Validate()
         {
-            if (m_queue == null)
+            if (m_queue is null)
             {
-                throw new ObjectDisposedException(nameof(MinPriorityQueueEnumerator<T>));
+                throw new ObjectDisposedException(nameof(MinPriorityQueueEnumerator<TItem>));
             }
             else if (m_version != m_queue.m_version)
             {

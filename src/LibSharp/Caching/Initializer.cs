@@ -9,25 +9,21 @@ namespace LibSharp.Caching;
 public sealed class Initializer<T> : IInitializer<T>
 {
     /// <inheritdoc/>
-    public bool HasValue
-    {
-        get => m_hasValue;
-        private set => m_hasValue = value;
-    }
+    public bool HasValue => m_hasValue;
 
     /// <inheritdoc/>
     public T GetValue(Func<T> factory)
     {
         Argument.NotNull(factory, nameof(factory));
 
-        if (!HasValue)
+        if (!m_hasValue)
         {
             lock (m_lock)
             {
-                if (!HasValue)
+                if (!m_hasValue)
                 {
                     m_instance = factory();
-                    HasValue = true;
+                    m_hasValue = true;
                 }
 
                 return m_instance;

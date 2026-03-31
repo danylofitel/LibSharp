@@ -33,7 +33,6 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
         return new(value, true, default);
     }
 
-
     /// <summary>
     /// Creates a failed result wrapping the given error.
     /// </summary>
@@ -42,7 +41,6 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     {
         return new(default, false, error);
     }
-
 
     /// <summary>
     /// Gets a value indicating whether this result represents a success.

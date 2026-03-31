@@ -56,6 +56,13 @@ public class ArgumentUnitTests
     }
 
     [TestMethod]
+    public void GreaterThan_NullBoundary_Throws()
+    {
+        // A null boundary is a programming error that must be caught, not silently ignored.
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.GreaterThan("value", null, "name"));
+    }
+
+    [TestMethod]
     public void GreaterThan_GreaterThan_DoesNotThrow()
     {
         // Act
@@ -81,6 +88,12 @@ public class ArgumentUnitTests
     {
         // Act
         _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.GreaterThanOrEqualTo(null, "1", "name"));
+    }
+
+    [TestMethod]
+    public void GreaterThanOrEqualTo_NullBoundary_Throws()
+    {
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.GreaterThanOrEqualTo("value", null, "name"));
     }
 
     [TestMethod]
@@ -112,6 +125,12 @@ public class ArgumentUnitTests
     }
 
     [TestMethod]
+    public void LessThan_NullBoundary_Throws()
+    {
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.LessThan("value", null, "name"));
+    }
+
+    [TestMethod]
     public void LessThan_LessThan_DoesNotThrow()
     {
         // Act
@@ -137,6 +156,12 @@ public class ArgumentUnitTests
     {
         // Act
         _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.LessThanOrEqualTo(null, "1", "name"));
+    }
+
+    [TestMethod]
+    public void LessThanOrEqualTo_NullBoundary_Throws()
+    {
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.LessThanOrEqualTo("value", null, "name"));
     }
 
     [TestMethod]
@@ -202,6 +227,21 @@ public class ArgumentUnitTests
     {
         // Act
         _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.NotNull(null, "name"));
+    }
+
+    [TestMethod]
+    public void NotNull_Generic_NotNull_DoesNotThrow()
+    {
+        // The generic overload avoids boxing for constrained reference types.
+        Argument.NotNull<string>("value", "name");
+        Argument.NotNull<List<int>>(new List<int>(), "name");
+    }
+
+    [TestMethod]
+    public void NotNull_Generic_Null_Throws()
+    {
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.NotNull<string>(null, "name"));
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.NotNull<List<int>>(null, "name"));
     }
 
     [TestMethod]

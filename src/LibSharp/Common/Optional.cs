@@ -102,7 +102,7 @@ public readonly struct Optional<T> : IEquatable<T>, IEquatable<Optional<T>>
     /// <inheritdoc/>
     public override int GetHashCode()
     {
-        return HasValue ? (m_value is null ? 0 : m_value.GetHashCode()) : 0;
+        return HashCode.Combine(HasValue, m_value);
     }
 
     /// <inheritdoc/>

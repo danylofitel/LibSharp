@@ -1,8 +1,7 @@
-﻿// Copyright (c) LibSharp. All rights reserved.
+// Copyright (c) LibSharp. All rights reserved.
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 
 namespace LibSharp.Common;
 
@@ -18,11 +17,9 @@ public static class TypeExtensions
     /// <returns>Default comparer for the type.</returns>
     public static IComparer<T> GetDefaultComparer<T>()
     {
-        Type type = typeof(T);
-
-        if (!type.GetInterfaces().Contains(typeof(IComparable<T>)))
+        if (!typeof(IComparable<T>).IsAssignableFrom(typeof(T)))
         {
-            throw new ArgumentException($"Type {type.FullName} does not implement IComparable<{type.FullName}>.");
+            throw new ArgumentException($"Type {typeof(T).FullName} does not implement IComparable<{typeof(T).FullName}>.");
         }
 
         return Comparer<T>.Default;

@@ -262,6 +262,352 @@ public class ConcurrentHashSetUnitTests
         Assert.IsFalse(new ConcurrentHashSet<int>().IsReadOnly);
     }
 
+    // ── ISet<T> / IReadOnlySet<T> ─────────────────────────────────────────
+
+    [TestMethod]
+    public void UnionWith_NullOther_Throws()
+    {
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ConcurrentHashSet<int>().UnionWith(null));
+    }
+
+    [TestMethod]
+    public void UnionWith_AddsNewElements()
+    {
+        ConcurrentHashSet<int> set = new ConcurrentHashSet<int> { 1, 2 };
+
+        set.UnionWith(new[] { 2, 3, 4 });
+
+        Assert.AreEqual(4, set.Count);
+        Assert.IsTrue(set.Contains(1));
+        Assert.IsTrue(set.Contains(2));
+        Assert.IsTrue(set.Contains(3));
+        Assert.IsTrue(set.Contains(4));
+    }
+
+    [TestMethod]
+    public void UnionWith_EmptyOther_Unchanged()
+    {
+        ConcurrentHashSet<int> set = new ConcurrentHashSet<int> { 1, 2 };
+
+        set.UnionWith(Array.Empty<int>());
+
+        Assert.AreEqual(2, set.Count);
+    }
+
+    [TestMethod]
+    public void IntersectWith_NullOther_Throws()
+    {
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ConcurrentHashSet<int>().IntersectWith(null));
+    }
+
+    [TestMethod]
+    public void IntersectWith_KeepsOnlyCommonElements()
+    {
+        ConcurrentHashSet<int> set = new ConcurrentHashSet<int> { 1, 2, 3, 4 };
+
+        set.IntersectWith(new[] { 2, 4, 6 });
+
+        Assert.AreEqual(2, set.Count);
+        Assert.IsTrue(set.Contains(2));
+        Assert.IsTrue(set.Contains(4));
+        Assert.IsFalse(set.Contains(1));
+        Assert.IsFalse(set.Contains(3));
+    }
+
+    [TestMethod]
+    public void IntersectWith_EmptyOther_ClearsSet()
+    {
+        ConcurrentHashSet<int> set = new ConcurrentHashSet<int> { 1, 2, 3 };
+
+        set.IntersectWith(Array.Empty<int>());
+
+        Assert.AreEqual(0, set.Count);
+    }
+
+    [TestMethod]
+    public void ExceptWith_NullOther_Throws()
+    {
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ConcurrentHashSet<int>().ExceptWith(null));
+    }
+
+    [TestMethod]
+    public void ExceptWith_RemovesCommonElements()
+    {
+        ConcurrentHashSet<int> set = new ConcurrentHashSet<int> { 1, 2, 3, 4 };
+
+        set.ExceptWith(new[] { 2, 4, 6 });
+
+        Assert.AreEqual(2, set.Count);
+        Assert.IsTrue(set.Contains(1));
+        Assert.IsTrue(set.Contains(3));
+        Assert.IsFalse(set.Contains(2));
+        Assert.IsFalse(set.Contains(4));
+    }
+
+    [TestMethod]
+    public void ExceptWith_EmptyOther_Unchanged()
+    {
+        ConcurrentHashSet<int> set = new ConcurrentHashSet<int> { 1, 2, 3 };
+
+        set.ExceptWith(Array.Empty<int>());
+
+        Assert.AreEqual(3, set.Count);
+    }
+
+    [TestMethod]
+    public void SymmetricExceptWith_NullOther_Throws()
+    {
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ConcurrentHashSet<int>().SymmetricExceptWith(null));
+    }
+
+    [TestMethod]
+    public void SymmetricExceptWith_TogglesElements()
+    {
+        // {1, 2, 3} △ {2, 3, 4} = {1, 4}
+        ConcurrentHashSet<int> set = new ConcurrentHashSet<int> { 1, 2, 3 };
+
+        set.SymmetricExceptWith(new[] { 2, 3, 4 });
+
+        Assert.AreEqual(2, set.Count);
+        Assert.IsTrue(set.Contains(1));
+        Assert.IsTrue(set.Contains(4));
+        Assert.IsFalse(set.Contains(2));
+        Assert.IsFalse(set.Contains(3));
+    }
+
+    [TestMethod]
+    public void SymmetricExceptWith_DuplicatesInOther_Ignored()
+    {
+        // {}.SymmetricExceptWith([1, 1]) — 1 appears in other (deduplicated), not in set → add 1 once.
+        ConcurrentHashSet<int> set = new ConcurrentHashSet<int>();
+
+        set.SymmetricExceptWith(new[] { 1, 1 });
+
+        Assert.AreEqual(1, set.Count);
+        Assert.IsTrue(set.Contains(1));
+    }
+
+    [TestMethod]
+    public void IsSubsetOf_NullOther_Throws()
+    {
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ConcurrentHashSet<int>().IsSubsetOf(null));
+    }
+
+    [TestMethod]
+    public void IsSubsetOf_EmptySet_IsSubsetOfAnything()
+    {
+        Assert.IsTrue(new ConcurrentHashSet<int>().IsSubsetOf(Array.Empty<int>()));
+        Assert.IsTrue(new ConcurrentHashSet<int>().IsSubsetOf(new[] { 1, 2, 3 }));
+    }
+
+    [TestMethod]
+    public void IsSubsetOf_Subset_ReturnsTrue()
+    {
+        ConcurrentHashSet<int> set = new ConcurrentHashSet<int> { 1, 2 };
+
+        Assert.IsTrue(set.IsSubsetOf(new[] { 1, 2, 3 }));
+    }
+
+    [TestMethod]
+    public void IsSubsetOf_EqualSets_ReturnsTrue()
+    {
+        ConcurrentHashSet<int> set = new ConcurrentHashSet<int> { 1, 2, 3 };
+
+        Assert.IsTrue(set.IsSubsetOf(new[] { 1, 2, 3 }));
+    }
+
+    [TestMethod]
+    public void IsSubsetOf_NotSubset_ReturnsFalse()
+    {
+        ConcurrentHashSet<int> set = new ConcurrentHashSet<int> { 1, 2, 4 };
+
+        Assert.IsFalse(set.IsSubsetOf(new[] { 1, 2, 3 }));
+    }
+
+    [TestMethod]
+    public void IsSupersetOf_NullOther_Throws()
+    {
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ConcurrentHashSet<int>().IsSupersetOf(null));
+    }
+
+    [TestMethod]
+    public void IsSupersetOf_Superset_ReturnsTrue()
+    {
+        ConcurrentHashSet<int> set = new ConcurrentHashSet<int> { 1, 2, 3 };
+
+        Assert.IsTrue(set.IsSupersetOf(new[] { 1, 2 }));
+    }
+
+    [TestMethod]
+    public void IsSupersetOf_EqualSets_ReturnsTrue()
+    {
+        ConcurrentHashSet<int> set = new ConcurrentHashSet<int> { 1, 2, 3 };
+
+        Assert.IsTrue(set.IsSupersetOf(new[] { 1, 2, 3 }));
+    }
+
+    [TestMethod]
+    public void IsSupersetOf_NotSuperset_ReturnsFalse()
+    {
+        ConcurrentHashSet<int> set = new ConcurrentHashSet<int> { 1, 2 };
+
+        Assert.IsFalse(set.IsSupersetOf(new[] { 1, 2, 3 }));
+    }
+
+    [TestMethod]
+    public void IsProperSubsetOf_NullOther_Throws()
+    {
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ConcurrentHashSet<int>().IsProperSubsetOf(null));
+    }
+
+    [TestMethod]
+    public void IsProperSubsetOf_StrictSubset_ReturnsTrue()
+    {
+        ConcurrentHashSet<int> set = new ConcurrentHashSet<int> { 1, 2 };
+
+        Assert.IsTrue(set.IsProperSubsetOf(new[] { 1, 2, 3 }));
+    }
+
+    [TestMethod]
+    public void IsProperSubsetOf_EqualSets_ReturnsFalse()
+    {
+        ConcurrentHashSet<int> set = new ConcurrentHashSet<int> { 1, 2, 3 };
+
+        Assert.IsFalse(set.IsProperSubsetOf(new[] { 1, 2, 3 }));
+    }
+
+    [TestMethod]
+    public void IsProperSubsetOf_NotSubset_ReturnsFalse()
+    {
+        ConcurrentHashSet<int> set = new ConcurrentHashSet<int> { 1, 2, 4 };
+
+        Assert.IsFalse(set.IsProperSubsetOf(new[] { 1, 2, 3 }));
+    }
+
+    [TestMethod]
+    public void IsProperSupersetOf_NullOther_Throws()
+    {
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ConcurrentHashSet<int>().IsProperSupersetOf(null));
+    }
+
+    [TestMethod]
+    public void IsProperSupersetOf_StrictSuperset_ReturnsTrue()
+    {
+        ConcurrentHashSet<int> set = new ConcurrentHashSet<int> { 1, 2, 3 };
+
+        Assert.IsTrue(set.IsProperSupersetOf(new[] { 1, 2 }));
+    }
+
+    [TestMethod]
+    public void IsProperSupersetOf_EqualSets_ReturnsFalse()
+    {
+        ConcurrentHashSet<int> set = new ConcurrentHashSet<int> { 1, 2, 3 };
+
+        Assert.IsFalse(set.IsProperSupersetOf(new[] { 1, 2, 3 }));
+    }
+
+    [TestMethod]
+    public void IsProperSupersetOf_NotSuperset_ReturnsFalse()
+    {
+        ConcurrentHashSet<int> set = new ConcurrentHashSet<int> { 1, 2 };
+
+        Assert.IsFalse(set.IsProperSupersetOf(new[] { 1, 2, 3 }));
+    }
+
+    [TestMethod]
+    public void Overlaps_NullOther_Throws()
+    {
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ConcurrentHashSet<int>().Overlaps(null));
+    }
+
+    [TestMethod]
+    public void Overlaps_CommonElement_ReturnsTrue()
+    {
+        ConcurrentHashSet<int> set = new ConcurrentHashSet<int> { 1, 2, 3 };
+
+        Assert.IsTrue(set.Overlaps(new[] { 3, 4, 5 }));
+    }
+
+    [TestMethod]
+    public void Overlaps_NoCommonElements_ReturnsFalse()
+    {
+        ConcurrentHashSet<int> set = new ConcurrentHashSet<int> { 1, 2, 3 };
+
+        Assert.IsFalse(set.Overlaps(new[] { 4, 5, 6 }));
+    }
+
+    [TestMethod]
+    public void Overlaps_EmptyOther_ReturnsFalse()
+    {
+        ConcurrentHashSet<int> set = new ConcurrentHashSet<int> { 1, 2, 3 };
+
+        Assert.IsFalse(set.Overlaps(Array.Empty<int>()));
+    }
+
+    [TestMethod]
+    public void SetEquals_NullOther_Throws()
+    {
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ConcurrentHashSet<int>().SetEquals(null));
+    }
+
+    [TestMethod]
+    public void SetEquals_EqualSets_ReturnsTrue()
+    {
+        ConcurrentHashSet<int> set = new ConcurrentHashSet<int> { 1, 2, 3 };
+
+        Assert.IsTrue(set.SetEquals(new[] { 1, 2, 3 }));
+    }
+
+    [TestMethod]
+    public void SetEquals_EqualSets_DuplicatesInOther_ReturnsTrue()
+    {
+        ConcurrentHashSet<int> set = new ConcurrentHashSet<int> { 1, 2, 3 };
+
+        Assert.IsTrue(set.SetEquals(new[] { 1, 1, 2, 3 }));
+    }
+
+    [TestMethod]
+    public void SetEquals_DifferentSets_ReturnsFalse()
+    {
+        ConcurrentHashSet<int> set = new ConcurrentHashSet<int> { 1, 2, 3 };
+
+        Assert.IsFalse(set.SetEquals(new[] { 1, 2, 4 }));
+    }
+
+    [TestMethod]
+    public void SetEquals_DifferentSizes_ReturnsFalse()
+    {
+        ConcurrentHashSet<int> set = new ConcurrentHashSet<int> { 1, 2, 3 };
+
+        Assert.IsFalse(set.SetEquals(new[] { 1, 2 }));
+    }
+
+    [TestMethod]
+    public void ISet_UsesComparer()
+    {
+        // All set operations must respect the custom comparer (case-insensitive here).
+        ConcurrentHashSet<string> set = new ConcurrentHashSet<string>(StringComparer.OrdinalIgnoreCase);
+        _ = set.Add("Hello");
+        _ = set.Add("World");
+
+        Assert.IsTrue(set.IsSubsetOf(new[] { "hello", "world", "extra" }));
+        Assert.IsTrue(set.IsSupersetOf(new[] { "HELLO" }));
+        Assert.IsTrue(set.SetEquals(new[] { "HELLO", "WORLD" }));
+        Assert.IsTrue(set.Overlaps(new[] { "hello" }));
+        Assert.IsFalse(set.Overlaps(new[] { "other" }));
+    }
+
+    [TestMethod]
+    public void ISet_CanBeUsedViaInterface()
+    {
+        // Verify the class satisfies ISet<T> and IReadOnlySet<T> at the type level.
+        ISet<int> iset = new ConcurrentHashSet<int> { 1, 2, 3 };
+        IReadOnlySet<int> iReadOnlySet = new ConcurrentHashSet<int> { 1, 2, 3 };
+
+        Assert.IsTrue(iset.IsSubsetOf(new[] { 1, 2, 3, 4 }));
+        Assert.IsTrue(iReadOnlySet.IsSupersetOf(new[] { 1, 2 }));
+    }
+
     // ── Thread safety ─────────────────────────────────────────────────────
 
     [TestMethod]

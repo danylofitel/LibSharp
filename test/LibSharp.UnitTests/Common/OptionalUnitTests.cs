@@ -368,30 +368,29 @@ public class OptionalUnitTests
     }
 
     [TestMethod]
-    public void GetHashCode_NoValue_ReturnsZero()
+    public void GetHashCode_NoValue_IsConsistent()
     {
-        // Assert
-        Assert.AreEqual(0, default(Optional<int>).GetHashCode());
-        Assert.AreEqual(0, default(Optional<int?>).GetHashCode());
-        Assert.AreEqual(0, default(Optional<string>).GetHashCode());
-        Assert.AreEqual(0, default(Optional<Optional<string>>).GetHashCode());
+        // Equal optionals must produce the same hash code.
+        Assert.AreEqual(default(Optional<int>).GetHashCode(), default(Optional<int>).GetHashCode());
+        Assert.AreEqual(default(Optional<string>).GetHashCode(), default(Optional<string>).GetHashCode());
     }
 
     [TestMethod]
-    public void GetHashCode_NullValue_ReturnsZero()
+    public void GetHashCode_NullValue_DiffersFromNoValue()
     {
-        // Assert
-        Assert.AreEqual(0, new Optional<string>(null).GetHashCode());
-        Assert.AreEqual(0, new Optional<object>(null).GetHashCode());
+        // Optional(null) has a value (null); default Optional has no value.
+        // They are not equal, so their hash codes should differ to avoid predictable collisions.
+        Assert.AreNotEqual(default(Optional<string>).GetHashCode(), new Optional<string>(null).GetHashCode());
+        Assert.AreNotEqual(default(Optional<object>).GetHashCode(), new Optional<object>(null).GetHashCode());
     }
 
     [TestMethod]
-    public void GetHashCode_HasValue_ReturnsValueHashCode()
+    public void GetHashCode_HasValue_IsConsistent()
     {
-        // Assert
-        Assert.AreEqual(0.GetHashCode(), new Optional<int>(0).GetHashCode());
-        Assert.AreEqual(1.GetHashCode(), new Optional<int>(1).GetHashCode());
-        Assert.AreEqual(12321.GetHashCode(), new Optional<int>(12321).GetHashCode());
+        // Equal optionals (same value) must produce the same hash code.
+        Assert.AreEqual(new Optional<int>(0).GetHashCode(), new Optional<int>(0).GetHashCode());
+        Assert.AreEqual(new Optional<int>(1).GetHashCode(), new Optional<int>(1).GetHashCode());
+        Assert.AreEqual(new Optional<string>("hello").GetHashCode(), new Optional<string>("hello").GetHashCode());
     }
 
     [TestMethod]

@@ -942,6 +942,47 @@ public class MinPriorityQueueUnitTests
         _ = Assert.ThrowsExactly<ObjectDisposedException>(() => enumerator.Reset());
     }
 
+    [TestMethod]
+    public void Contains_UsesComparer_NotObjectEquals()
+    {
+        // A queue with a comparison that considers two items equal when their absolute values are equal.
+        // Before Fix #3, Contains used item.Equals(), which would miss items that compare equal
+        // under the custom comparer but are not reference- or value-equal.
+        MinPriorityQueue<int> queue = new MinPriorityQueue<int>((a, b) => Math.Abs(a).CompareTo(Math.Abs(b)));
+        queue.Enqueue(1);
+        queue.Enqueue(-2);
+        queue.Enqueue(3);
+
+        // |1| == |-1| per the comparer, so Contains(-1) must return true.
+        Assert.IsTrue(queue.Contains(-1));
+        // |-2| == |2| per the comparer, so Contains(2) must return true.
+        Assert.IsTrue(queue.Contains(2));
+        // |4| has no match, so Contains(4) must return false.
+        Assert.IsFalse(queue.Contains(4));
+    }
+
+    [TestMethod]
+    public void Remove_UsesComparer_NotObjectEquals()
+    {
+        // Same comparer as Contains_UsesComparer_NotObjectEquals.
+        MinPriorityQueue<int> queue = new MinPriorityQueue<int>((a, b) => Math.Abs(a).CompareTo(Math.Abs(b)));
+        queue.Enqueue(1);
+        queue.Enqueue(-2);
+        queue.Enqueue(3);
+
+        // Remove(-1) should remove the item whose |value| == 1, i.e. the enqueued 1.
+        Assert.IsTrue(queue.Remove(-1));
+        Assert.AreEqual(2, queue.Count);
+
+        // Remove(2) should remove the item whose |value| == 2, i.e. the enqueued -2.
+        Assert.IsTrue(queue.Remove(2));
+        Assert.AreEqual(1, queue.Count);
+
+        // Remove(99) has no match.
+        Assert.IsFalse(queue.Remove(99));
+        Assert.AreEqual(1, queue.Count);
+    }
+
     private class WrapperClass
     {
         public int Value { get; set; }

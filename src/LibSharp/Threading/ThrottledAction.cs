@@ -38,7 +38,7 @@ public sealed class ThrottledAction
 
         m_action = action;
         m_interval = interval;
-        m_intervalTicks = (long)(interval.TotalSeconds * Stopwatch.Frequency);
+        m_intervalTicks = (long)Math.Round(interval.TotalSeconds * Stopwatch.Frequency);
     }
 
     /// <summary>
