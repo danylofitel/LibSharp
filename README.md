@@ -439,12 +439,7 @@ Key-value caches allow caching and automatically refreshing multiple values with
             factory,
             refreshInterval: TimeSpan.FromMinutes(5),
             preFetchOffset: TimeSpan.FromSeconds(30),
-            options: new ProactiveAsyncCacheOptions
-            {
-                AllowStaleReads = true,                             // return the previous value while a refresh is in progress
-                RefreshTimeout = TimeSpan.FromSeconds(10),          // per-refresh operation timeout
-                OnBackgroundRefreshError = ex => Log.Error(ex),     // called when a background refresh throws
-            });
+            allowStaleReads: true);                                 // return the previous value while a refresh is in progress
 
         int value = await cache.GetValueAsync(cancellationToken);
     }

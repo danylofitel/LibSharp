@@ -1,4 +1,4 @@
-// Copyright (c) LibSharp. All rights reserved.
+﻿// Copyright (c) LibSharp. All rights reserved.
 
 using System;
 using System.Reflection;
@@ -132,6 +132,22 @@ public class ProactiveAsyncCacheUnitTests
         // Assert
         Assert.IsNotNull(cache.Expiration);
         Assert.IsTrue(cache.Expiration > DateTime.UtcNow);
+    }
+
+    [TestMethod]
+    public async Task Expiration_WithVeryLargeRefreshInterval_ClampsToDateTimeMaxValue()
+    {
+        // Arrange
+        TimeSpan refreshInterval = DateTime.MaxValue - DateTime.UtcNow;
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(_ => Task.FromResult(42), refreshInterval, TimeSpan.Zero);
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
+
+        // Act
+        int value = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+
+        // Assert
+        Assert.AreEqual(42, value);
+        Assert.AreEqual(DateTime.MaxValue, cache.Expiration);
     }
 
     [TestMethod]
@@ -391,6 +407,32 @@ public class ProactiveAsyncCacheUnitTests
 
         // Now the refreshed value should be available
         int refreshed = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+        Assert.AreEqual(200, refreshed);
+    }
+
+    [TestMethod]
+    public async Task GetValueAsync_AllowStaleReads_ReturnsFreshValueWhenRefreshAlreadyCompleted()
+    {
+        // Arrange
+        int callCount = 0;
+
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            ct => Task.FromResult(Interlocked.Increment(ref callCount) * 100),
+            TimeSpan.FromMilliseconds(50),
+            TimeSpan.Zero,
+            allowStaleReads: true);
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
+
+        int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+        Assert.AreEqual(100, first);
+
+        await Task.Delay(80, TestContext.CancellationToken).ConfigureAwait(false);
+
+        // Act — the synchronous factory lets the refresh complete before GetValueAsync
+        // reaches the stale-read branch.
+        int refreshed = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+
+        // Assert
         Assert.AreEqual(200, refreshed);
     }
 

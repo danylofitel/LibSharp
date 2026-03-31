@@ -81,8 +81,13 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
         if (snapshot is not null && m_allowStaleReads)
         {
             // Stale but non-null and stale reads are allowed: return the stale value
-            // immediately. This ensures readers never block after the initial fetch, even
-            // when the factory is slow or temporarily failing.
+            // only while a refresh is still in progress. If another thread already
+            // completed the refresh synchronously, return the fresh value instead.
+            if (fetchTask.IsCompletedSuccessfully)
+            {
+                return fetchTask.Result.Value;
+            }
+
             return snapshot.Value;
         }
 
@@ -204,7 +209,7 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
     private async Task<CacheSnapshot> FetchAndUpdateAsync()
     {
         T value = await m_fetchFunc(m_cts.Token).ConfigureAwait(false);
-        CacheSnapshot snapshot = new CacheSnapshot(value, DateTime.UtcNow + m_refreshInterval);
+        CacheSnapshot snapshot = new CacheSnapshot(value, GetExpirationTime(m_refreshInterval));
         m_snapshot = snapshot;
         return snapshot;
     }
@@ -295,6 +300,14 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
         // delays never collapse to zero on very small refresh windows.
         TimeSpan delay = (refreshInterval - preFetchOffset) / 2;
         return delay > TimeSpan.Zero ? delay : TimeSpan.FromTicks(1);
+    }
+
+    private static DateTime GetExpirationTime(TimeSpan refreshInterval)
+    {
+        DateTime now = DateTime.UtcNow;
+        return refreshInterval >= DateTime.MaxValue - now
+            ? DateTime.MaxValue
+            : now.Add(refreshInterval);
     }
 
     private readonly CancellationTokenSource m_cts;
