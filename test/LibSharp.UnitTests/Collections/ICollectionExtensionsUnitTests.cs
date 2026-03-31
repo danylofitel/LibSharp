@@ -5,45 +5,45 @@ using System.Linq;
 using LibSharp.Collections;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace LibSharp.UnitTests.Collections
+namespace LibSharp.UnitTests.Collections;
+
+[TestClass]
+public class ICollectionExtensionsUnitTests
 {
-    [TestClass]
-    public class ICollectionExtensionsUnitTests
+    [TestMethod]
+    public void AddRange_EmptyInitialCollection()
     {
-        [TestMethod]
-        public void AddRange_EmptyInitialCollection()
+        // Arrange
+        ICollection<int> collection = new List<int>();
+        IReadOnlyList<int> values = Enumerable.Range(0, 10).ToList();
+
+        // Act
+        collection.AddRange(values);
+
+        // Assert
+        Assert.HasCount(values.Count, collection);
+        foreach (int value in values)
         {
-            // Arrange
-            ICollection<int> collection = new List<int>();
-            IReadOnlyList<int> values = Enumerable.Range(0, 10).ToList();
-
-            // Act
-            collection.AddRange(values);
-
-            // Assert
-            Assert.AreEqual(values.Count, collection.Count);
-            foreach (int value in values)
-            {
-                Assert.IsTrue(collection.Contains(value));
-            }
+            Assert.Contains(value, collection);
         }
+    }
 
-        [TestMethod]
-        public void AddRange_NonEmptyInitialCollection()
+    [TestMethod]
+    public void AddRange_NonEmptyInitialCollection()
+    {
+        // Arrange
+        ICollection<int> collection = Enumerable.Range(0, 5).ToList();
+        IReadOnlyList<int> values = Enumerable.Range(5, 5).ToList();
+
+        // Act
+        collection.AddRange(values);
+
+        // Assert
+        Assert.HasCount(10, collection);
+        foreach (int value in Enumerable.Range(0, 10))
         {
-            // Arrange
-            ICollection<int> collection = new List<int>(Enumerable.Range(0, 5));
-            IReadOnlyList<int> values = Enumerable.Range(5, 5).ToList();
-
-            // Act
-            collection.AddRange(values);
-
-            // Assert
-            Assert.AreEqual(10, collection.Count);
-            foreach (int value in Enumerable.Range(0, 10))
-            {
-                Assert.IsTrue(collection.Contains(value));
-            }
+            Assert.Contains(value, collection);
         }
     }
 }
+

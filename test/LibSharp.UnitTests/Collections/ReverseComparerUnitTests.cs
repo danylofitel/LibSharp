@@ -1,41 +1,40 @@
-// Copyright (c) LibSharp. All rights reserved.
+﻿// Copyright (c) LibSharp. All rights reserved.
 
 using System;
 using System.Collections.Generic;
 using LibSharp.Collections;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace LibSharp.UnitTests.Collections
+namespace LibSharp.UnitTests.Collections;
+
+[TestClass]
+public class ReverseComparerUnitTests
 {
-    [TestClass]
-    public class ReverseComparerUnitTests
+    [TestMethod]
+    public void Constructor_NullComparer_Throws()
     {
-        [TestMethod]
-        public void Constructor_NullComparer_Throws()
-        {
-            // Act
-            _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ReverseComparer<int>(null));
-        }
+        // Act
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ReverseComparer<int>(null));
+    }
 
-        [TestMethod]
-        public void Compare_ReturnsReversedResult()
-        {
-            // Arrange
-            Comparer<int> normal = Comparer<int>.Default;
-            ReverseComparer<int> reverse = new ReverseComparer<int>(Comparer<int>.Default);
+    [TestMethod]
+    public void Compare_ReturnsReversedResult()
+    {
+        // Arrange
+        Comparer<int> normal = Comparer<int>.Default;
+        ReverseComparer<int> reverse = new ReverseComparer<int>(Comparer<int>.Default);
 
-            // Assert
-            Assert.AreEqual(normal.Compare(1, 1), reverse.Compare(1, 1));
-            Assert.AreEqual(normal.Compare(1, 2), reverse.Compare(2, 1));
-            Assert.AreEqual(normal.Compare(2, 1), reverse.Compare(1, 2));
-            Assert.AreEqual(normal.Compare(-2, -1), reverse.Compare(-1, -2));
-            Assert.AreEqual(normal.Compare(-2, 1), reverse.Compare(1, -2));
+        // Assert
+        Assert.AreEqual(normal.Compare(1, 1), reverse.Compare(1, 1));
+        Assert.AreEqual(normal.Compare(1, 2), reverse.Compare(2, 1));
+        Assert.AreEqual(normal.Compare(2, 1), reverse.Compare(1, 2));
+        Assert.AreEqual(normal.Compare(-2, -1), reverse.Compare(-1, -2));
+        Assert.AreEqual(normal.Compare(-2, 1), reverse.Compare(1, -2));
 
-            Assert.AreEqual(-normal.Compare(1, 1), reverse.Compare(1, 1));
-            Assert.AreEqual(-normal.Compare(2, 1), reverse.Compare(2, 1));
-            Assert.AreEqual(-normal.Compare(1, 2), reverse.Compare(1, 2));
-            Assert.AreEqual(-normal.Compare(-1, -2), reverse.Compare(-1, -2));
-            Assert.AreEqual(-normal.Compare(1, -2), reverse.Compare(1, -2));
-        }
+        Assert.AreEqual(-normal.Compare(1, 1), reverse.Compare(1, 1));
+        Assert.AreEqual(-normal.Compare(2, 1), reverse.Compare(2, 1));
+        Assert.AreEqual(-normal.Compare(1, 2), reverse.Compare(1, 2));
+        Assert.AreEqual(-normal.Compare(-1, -2), reverse.Compare(-1, -2));
+        Assert.AreEqual(-normal.Compare(1, -2), reverse.Compare(1, -2));
     }
 }

@@ -4,28 +4,27 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace LibSharp.Common
+namespace LibSharp.Common;
+
+/// <summary>
+/// Extension methods for Type.
+/// </summary>
+public static class TypeExtensions
 {
     /// <summary>
-    /// Extension methods for Type.
+    /// Gets the default comparer for the type.
     /// </summary>
-    public static class TypeExtensions
+    /// <typeparam name="T">The comparable type.</typeparam>
+    /// <returns>Default comparer for the type.</returns>
+    public static IComparer<T> GetDefaultComparer<T>()
     {
-        /// <summary>
-        /// Gets the default comparer for the type.
-        /// </summary>
-        /// <typeparam name="T">The comparable type.</typeparam>
-        /// <returns>Default comparer for the type.</returns>
-        public static IComparer<T> GetDefaultComparer<T>()
+        Type type = typeof(T);
+
+        if (!type.GetInterfaces().Contains(typeof(IComparable<T>)))
         {
-            Type type = typeof(T);
-
-            if (!type.GetInterfaces().Contains(typeof(IComparable<T>)))
-            {
-                throw new ArgumentException($"Type {type.FullName} does not implement IComparable<{type.FullName}>.");
-            }
-
-            return Comparer<T>.Default;
+            throw new ArgumentException($"Type {type.FullName} does not implement IComparable<{type.FullName}>.");
         }
+
+        return Comparer<T>.Default;
     }
 }

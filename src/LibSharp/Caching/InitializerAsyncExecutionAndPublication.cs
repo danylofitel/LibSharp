@@ -1,4 +1,4 @@
-// Copyright (c) LibSharp. All rights reserved.
+﻿// Copyright (c) LibSharp. All rights reserved.
 
 using System;
 using System.Threading;
@@ -6,64 +6,63 @@ using System.Threading.Tasks;
 using LibSharp.Common;
 using LibSharp.Threading;
 
-namespace LibSharp.Caching
+namespace LibSharp.Caching;
+
+/// <summary>
+/// Async initializer with LazyThreadSafetyMode.ExecutionAndPublication.
+/// </summary>
+/// <typeparam name="T">Value type.</typeparam>
+/// <remarks>Should not be used with IDisposable or IAsyncDisposable value types since it does not dispose of values.</remarks>
+public sealed class InitializerAsyncExecutionAndPublication<T> : IInitializerAsync<T>, IDisposable
 {
-    /// <summary>
-    /// Async initializer with LazyThreadSafetyMode.ExecutionAndPublication.
-    /// </summary>
-    /// <typeparam name="T">Value type.</typeparam>
-    /// <remarks>Should not be used with IDisposable or IAsyncDisposable value types since it does not dispose of values.</remarks>
-    public sealed class InitializerAsyncExecutionAndPublication<T> : IInitializerAsync<T>, IDisposable
+    /// <inheritdoc/>
+    public bool HasValue
     {
-        /// <inheritdoc/>
-        public bool HasValue
+        get
         {
-            get
-            {
-                ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
-
-                return m_hasValue;
-            }
-        }
-
-        /// <inheritdoc/>
-        public async Task<T> GetValueAsync(Func<CancellationToken, Task<T>> factory, CancellationToken cancellationToken = default)
-        {
-            Argument.NotNull(factory, nameof(factory));
-
             ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
 
-            if (!m_hasValue)
-            {
-                using (await m_lock.AcquireAsync(cancellationToken).ConfigureAwait(false))
-                {
-                    if (!m_hasValue)
-                    {
-                        m_value = await factory(cancellationToken).ConfigureAwait(false);
-                        m_hasValue = true;
-                    }
-
-                    return m_value;
-                }
-            }
-
-            return m_value;
+            return m_hasValue;
         }
-
-        /// <inheritdoc/>
-        public void Dispose()
-        {
-            if (Interlocked.Exchange(ref m_isDisposed, 1) != 0)
-            {
-                return;
-            }
-
-            m_lock.Dispose();
-        }
-
-        private readonly AsyncLock m_lock = new AsyncLock();
-        private volatile bool m_hasValue;
-        private T m_value;
-        private int m_isDisposed;
     }
+
+    /// <inheritdoc/>
+    public async Task<T> GetValueAsync(Func<CancellationToken, Task<T>> factory, CancellationToken cancellationToken = default)
+    {
+        Argument.NotNull(factory, nameof(factory));
+
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
+
+        if (!m_hasValue)
+        {
+            using (await m_lock.AcquireAsync(cancellationToken).ConfigureAwait(false))
+            {
+                if (!m_hasValue)
+                {
+                    m_value = await factory(cancellationToken).ConfigureAwait(false);
+                    m_hasValue = true;
+                }
+
+                return m_value;
+            }
+        }
+
+        return m_value;
+    }
+
+    /// <inheritdoc/>
+    public void Dispose()
+    {
+        if (Interlocked.Exchange(ref m_isDisposed, 1) != 0)
+        {
+            return;
+        }
+
+        m_lock.Dispose();
+    }
+
+    private readonly AsyncLock m_lock = new AsyncLock();
+    private volatile bool m_hasValue;
+    private T m_value;
+    private int m_isDisposed;
 }
