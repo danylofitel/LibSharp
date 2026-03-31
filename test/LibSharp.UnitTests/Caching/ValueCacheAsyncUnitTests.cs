@@ -7,424 +7,423 @@ using LibSharp.Caching;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
-namespace LibSharp.UnitTests.Caching
+namespace LibSharp.UnitTests.Caching;
+
+[TestClass]
+public class ValueCacheAsyncUnitTests
 {
-    [TestClass]
-    public class ValueCacheAsyncUnitTests
+    [TestMethod]
+    public void HasValue_ThrowsWhenDisposed()
     {
-        [TestMethod]
-        public void HasValue_ThrowsWhenDisposed()
+        // Arrange
+        Func<CancellationToken, Task<int>> factory = Substitute.For<Func<CancellationToken, Task<int>>>();
+        ValueCacheAsync<int> cache = new ValueCacheAsync<int>(factory, TimeSpan.FromMinutes(1));
+        cache.Dispose();
+
+        // Act
+        _ = Assert.ThrowsExactly<ObjectDisposedException>(() => _ = cache.HasValue);
+    }
+
+    [TestMethod]
+    public void Expiration_ThrowsWhenDisposed()
+    {
+        // Arrange
+        Func<CancellationToken, Task<int>> factory = Substitute.For<Func<CancellationToken, Task<int>>>();
+        ValueCacheAsync<int> cache = new ValueCacheAsync<int>(factory, TimeSpan.FromMinutes(1));
+        cache.Dispose();
+
+        // Act
+        _ = Assert.ThrowsExactly<ObjectDisposedException>(() => _ = cache.Expiration);
+    }
+
+    [TestMethod]
+    public async Task GetValueAsync_ThrowsWhenDisposed()
+    {
+        // Arrange
+        Func<CancellationToken, Task<int>> factory = Substitute.For<Func<CancellationToken, Task<int>>>();
+        ValueCacheAsync<int> cache = new ValueCacheAsync<int>(factory, TimeSpan.FromMinutes(1));
+        cache.Dispose();
+
+        // Act
+        _ = await Assert.ThrowsExactlyAsync<ObjectDisposedException>(async () => await cache.GetValueAsync(CancellationToken.None).ConfigureAwait(false)).ConfigureAwait(false);
+    }
+
+    [TestMethod]
+    public async Task FromValueFactory_WhenCacheExpires_RefreshesCache()
+    {
+        // Arrange
+        Func<CancellationToken, Task<int>> factory = Substitute.For<Func<CancellationToken, Task<int>>>();
+
+        _ = factory(Arg.Any<CancellationToken>()).Returns(Task.FromResult(0), Task.FromResult(1), Task.FromResult(2), Task.FromResult(3), Task.FromResult(4));
+
+        using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
         {
-            // Arrange
-            Func<CancellationToken, Task<int>> factory = Substitute.For<Func<CancellationToken, Task<int>>>();
-            ValueCacheAsync<int> cache = new ValueCacheAsync<int>(factory, TimeSpan.FromMinutes(1));
-            cache.Dispose();
+            CancellationToken cancellationToken = cancellationTokenSource.Token;
 
-            // Act
-            _ = Assert.ThrowsExactly<ObjectDisposedException>(() => _ = cache.HasValue);
-        }
-
-        [TestMethod]
-        public void Expiration_ThrowsWhenDisposed()
-        {
-            // Arrange
-            Func<CancellationToken, Task<int>> factory = Substitute.For<Func<CancellationToken, Task<int>>>();
-            ValueCacheAsync<int> cache = new ValueCacheAsync<int>(factory, TimeSpan.FromMinutes(1));
-            cache.Dispose();
-
-            // Act
-            _ = Assert.ThrowsExactly<ObjectDisposedException>(() => _ = cache.Expiration);
-        }
-
-        [TestMethod]
-        public async Task GetValueAsync_ThrowsWhenDisposed()
-        {
-            // Arrange
-            Func<CancellationToken, Task<int>> factory = Substitute.For<Func<CancellationToken, Task<int>>>();
-            ValueCacheAsync<int> cache = new ValueCacheAsync<int>(factory, TimeSpan.FromMinutes(1));
-            cache.Dispose();
-
-            // Act
-            _ = await Assert.ThrowsExactlyAsync<ObjectDisposedException>(async () => await cache.GetValueAsync(CancellationToken.None).ConfigureAwait(false)).ConfigureAwait(false);
-        }
-
-        [TestMethod]
-        public async Task FromValueFactory_WhenCacheExpires_RefreshesCache()
-        {
-            // Arrange
-            Func<CancellationToken, Task<int>> factory = Substitute.For<Func<CancellationToken, Task<int>>>();
-
-            _ = factory(Arg.Any<CancellationToken>()).Returns(Task.FromResult(0), Task.FromResult(1), Task.FromResult(2), Task.FromResult(3), Task.FromResult(4));
-
-            using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
+            using (ValueCacheAsync<int> cache = new ValueCacheAsync<int>(factory, TimeSpan.Zero))
             {
-                CancellationToken cancellationToken = cancellationTokenSource.Token;
+                // Assert
+                Assert.IsFalse(cache.HasValue);
+                Assert.IsNull(cache.Expiration);
 
-                using (ValueCacheAsync<int> cache = new ValueCacheAsync<int>(factory, TimeSpan.Zero))
-                {
-                    // Assert
-                    Assert.IsFalse(cache.HasValue);
-                    Assert.IsNull(cache.Expiration);
+                Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
 
-                    Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+                Assert.IsTrue(cache.HasValue);
+                Assert.IsTrue(cache.Expiration <= DateTime.UtcNow);
 
-                    Assert.IsTrue(cache.HasValue);
-                    Assert.IsTrue(cache.Expiration <= DateTime.UtcNow);
+                Assert.AreEqual(1, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+                Assert.AreEqual(2, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+                Assert.AreEqual(3, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+                Assert.AreEqual(4, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
 
-                    Assert.AreEqual(1, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-                    Assert.AreEqual(2, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-                    Assert.AreEqual(3, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-                    Assert.AreEqual(4, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+                Assert.IsTrue(cache.HasValue);
+                Assert.IsTrue(cache.Expiration <= DateTime.UtcNow);
+            }
 
-                    Assert.IsTrue(cache.HasValue);
-                    Assert.IsTrue(cache.Expiration <= DateTime.UtcNow);
-                }
+            _ = factory.Received(5)(cancellationToken);
+        }
+    }
 
-                _ = factory.Received(5)(cancellationToken);
+    [TestMethod]
+    public async Task FromValueFactoryWithExpirationFunction_WhenCacheExpires_RefreshesCache()
+    {
+        // Arrange
+        Func<CancellationToken, Task<int>> factory = Substitute.For<Func<CancellationToken, Task<int>>>();
+
+        _ = factory(Arg.Any<CancellationToken>()).Returns(Task.FromResult(0), Task.FromResult(1), Task.FromResult(2), Task.FromResult(3), Task.FromResult(4));
+
+        using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
+        {
+            CancellationToken cancellationToken = cancellationTokenSource.Token;
+
+            using (ValueCacheAsync<int> cache = new ValueCacheAsync<int>(factory, _ => DateTime.UtcNow.AddMinutes(-1)))
+            {
+                // Assert
+                Assert.IsFalse(cache.HasValue);
+                Assert.IsNull(cache.Expiration);
+
+                Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+
+                Assert.IsTrue(cache.HasValue);
+                Assert.IsTrue(cache.Expiration <= DateTime.UtcNow);
+
+                Assert.AreEqual(1, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+                Assert.AreEqual(2, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+                Assert.AreEqual(3, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+                Assert.AreEqual(4, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+
+                Assert.IsTrue(cache.HasValue);
+                Assert.IsTrue(cache.Expiration <= DateTime.UtcNow);
+            }
+
+            _ = factory.Received(5)(cancellationToken);
+        }
+    }
+
+    [TestMethod]
+    public async Task FromUpdateFactory_WhenCacheExpires_RefreshesCache()
+    {
+        // Arrange
+        Func<CancellationToken, Task<int>> createFactory = Substitute.For<Func<CancellationToken, Task<int>>>();
+
+        _ = createFactory(Arg.Any<CancellationToken>()).Returns(Task.FromResult(0));
+
+        Func<int, CancellationToken, Task<int>> updateFactory = Substitute.For<Func<int, CancellationToken, Task<int>>>();
+
+        _ = updateFactory(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(x => (int)x[0] + 1);
+
+        using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
+        {
+            CancellationToken cancellationToken = cancellationTokenSource.Token;
+
+            using (ValueCacheAsync<int> cache = new ValueCacheAsync<int>(createFactory, updateFactory, TimeSpan.Zero))
+            {
+                // Assert
+                Assert.IsFalse(cache.HasValue);
+                Assert.IsNull(cache.Expiration);
+
+                Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+
+                Assert.IsTrue(cache.HasValue);
+                Assert.IsTrue(cache.Expiration <= DateTime.UtcNow);
+
+                Assert.AreEqual(1, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+                Assert.AreEqual(2, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+                Assert.AreEqual(3, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+                Assert.AreEqual(4, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+
+                Assert.IsTrue(cache.HasValue);
+                Assert.IsTrue(cache.Expiration <= DateTime.UtcNow);
+            }
+
+            _ = createFactory.Received(1)(cancellationToken);
+            _ = updateFactory.Received(4)(Arg.Any<int>(), cancellationToken);
+        }
+    }
+
+    [TestMethod]
+    public async Task FromUpdateFactoryWithExpirationFunction_WhenCacheExpires_RefreshesCache()
+    {
+        // Arrange
+        Func<CancellationToken, Task<int>> createFactory = Substitute.For<Func<CancellationToken, Task<int>>>();
+
+        _ = createFactory(Arg.Any<CancellationToken>()).Returns(Task.FromResult(0));
+
+        Func<int, CancellationToken, Task<int>> updateFactory = Substitute.For<Func<int, CancellationToken, Task<int>>>();
+
+        _ = updateFactory(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(x => (int)x[0] + 1);
+
+        using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
+        {
+            CancellationToken cancellationToken = cancellationTokenSource.Token;
+
+            using (ValueCacheAsync<int> cache = new ValueCacheAsync<int>(createFactory, updateFactory, _ => DateTime.UtcNow.AddMinutes(-1)))
+            {
+                // Assert
+                Assert.IsFalse(cache.HasValue);
+                Assert.IsNull(cache.Expiration);
+
+                Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+
+                Assert.IsTrue(cache.HasValue);
+                Assert.IsTrue(cache.Expiration <= DateTime.UtcNow);
+
+                Assert.AreEqual(1, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+                Assert.AreEqual(2, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+                Assert.AreEqual(3, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+                Assert.AreEqual(4, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+
+                Assert.IsTrue(cache.HasValue);
+                Assert.IsTrue(cache.Expiration <= DateTime.UtcNow);
+            }
+
+            _ = createFactory.Received(1)(cancellationToken);
+            _ = updateFactory.Received(4)(Arg.Any<int>(), cancellationToken);
+        }
+    }
+
+    [TestMethod]
+    public async Task FromValueFactory_InfiniteTimeToLive_DoesNotRefreshCache()
+    {
+        // Arrange
+        Func<CancellationToken, Task<int>> factory = Substitute.For<Func<CancellationToken, Task<int>>>();
+
+        _ = factory(Arg.Any<CancellationToken>()).Returns(Task.FromResult(0));
+
+        using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
+        {
+            CancellationToken cancellationToken = cancellationTokenSource.Token;
+
+            using (ValueCacheAsync<int> cache = new ValueCacheAsync<int>(factory, TimeSpan.MaxValue))
+            {
+                // Assert
+                Assert.IsFalse(cache.HasValue);
+                Assert.IsNull(cache.Expiration);
+
+                Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+
+                Assert.IsTrue(cache.HasValue);
+                Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
+
+                Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+                Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+                Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+                Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+
+                Assert.IsTrue(cache.HasValue);
+                Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
+            }
+
+            _ = factory.Received(1)(cancellationToken);
+        }
+    }
+
+    [TestMethod]
+    public async Task FromValueFactoryWithExpirationFunction_CacheNotExpired_DoesNotRefreshCache()
+    {
+        // Arrange
+        Func<CancellationToken, Task<int>> factory = Substitute.For<Func<CancellationToken, Task<int>>>();
+
+        _ = factory(Arg.Any<CancellationToken>()).Returns(Task.FromResult(0));
+
+        using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
+        {
+            CancellationToken cancellationToken = cancellationTokenSource.Token;
+
+            using (ValueCacheAsync<int> cache = new ValueCacheAsync<int>(factory, _ => DateTime.UtcNow.AddMinutes(1)))
+            {
+                // Assert
+                Assert.IsFalse(cache.HasValue);
+                Assert.IsNull(cache.Expiration);
+
+                Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+
+                Assert.IsTrue(cache.HasValue);
+                Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
+
+                Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+                Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+                Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+                Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+
+                Assert.IsTrue(cache.HasValue);
+                Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
+            }
+
+            _ = factory.Received(1)(cancellationToken);
+        }
+    }
+
+    [TestMethod]
+    public async Task FromUpdateFactory_InfiniteTimeToLive_DoesNotRefreshCache()
+    {
+        // Arrange
+        Func<CancellationToken, Task<int>> createFactory = Substitute.For<Func<CancellationToken, Task<int>>>();
+
+        _ = createFactory(Arg.Any<CancellationToken>()).Returns(Task.FromResult(0));
+
+        Func<int, CancellationToken, Task<int>> updateFactory = Substitute.For<Func<int, CancellationToken, Task<int>>>();
+
+        using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
+        {
+            CancellationToken cancellationToken = cancellationTokenSource.Token;
+
+            using (ValueCacheAsync<int> cache = new ValueCacheAsync<int>(createFactory, updateFactory, TimeSpan.MaxValue))
+            {
+                // Assert
+                Assert.IsFalse(cache.HasValue);
+                Assert.IsNull(cache.Expiration);
+
+                Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+
+                Assert.IsTrue(cache.HasValue);
+                Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
+
+                Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+                Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+                Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+                Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+
+                Assert.IsTrue(cache.HasValue);
+                Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
+            }
+
+            _ = createFactory.Received(1)(cancellationToken);
+            _ = updateFactory.DidNotReceive()(Arg.Any<int>(), cancellationToken);
+        }
+    }
+
+    [TestMethod]
+    public async Task FromUpdateFactoryWithExpirationFunction_CacheNotExpired_DoesNotRefreshCache()
+    {
+        // Arrange
+        Func<CancellationToken, Task<int>> createFactory = Substitute.For<Func<CancellationToken, Task<int>>>();
+
+        _ = createFactory(Arg.Any<CancellationToken>()).Returns(Task.FromResult(0));
+
+        Func<int, CancellationToken, Task<int>> updateFactory = Substitute.For<Func<int, CancellationToken, Task<int>>>();
+
+        using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
+        {
+            CancellationToken cancellationToken = cancellationTokenSource.Token;
+
+            using (ValueCacheAsync<int> cache = new ValueCacheAsync<int>(createFactory, updateFactory, _ => DateTime.UtcNow.AddMinutes(1)))
+            {
+                // Assert
+                Assert.IsFalse(cache.HasValue);
+                Assert.IsNull(cache.Expiration);
+
+                Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+
+                Assert.IsTrue(cache.HasValue);
+                Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
+
+                Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+                Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+                Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+                Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
+
+                Assert.IsTrue(cache.HasValue);
+                Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
+            }
+
+            _ = createFactory.Received(1)(cancellationToken);
+            _ = updateFactory.DidNotReceive()(Arg.Any<int>(), cancellationToken);
+        }
+    }
+
+    [TestMethod]
+    public async Task FromValueFactory_CanceledToken_Throws()
+    {
+        // Arrange
+        Func<CancellationToken, Task<int>> factory = Substitute.For<Func<CancellationToken, Task<int>>>();
+
+        using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
+        {
+            cancellationTokenSource.Cancel();
+
+            using (ValueCacheAsync<int> cache = new ValueCacheAsync<int>(factory, TimeSpan.Zero))
+            {
+                // Act
+                _ = await Assert.ThrowsExactlyAsync<TaskCanceledException>(async () => await cache.GetValueAsync(cancellationTokenSource.Token).ConfigureAwait(false)).ConfigureAwait(false);
             }
         }
+    }
 
-        [TestMethod]
-        public async Task FromValueFactoryWithExpirationFunction_WhenCacheExpires_RefreshesCache()
+    [TestMethod]
+    public async Task FromValueFactoryWithExpirationFunction_CanceledToken_Throws()
+    {
+        // Arrange
+        Func<CancellationToken, Task<int>> factory = Substitute.For<Func<CancellationToken, Task<int>>>();
+
+        using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
         {
-            // Arrange
-            Func<CancellationToken, Task<int>> factory = Substitute.For<Func<CancellationToken, Task<int>>>();
+            cancellationTokenSource.Cancel();
 
-            _ = factory(Arg.Any<CancellationToken>()).Returns(Task.FromResult(0), Task.FromResult(1), Task.FromResult(2), Task.FromResult(3), Task.FromResult(4));
-
-            using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
+            using (ValueCacheAsync<int> cache = new ValueCacheAsync<int>(factory, _ => DateTime.UtcNow.AddMinutes(-1)))
             {
-                CancellationToken cancellationToken = cancellationTokenSource.Token;
-
-                using (ValueCacheAsync<int> cache = new ValueCacheAsync<int>(factory, _ => DateTime.UtcNow.AddMinutes(-1)))
-                {
-                    // Assert
-                    Assert.IsFalse(cache.HasValue);
-                    Assert.IsNull(cache.Expiration);
-
-                    Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-
-                    Assert.IsTrue(cache.HasValue);
-                    Assert.IsTrue(cache.Expiration <= DateTime.UtcNow);
-
-                    Assert.AreEqual(1, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-                    Assert.AreEqual(2, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-                    Assert.AreEqual(3, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-                    Assert.AreEqual(4, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-
-                    Assert.IsTrue(cache.HasValue);
-                    Assert.IsTrue(cache.Expiration <= DateTime.UtcNow);
-                }
-
-                _ = factory.Received(5)(cancellationToken);
+                // Act
+                _ = await Assert.ThrowsExactlyAsync<TaskCanceledException>(async () => await cache.GetValueAsync(cancellationTokenSource.Token).ConfigureAwait(false)).ConfigureAwait(false);
             }
         }
+    }
 
-        [TestMethod]
-        public async Task FromUpdateFactory_WhenCacheExpires_RefreshesCache()
+    [TestMethod]
+    public async Task FromUpdateFactory_CanceledToken_Throws()
+    {
+        // Arrange
+        Func<CancellationToken, Task<int>> createFactory = Substitute.For<Func<CancellationToken, Task<int>>>();
+
+        Func<int, CancellationToken, Task<int>> updateFactory = Substitute.For<Func<int, CancellationToken, Task<int>>>();
+
+        using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
         {
-            // Arrange
-            Func<CancellationToken, Task<int>> createFactory = Substitute.For<Func<CancellationToken, Task<int>>>();
+            cancellationTokenSource.Cancel();
 
-            _ = createFactory(Arg.Any<CancellationToken>()).Returns(Task.FromResult(0));
-
-            Func<int, CancellationToken, Task<int>> updateFactory = Substitute.For<Func<int, CancellationToken, Task<int>>>();
-
-            _ = updateFactory(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(x => (int)x[0] + 1);
-
-            using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
+            using (ValueCacheAsync<int> cache = new ValueCacheAsync<int>(createFactory, updateFactory, TimeSpan.Zero))
             {
-                CancellationToken cancellationToken = cancellationTokenSource.Token;
-
-                using (ValueCacheAsync<int> cache = new ValueCacheAsync<int>(createFactory, updateFactory, TimeSpan.Zero))
-                {
-                    // Assert
-                    Assert.IsFalse(cache.HasValue);
-                    Assert.IsNull(cache.Expiration);
-
-                    Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-
-                    Assert.IsTrue(cache.HasValue);
-                    Assert.IsTrue(cache.Expiration <= DateTime.UtcNow);
-
-                    Assert.AreEqual(1, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-                    Assert.AreEqual(2, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-                    Assert.AreEqual(3, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-                    Assert.AreEqual(4, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-
-                    Assert.IsTrue(cache.HasValue);
-                    Assert.IsTrue(cache.Expiration <= DateTime.UtcNow);
-                }
-
-                _ = createFactory.Received(1)(cancellationToken);
-                _ = updateFactory.Received(4)(Arg.Any<int>(), cancellationToken);
+                // Act
+                _ = await Assert.ThrowsExactlyAsync<TaskCanceledException>(async () => await cache.GetValueAsync(cancellationTokenSource.Token).ConfigureAwait(false)).ConfigureAwait(false);
             }
         }
+    }
 
-        [TestMethod]
-        public async Task FromUpdateFactoryWithExpirationFunction_WhenCacheExpires_RefreshesCache()
+    [TestMethod]
+    public async Task FromUpdateFactoryWithExpirationFunction_CanceledToken_Throws()
+    {
+        // Arrange
+        Func<CancellationToken, Task<int>> createFactory = Substitute.For<Func<CancellationToken, Task<int>>>();
+
+        Func<int, CancellationToken, Task<int>> updateFactory = Substitute.For<Func<int, CancellationToken, Task<int>>>();
+
+        using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
         {
-            // Arrange
-            Func<CancellationToken, Task<int>> createFactory = Substitute.For<Func<CancellationToken, Task<int>>>();
+            cancellationTokenSource.Cancel();
 
-            _ = createFactory(Arg.Any<CancellationToken>()).Returns(Task.FromResult(0));
-
-            Func<int, CancellationToken, Task<int>> updateFactory = Substitute.For<Func<int, CancellationToken, Task<int>>>();
-
-            _ = updateFactory(Arg.Any<int>(), Arg.Any<CancellationToken>()).Returns(x => (int)x[0] + 1);
-
-            using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
+            using (ValueCacheAsync<int> cache = new ValueCacheAsync<int>(createFactory, updateFactory, _ => DateTime.UtcNow.AddMinutes(-1)))
             {
-                CancellationToken cancellationToken = cancellationTokenSource.Token;
-
-                using (ValueCacheAsync<int> cache = new ValueCacheAsync<int>(createFactory, updateFactory, _ => DateTime.UtcNow.AddMinutes(-1)))
-                {
-                    // Assert
-                    Assert.IsFalse(cache.HasValue);
-                    Assert.IsNull(cache.Expiration);
-
-                    Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-
-                    Assert.IsTrue(cache.HasValue);
-                    Assert.IsTrue(cache.Expiration <= DateTime.UtcNow);
-
-                    Assert.AreEqual(1, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-                    Assert.AreEqual(2, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-                    Assert.AreEqual(3, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-                    Assert.AreEqual(4, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-
-                    Assert.IsTrue(cache.HasValue);
-                    Assert.IsTrue(cache.Expiration <= DateTime.UtcNow);
-                }
-
-                _ = createFactory.Received(1)(cancellationToken);
-                _ = updateFactory.Received(4)(Arg.Any<int>(), cancellationToken);
-            }
-        }
-
-        [TestMethod]
-        public async Task FromValueFactory_InfiniteTimeToLive_DoesNotRefreshCache()
-        {
-            // Arrange
-            Func<CancellationToken, Task<int>> factory = Substitute.For<Func<CancellationToken, Task<int>>>();
-
-            _ = factory(Arg.Any<CancellationToken>()).Returns(Task.FromResult(0));
-
-            using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
-            {
-                CancellationToken cancellationToken = cancellationTokenSource.Token;
-
-                using (ValueCacheAsync<int> cache = new ValueCacheAsync<int>(factory, TimeSpan.MaxValue))
-                {
-                    // Assert
-                    Assert.IsFalse(cache.HasValue);
-                    Assert.IsNull(cache.Expiration);
-
-                    Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-
-                    Assert.IsTrue(cache.HasValue);
-                    Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
-
-                    Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-                    Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-                    Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-                    Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-
-                    Assert.IsTrue(cache.HasValue);
-                    Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
-                }
-
-                _ = factory.Received(1)(cancellationToken);
-            }
-        }
-
-        [TestMethod]
-        public async Task FromValueFactoryWithExpirationFunction_CacheNotExpired_DoesNotRefreshCache()
-        {
-            // Arrange
-            Func<CancellationToken, Task<int>> factory = Substitute.For<Func<CancellationToken, Task<int>>>();
-
-            _ = factory(Arg.Any<CancellationToken>()).Returns(Task.FromResult(0));
-
-            using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
-            {
-                CancellationToken cancellationToken = cancellationTokenSource.Token;
-
-                using (ValueCacheAsync<int> cache = new ValueCacheAsync<int>(factory, _ => DateTime.UtcNow.AddMinutes(1)))
-                {
-                    // Assert
-                    Assert.IsFalse(cache.HasValue);
-                    Assert.IsNull(cache.Expiration);
-
-                    Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-
-                    Assert.IsTrue(cache.HasValue);
-                    Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
-
-                    Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-                    Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-                    Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-                    Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-
-                    Assert.IsTrue(cache.HasValue);
-                    Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
-                }
-
-                _ = factory.Received(1)(cancellationToken);
-            }
-        }
-
-        [TestMethod]
-        public async Task FromUpdateFactory_InfiniteTimeToLive_DoesNotRefreshCache()
-        {
-            // Arrange
-            Func<CancellationToken, Task<int>> createFactory = Substitute.For<Func<CancellationToken, Task<int>>>();
-
-            _ = createFactory(Arg.Any<CancellationToken>()).Returns(Task.FromResult(0));
-
-            Func<int, CancellationToken, Task<int>> updateFactory = Substitute.For<Func<int, CancellationToken, Task<int>>>();
-
-            using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
-            {
-                CancellationToken cancellationToken = cancellationTokenSource.Token;
-
-                using (ValueCacheAsync<int> cache = new ValueCacheAsync<int>(createFactory, updateFactory, TimeSpan.MaxValue))
-                {
-                    // Assert
-                    Assert.IsFalse(cache.HasValue);
-                    Assert.IsNull(cache.Expiration);
-
-                    Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-
-                    Assert.IsTrue(cache.HasValue);
-                    Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
-
-                    Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-                    Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-                    Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-                    Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-
-                    Assert.IsTrue(cache.HasValue);
-                    Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
-                }
-
-                _ = createFactory.Received(1)(cancellationToken);
-                _ = updateFactory.DidNotReceive()(Arg.Any<int>(), cancellationToken);
-            }
-        }
-
-        [TestMethod]
-        public async Task FromUpdateFactoryWithExpirationFunction_CacheNotExpired_DoesNotRefreshCache()
-        {
-            // Arrange
-            Func<CancellationToken, Task<int>> createFactory = Substitute.For<Func<CancellationToken, Task<int>>>();
-
-            _ = createFactory(Arg.Any<CancellationToken>()).Returns(Task.FromResult(0));
-
-            Func<int, CancellationToken, Task<int>> updateFactory = Substitute.For<Func<int, CancellationToken, Task<int>>>();
-
-            using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
-            {
-                CancellationToken cancellationToken = cancellationTokenSource.Token;
-
-                using (ValueCacheAsync<int> cache = new ValueCacheAsync<int>(createFactory, updateFactory, _ => DateTime.UtcNow.AddMinutes(1)))
-                {
-                    // Assert
-                    Assert.IsFalse(cache.HasValue);
-                    Assert.IsNull(cache.Expiration);
-
-                    Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-
-                    Assert.IsTrue(cache.HasValue);
-                    Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
-
-                    Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-                    Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-                    Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-                    Assert.AreEqual(0, await cache.GetValueAsync(cancellationToken).ConfigureAwait(false));
-
-                    Assert.IsTrue(cache.HasValue);
-                    Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
-                }
-
-                _ = createFactory.Received(1)(cancellationToken);
-                _ = updateFactory.DidNotReceive()(Arg.Any<int>(), cancellationToken);
-            }
-        }
-
-        [TestMethod]
-        public async Task FromValueFactory_CanceledToken_Throws()
-        {
-            // Arrange
-            Func<CancellationToken, Task<int>> factory = Substitute.For<Func<CancellationToken, Task<int>>>();
-
-            using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
-            {
-                cancellationTokenSource.Cancel();
-
-                using (ValueCacheAsync<int> cache = new ValueCacheAsync<int>(factory, TimeSpan.Zero))
-                {
-                    // Act
-                    _ = await Assert.ThrowsExactlyAsync<TaskCanceledException>(async () => await cache.GetValueAsync(cancellationTokenSource.Token).ConfigureAwait(false)).ConfigureAwait(false);
-                }
-            }
-        }
-
-        [TestMethod]
-        public async Task FromValueFactoryWithExpirationFunction_CanceledToken_Throws()
-        {
-            // Arrange
-            Func<CancellationToken, Task<int>> factory = Substitute.For<Func<CancellationToken, Task<int>>>();
-
-            using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
-            {
-                cancellationTokenSource.Cancel();
-
-                using (ValueCacheAsync<int> cache = new ValueCacheAsync<int>(factory, _ => DateTime.UtcNow.AddMinutes(-1)))
-                {
-                    // Act
-                    _ = await Assert.ThrowsExactlyAsync<TaskCanceledException>(async () => await cache.GetValueAsync(cancellationTokenSource.Token).ConfigureAwait(false)).ConfigureAwait(false);
-                }
-            }
-        }
-
-        [TestMethod]
-        public async Task FromUpdateFactory_CanceledToken_Throws()
-        {
-            // Arrange
-            Func<CancellationToken, Task<int>> createFactory = Substitute.For<Func<CancellationToken, Task<int>>>();
-
-            Func<int, CancellationToken, Task<int>> updateFactory = Substitute.For<Func<int, CancellationToken, Task<int>>>();
-
-            using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
-            {
-                cancellationTokenSource.Cancel();
-
-                using (ValueCacheAsync<int> cache = new ValueCacheAsync<int>(createFactory, updateFactory, TimeSpan.Zero))
-                {
-                    // Act
-                    _ = await Assert.ThrowsExactlyAsync<TaskCanceledException>(async () => await cache.GetValueAsync(cancellationTokenSource.Token).ConfigureAwait(false)).ConfigureAwait(false);
-                }
-            }
-        }
-
-        [TestMethod]
-        public async Task FromUpdateFactoryWithExpirationFunction_CanceledToken_Throws()
-        {
-            // Arrange
-            Func<CancellationToken, Task<int>> createFactory = Substitute.For<Func<CancellationToken, Task<int>>>();
-
-            Func<int, CancellationToken, Task<int>> updateFactory = Substitute.For<Func<int, CancellationToken, Task<int>>>();
-
-            using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
-            {
-                cancellationTokenSource.Cancel();
-
-                using (ValueCacheAsync<int> cache = new ValueCacheAsync<int>(createFactory, updateFactory, _ => DateTime.UtcNow.AddMinutes(-1)))
-                {
-                    // Act
-                    _ = await Assert.ThrowsExactlyAsync<TaskCanceledException>(async () => await cache.GetValueAsync(cancellationTokenSource.Token).ConfigureAwait(false)).ConfigureAwait(false);
-                }
+                // Act
+                _ = await Assert.ThrowsExactlyAsync<TaskCanceledException>(async () => await cache.GetValueAsync(cancellationTokenSource.Token).ConfigureAwait(false)).ConfigureAwait(false);
             }
         }
     }

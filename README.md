@@ -9,15 +9,25 @@ A library of C# core components that enhance the standard library. Supports .NET
 
 LibSharp consists of the following namespaces:
 
-* Common - contains extension methods for standard .NET types, as well commonly used utilities.
+* Common - contains extension methods for standard .NET types, as well as commonly used utilities and value types.
 * Collections - contains extension methods for standard .NET library collections, as well as additional collection types.
 * Caching - contains classes that enable in-memory value caching with custom time-to-live. Both synchronous and asynchronous versions are available.
+* Threading - contains an async-compatible lock and utilities for controlling action invocation frequency.
+
+## Performance Benchmarks
+
+BenchmarkDotNet setup and benchmark scripts are available in [`benchmarks/`](benchmarks/README.md).
 
 ## Components and Usage
 
 ### Common
 
-`Common` namespace contains the static class `Argument` for convenient validation of public function arguments, plus extension methods and utilities for built-in types like `string` and `DateTime`.
+`Common` namespace contains:
+
+* The static class `Argument` for convenient validation of public function arguments.
+* Extension methods for built-in types such as `string`, `int`, `DateTime`, `Func`, and `Regex`.
+* `Optional<T>` — a value type that wraps an optional value.
+* `Result<T, TError>` — a discriminated union value type for success/error outcomes.
 
 ```csharp
     using LibSharp.Common;
@@ -39,39 +49,60 @@ LibSharp consists of the following namespaces:
 
         Argument.OfType(objectParam, typeof(List<string>), nameof(objectParam));
 
+        // Optional<T> — wraps a value that may or may not be present
+        Optional<int> empty = default;
+        bool hasValue = empty.HasValue;             // false
+        int fallback = empty.GetValueOrDefault(-1); // -1
+
+        Optional<int> present = new Optional<int>(42);
+        hasValue = present.HasValue;                // true
+        int optValue = present.Value;               // 42
+        bool got = present.TryGetValue(out int v);  // true, v == 42
+
+        // Result<T, TError> — discriminated union for success/error outcomes
+        Result<int, string> success = Result<int, string>.Ok(42);
+        bool isSuccess = success.IsSuccess;                     // true
+        int successValue = success.Value;                       // 42
+
+        Result<int, string> failure = Result<int, string>.Fail("not found");
+        bool isError = failure.IsError;                         // true
+        string errorMessage = failure.Error;                    // "not found"
+        int valueOrDefault = failure.GetValueOrDefault(-1);     // -1
+
         // DateTime extensions
         DateTime fromEpochMilliseconds = longParam.FromEpochMilliseconds();
         DateTime fromEpochSeconds = longParam.FromEpochSeconds();
         long epochMilliseconds = DateTime.UtcNow.ToEpochMilliseconds();
         long epochSeconds = DateTime.UtcNow.ToEpochSeconds();
 
-        // Func extensions
-        Func<CancellationToken, Task<int>> task = async cancellationToken =>
+        // Func extensions — run an async operation with a cooperative timeout
+        Func<CancellationToken, Task<int>> task = async ct =>
         {
-            // Long-running operation that may not respect the cancellation token
-            await Task.CompletedTask.ConfigureAwait(false); 
-
+            // Example operation that observes cancellation
+            await Task.Delay(TimeSpan.FromSeconds(10), ct);
             return 99;
         };
 
-        int taskResult = await task.RunWithTimeout(TimeSpan.FromSeconds(1), cancellationToken).ConfigureAwait(false);
+        int taskResult = await task.RunWithTimeout(TimeSpan.FromSeconds(1), cancellationToken);
 
         // Int extensions
         bool convertedFromInt = 200.TryConvertToEnum<HttpStatusCode>(out HttpStatusCode statusCode);
 
-        // String extensions (TryConvertToEnum)
+        // String extensions
         bool convertedFromString = "OK".TryConvertToEnum<HttpStatusCode>(out HttpStatusCode statusCode2);
 
-        // Regex extensions
-        Regex regex = new Regex(pattern: "\\s+brown\\s+", options: RegexOptions.None, matchTimeout: TimeSpan.FromSeconds(1));
-        string regexResult = regex.TryReplace("the quick brown fox", " red ");
-
-        // String extensions
         string base64Encoded = stringParam.Base64Encode();
         string base64Decoded = base64Encoded.Base64Decode();
 
         string reversed = stringParam.Reverse();
         string truncated = stringParam.Truncate(10);
+
+        // Regex extensions — safe wrappers that catch RegexMatchTimeoutException
+        Regex regex = new Regex(pattern: "\\s+brown\\s+", options: RegexOptions.None, matchTimeout: TimeSpan.FromSeconds(1));
+
+        bool isMatch = regex.TryIsMatch("the quick brown fox", out bool isMatchTimedOut);
+        Match match = regex.TryMatch("the quick brown fox", out bool matchTimedOut);
+        string replaced = regex.TryReplace("the quick brown fox", " red ", out bool replaceTimedOut);
 
         // Type extensions
         IComparer<int> intComparer = TypeExtensions.GetDefaultComparer<int>();
@@ -84,12 +115,12 @@ LibSharp consists of the following namespaces:
 
 ### Collections
 
-`Collections` namespace contains various extension methods for `ICollection`, `IDictionary`, `IEnumerable` interfaces plus `MinPriorityQueue` and `MaxPriorityQueue` collections.
+`Collections` namespace contains extension methods for `ICollection`, `IDictionary`, `IEnumerable`, and `IAsyncEnumerable` interfaces, plus `ConcurrentHashSet<T>`, `MinPriorityQueue<T>`, and `MaxPriorityQueue<T>` collections.
 
 ```csharp
     using LibSharp.Collections;
 
-    public static void CollectionsExamples()
+    public static async Task CollectionsExamples(CancellationToken cancellationToken)
     {
         // ICollection extensions
         ICollection<int> collection = new List<int>();  // []
@@ -126,20 +157,40 @@ LibSharp consists of the following namespaces:
             "key",
             (keyValue, argument) => "addedValue" + argument,
             "argument");
-        
+
         IDictionary<string, string> newCopy = dictionary.Copy();
 
         IDictionary<string, string> destination = new Dictionary<string, string>();
         IDictionary<string, string> result = dictionary.CopyTo(destination);
 
         // IEnumerable extensions
-        List<List<int>> chunks = Enumerable.Range(0, 10).Chunk(20, item => item).ToList();  // [ [0, 1, 2, 3, 4, 5], [6, 7], [8, 9] ]
+        List<List<int>> chunks = Enumerable.Range(0, 10).Chunk(20, item => item).ToList();
+        // Grouped by total weight ≤ 20: [ [0, 1, 2, 3, 4, 5], [6, 7], [8, 9] ]
 
         IEnumerable<int> enumerable = Enumerable.Range(0, 100).Concat(Enumerable.Range(0, 100)).ToList();
-        int firstIndex = enumerable.FirstIndexOf(x => x == 51);
-        int lastIndex = enumerable.LastIndexOf(x => x == 51);
+        int firstIndex = enumerable.FirstIndexOf(x => x == 51);  // 51
+        int lastIndex = enumerable.LastIndexOf(x => x == 51);    // 151
 
         int[] shuffled = enumerable.Shuffle();
+
+        // IAsyncEnumerable extensions
+        IAsyncEnumerable<int> asyncEnumerable = GetNumbersAsync();
+        int asyncFirstIndex = await asyncEnumerable.FirstIndexOfAsync(x => x == 51, cancellationToken);
+        int asyncLastIndex = await asyncEnumerable.LastIndexOfAsync(x => x == 51, cancellationToken);
+
+        // ConcurrentHashSet<T> — thread-safe hash set implementing ISet<T> and IReadOnlySet<T>
+        ConcurrentHashSet<int> set = new ConcurrentHashSet<int>();
+        bool added = set.Add(1);         // true
+        added = set.Add(1);              // false — already present
+        bool contains = set.Contains(1); // true
+        bool removed = set.Remove(1);    // true
+
+        // Set algebra operations (not atomic at the collection level)
+        set.UnionWith(new[] { 2, 3 });
+        set.IntersectWith(new[] { 2, 4 });
+        set.ExceptWith(new[] { 4 });
+        bool subset = set.IsSubsetOf(new[] { 1, 2, 3 });
+        bool equal = set.SetEquals(new[] { 2 });
 
         // Min priority queue
         MinPriorityQueue<int> minPq = new MinPriorityQueue<int>();
@@ -147,9 +198,10 @@ LibSharp consists of the following namespaces:
         minPq.Enqueue(1);
         minPq.Enqueue(3);
 
-        _ = minPq.Dequeue();    // 1
-        _ = minPq.Dequeue();    // 2
-        _ = minPq.Dequeue();    // 3
+        _ = minPq.Peek();    // 1 — smallest element, not removed
+        _ = minPq.Dequeue(); // 1
+        _ = minPq.Dequeue(); // 2
+        _ = minPq.Dequeue(); // 3
 
         // Max priority queue
         MaxPriorityQueue<int> maxPq = new MaxPriorityQueue<int>();
@@ -157,9 +209,59 @@ LibSharp consists of the following namespaces:
         maxPq.Enqueue(1);
         maxPq.Enqueue(3);
 
-        _ = maxPq.Dequeue();    // 3
-        _ = maxPq.Dequeue();    // 2
-        _ = maxPq.Dequeue();    // 1
+        _ = maxPq.Peek();    // 3 — largest element, not removed
+        _ = maxPq.Dequeue(); // 3
+        _ = maxPq.Dequeue(); // 2
+        _ = maxPq.Dequeue(); // 1
+    }
+
+    private static async IAsyncEnumerable<int> GetNumbersAsync()
+    {
+        for (int i = 0; i < 200; i++)
+        {
+            await Task.Yield();
+            yield return i;
+        }
+    }
+```
+
+### Threading
+
+`Threading` namespace contains an async-compatible mutual exclusion lock and utilities for controlling how frequently an action can fire.
+
+```csharp
+    using LibSharp.Threading;
+
+    public static async Task ThreadingExamples(CancellationToken cancellationToken)
+    {
+        // AsyncLock — async-compatible mutual exclusion lock (not re-entrant)
+        using AsyncLock asyncLock = new AsyncLock();
+
+        using (AsyncLock.Handle handle = await asyncLock.AcquireAsync(cancellationToken))
+        {
+            // Only one caller can be inside this block at a time
+        }
+
+        // DebouncedAction — fires only after a quiet period since the last invocation
+        using DebouncedAction debounced = new DebouncedAction(
+            () => Console.WriteLine("Fired"),
+            delay: TimeSpan.FromMilliseconds(300));
+
+        debounced.Invoke(); // timer starts
+        debounced.Invoke(); // timer resets
+        debounced.Invoke(); // timer resets again — action fires 300 ms after this last call
+        // Important: do not call debounced.Dispose() from inside its callback.
+        // Dispose waits for callback completion and can deadlock in that pattern.
+
+        // ThrottledAction — executes at most once per interval
+        ThrottledAction throttled = new ThrottledAction(
+            () => Console.WriteLine("Fired"),
+            interval: TimeSpan.FromSeconds(1));
+
+        throttled.Invoke(); // executes immediately
+        throttled.Invoke(); // ignored — within the 1-second window
+        await Task.Delay(TimeSpan.FromSeconds(1));
+        throttled.Invoke(); // executes again — window has expired
     }
 ```
 
@@ -175,7 +277,7 @@ Notes:
 
 #### Lazy
 
-Two different implementations of async lazy values are available - `LazyAsyncPublicationOnly` and `LazyAsyncExecutionAndPublication`. Those are async versions of `System.Lazy` class with `LazyThreadSafetyMode.PublicationOnly` and `LazyThreadSafetyMode.ExecutionAndPublication` modes respectively. The reason that async lazy implementations are separate classes is that `LazyAsyncExecutionAndPublication` implements `IDisposable` due to its usage of an instance of `SemaphoreSlim` whereas `LazyAsyncPublicationOnly` does not need to implement `IDisposable`.
+Two different implementations of async lazy values are available — `LazyAsyncPublicationOnly` and `LazyAsyncExecutionAndPublication`. Those are async versions of `System.Lazy` class with `LazyThreadSafetyMode.PublicationOnly` and `LazyThreadSafetyMode.ExecutionAndPublication` modes respectively. The reason that async lazy implementations are separate classes is that `LazyAsyncExecutionAndPublication` implements `IDisposable` due to its usage of an instance of `SemaphoreSlim` whereas `LazyAsyncPublicationOnly` does not need to implement `IDisposable`.
 
 ```csharp
     using LibSharp.Caching;
@@ -262,7 +364,7 @@ Note that `ValueCacheAsync` guarantees `LazyThreadSafetyMode.ExecutionAndPublica
         hasValue = cache.HasValue;      // true
 
         Thread.Sleep(10);
-        value = cache.GetValue();       // factory invoked
+        value = cache.GetValue();       // factory invoked again — TTL expired
         hasValue = cache.HasValue;      // true
     }
 
@@ -270,19 +372,19 @@ Note that `ValueCacheAsync` guarantees `LazyThreadSafetyMode.ExecutionAndPublica
     {
         using ValueCacheAsync<int> cache = new ValueCacheAsync<int>(factory, TimeSpan.FromMilliseconds(1));
 
-        bool hasValue = cache.HasValue;                                     // false
-        int value = await cache.GetValueAsync(cancellationToken);           // factory invoked
-        hasValue = cache.HasValue;                                          // true
+        bool hasValue = cache.HasValue;                             // false
+        int value = await cache.GetValueAsync(cancellationToken);   // factory invoked
+        hasValue = cache.HasValue;                                  // true
 
         await Task.Delay(10);
-        value = await cache.GetValueAsync(cancellationToken);               // factory invoked
-        hasValue = cache.HasValue;                                          // true
+        value = await cache.GetValueAsync(cancellationToken);       // factory invoked again — TTL expired
+        hasValue = cache.HasValue;                                  // true
     }
 ```
 
 #### Key-Value Caches
 
-Key-value caches allow to cache and automatically refresh multiple values within a single data structure.
+Key-value caches allow caching and automatically refreshing multiple values within a single data structure.
 
 ```csharp
     using LibSharp.Caching;
@@ -312,21 +414,38 @@ Key-value caches allow to cache and automatically refresh multiple values within
 
 #### Proactive Async Cache
 
-`ProactiveAsyncCache` is an async cache that proactively refreshes its value in the background before it expires. It starts a background loop that re-fetches the value at a configurable interval. A pre-fetch offset allows the refresh to happen before the current value expires, ensuring callers always get a fresh value without waiting for the factory.
+`ProactiveAsyncCache` is an async cache that proactively refreshes its value in the background before it expires. It starts a background loop that re-fetches the value at a configurable interval. A pre-fetch offset allows refresh to happen before expiration, reducing the chance that callers need to wait for the factory.
 
 ```csharp
     using LibSharp.Caching;
 
     public static async Task ProactiveAsyncCacheExample(Func<CancellationToken, Task<int>> factory, CancellationToken cancellationToken)
     {
+        // Default options: background loop starts automatically, stale reads disabled
         await using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
             factory,
             refreshInterval: TimeSpan.FromMinutes(5),
             preFetchOffset: TimeSpan.FromSeconds(30));
 
-        bool hasValue = cache.HasValue;                                     // false (until first background fetch completes)
-        int value = await cache.GetValueAsync(cancellationToken);           // factory invoked if background fetch hasn't completed yet
-        hasValue = cache.HasValue;                                          // true
-        value = await cache.GetValueAsync(cancellationToken);               // returns cached value
+        bool hasValue = cache.HasValue;                             // false — until first background fetch completes
+        int value = await cache.GetValueAsync(cancellationToken);   // waits for background fetch if not yet complete
+        hasValue = cache.HasValue;                                  // true
+        value = await cache.GetValueAsync(cancellationToken);       // returns cached value
+    }
+
+    public static async Task ProactiveAsyncCacheWithOptionsExample(Func<CancellationToken, Task<int>> factory, CancellationToken cancellationToken)
+    {
+        await using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            factory,
+            refreshInterval: TimeSpan.FromMinutes(5),
+            preFetchOffset: TimeSpan.FromSeconds(30),
+            options: new ProactiveAsyncCacheOptions
+            {
+                AllowStaleReads = true,                             // return the previous value while a refresh is in progress
+                RefreshTimeout = TimeSpan.FromSeconds(10),          // per-refresh operation timeout
+                OnBackgroundRefreshError = ex => Log.Error(ex),     // called when a background refresh throws
+            });
+
+        int value = await cache.GetValueAsync(cancellationToken);
     }
 ```

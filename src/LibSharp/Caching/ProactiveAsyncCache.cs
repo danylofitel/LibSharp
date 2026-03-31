@@ -1,4 +1,4 @@
-// Copyright (c) LibSharp. All rights reserved.
+﻿// Copyright (c) LibSharp. All rights reserved.
 
 using System;
 using System.Threading;
@@ -19,25 +19,23 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, I
     /// <param name="valueFactory">The value factory.</param>
     /// <param name="refreshInterval">The interval at which the cache should be refreshed.</param>
     /// <param name="preFetchOffset">The offset before the refresh interval to pre-fetch the value.</param>
-    /// <param name="allowStaleReads">When true, readers receive the stale cached value immediately while a background refresh runs. When false (default), readers block until the refresh completes.</param>
-    /// <param name="refreshTimeout">Optional timeout for each individual refresh operation. When set, a refresh that exceeds this duration is cancelled.</param>
-    /// <param name="onBackgroundRefreshError">Optional callback invoked when a background refresh fails (excluding disposal-triggered cancellation).</param>
+    /// <param name="options">Optional configuration. When <c>null</c>, defaults are used (auto-start enabled, stale reads disabled).</param>
     public ProactiveAsyncCache(
         Func<CancellationToken, Task<T>> valueFactory,
         TimeSpan refreshInterval,
         TimeSpan preFetchOffset,
-        bool allowStaleReads = false,
-        TimeSpan? refreshTimeout = null,
-        Action<Exception> onBackgroundRefreshError = null)
+        ProactiveAsyncCacheOptions options = null)
     {
         Argument.NotNull(valueFactory, nameof(valueFactory));
         Argument.GreaterThan(refreshInterval, TimeSpan.Zero, nameof(refreshInterval));
         Argument.GreaterThanOrEqualTo(preFetchOffset, TimeSpan.Zero, nameof(preFetchOffset));
         Argument.LessThan(preFetchOffset, refreshInterval, nameof(preFetchOffset));
 
-        if (refreshTimeout.HasValue)
+        options ??= new ProactiveAsyncCacheOptions();
+
+        if (options.RefreshTimeout.HasValue)
         {
-            Argument.GreaterThan(refreshTimeout.Value, TimeSpan.Zero, nameof(refreshTimeout));
+            Argument.GreaterThan(options.RefreshTimeout.Value, TimeSpan.Zero, nameof(options.RefreshTimeout));
         }
 
         m_cts = new CancellationTokenSource();
@@ -46,9 +44,14 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, I
         m_fetchFunc = valueFactory;
         m_refreshInterval = refreshInterval;
         m_preFetchOffset = preFetchOffset;
-        m_allowStaleReads = allowStaleReads;
-        m_refreshTimeout = refreshTimeout;
-        m_onBackgroundRefreshError = onBackgroundRefreshError;
+        m_allowStaleReads = options.AllowStaleReads;
+        m_refreshTimeout = options.RefreshTimeout;
+        m_onBackgroundRefreshError = options.OnBackgroundRefreshError;
+
+        if (options.AutoStart)
+        {
+            Start();
+        }
     }
 
     /// <summary>
@@ -401,5 +404,16 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, I
     private int m_isDisposed;
     private int m_isStarted;
 
-    private sealed record CacheSnapshot(T Value, DateTime ExpirationTime);
+    private sealed record CacheSnapshot
+    {
+        public CacheSnapshot(T value, DateTime expirationTime)
+        {
+            Value = value;
+            ExpirationTime = expirationTime;
+        }
+
+        public T Value { get; }
+
+        public DateTime ExpirationTime { get; }
+    }
 }

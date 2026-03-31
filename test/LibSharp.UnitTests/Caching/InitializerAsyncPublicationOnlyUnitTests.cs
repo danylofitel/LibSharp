@@ -7,41 +7,40 @@ using LibSharp.Caching;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
-namespace LibSharp.UnitTests.Caching
+namespace LibSharp.UnitTests.Caching;
+
+[TestClass]
+public class InitializerAsyncPublicationOnlyUnitTests
 {
-    [TestClass]
-    public class InitializerAsyncPublicationOnlyUnitTests
+    [TestMethod]
+    public async Task FromValueFactory()
     {
-        [TestMethod]
-        public async Task FromValueFactory()
+        // Arrange
+        Func<CancellationToken, Task<int>> factory = Substitute.For<Func<CancellationToken, Task<int>>>();
+
+        _ = factory(Arg.Any<CancellationToken>()).Returns(Task.FromResult(5));
+
+        InitializerAsyncPublicationOnly<int> lazy = new InitializerAsyncPublicationOnly<int>();
+
+        using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
         {
-            // Arrange
-            Func<CancellationToken, Task<int>> factory = Substitute.For<Func<CancellationToken, Task<int>>>();
+            CancellationToken cancellationToken = cancellationTokenSource.Token;
 
-            _ = factory(Arg.Any<CancellationToken>()).Returns(Task.FromResult(5));
+            // Assert
+            Assert.IsFalse(lazy.HasValue);
+            _ = factory.DidNotReceive()(cancellationToken);
 
-            InitializerAsyncPublicationOnly<int> lazy = new InitializerAsyncPublicationOnly<int>();
+            Assert.AreEqual(5, await lazy.GetValueAsync(factory, cancellationToken).ConfigureAwait(false));
 
-            using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
-            {
-                CancellationToken cancellationToken = cancellationTokenSource.Token;
+            Assert.IsTrue(lazy.HasValue);
+            _ = factory.Received(1)(cancellationToken);
 
-                // Assert
-                Assert.IsFalse(lazy.HasValue);
-                _ = factory.DidNotReceive()(cancellationToken);
+            Assert.AreEqual(5, await lazy.GetValueAsync(factory, cancellationToken).ConfigureAwait(false));
+            Assert.AreEqual(5, await lazy.GetValueAsync(factory, cancellationToken).ConfigureAwait(false));
+            Assert.AreEqual(5, await lazy.GetValueAsync(factory, cancellationToken).ConfigureAwait(false));
 
-                Assert.AreEqual(5, await lazy.GetValueAsync(factory, cancellationToken).ConfigureAwait(false));
-
-                Assert.IsTrue(lazy.HasValue);
-                _ = factory.Received(1)(cancellationToken);
-
-                Assert.AreEqual(5, await lazy.GetValueAsync(factory, cancellationToken).ConfigureAwait(false));
-                Assert.AreEqual(5, await lazy.GetValueAsync(factory, cancellationToken).ConfigureAwait(false));
-                Assert.AreEqual(5, await lazy.GetValueAsync(factory, cancellationToken).ConfigureAwait(false));
-
-                Assert.IsTrue(lazy.HasValue);
-                _ = factory.Received(1)(cancellationToken);
-            }
+            Assert.IsTrue(lazy.HasValue);
+            _ = factory.Received(1)(cancellationToken);
         }
     }
 }

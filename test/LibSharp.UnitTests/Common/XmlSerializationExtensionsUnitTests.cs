@@ -4,23 +4,23 @@ using System.Collections.Generic;
 using LibSharp.Common;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace LibSharp.UnitTests.Common
+namespace LibSharp.UnitTests.Common;
+
+[TestClass]
+public class XmlSerializationExtensionsUnitTests
 {
-    [TestClass]
-    public class XmlSerializationExtensionsUnitTests
+    [TestMethod]
+    public void XmlSerializationTest()
     {
-        [TestMethod]
-        public void XmlSerializationTest()
-        {
-            // Arrange
-            List<string> original = new List<string> { "a", "bb", "ccc" };
+        // Arrange
+        List<string> original = new List<string> { "a", "bb", "ccc" };
 
-            // Act
-            string serialized = original.SerializeToXml();
-            List<string> deserialized = serialized.DeserializeFromXml<List<string>>();
+        // Act
+        string serialized = original.SerializeToXml();
+        List<string> deserialized = serialized.DeserializeFromXml<List<string>>();
 
-            // Assert
-            CollectionAssert.AreEquivalent(original, deserialized);
-        }
+        // Assert
+        CollectionAssert.AreEquivalent(original, deserialized);
     }
 }
+

@@ -1,0 +1,139 @@
+name: Benchmarks
+
+on:
+  workflow_dispatch:
+    inputs:
+      filter:
+        description: BenchmarkDotNet filter expression
+        required: false
+        default: '*'
+        type: string
+      compare_previous_commit:
+        description: Run benchmarks on previous commit and compare
+        required: false
+        default: false
+        type: boolean
+      regression_threshold:
+        description: Fail if mean regression exceeds this percentage (0 disables)
+        required: false
+        default: '0'
+        type: string
+  push:
+    branches:
+      - main
+    paths:
+      - src/**
+      - benchmarks/**
+      - LibSharp.sln
+      - .github/workflows/benchmarks.yml
+  schedule:
+    - cron: '0 4 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: benchmarks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  benchmarks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Resolve run labels and filter
+        id: vars
+        shell: bash
+        run: |
+          echo "before_label=before-${{ github.run_id }}-${{ github.run_attempt }}" >> "$GITHUB_OUTPUT"
+          echo "after_label=after-${{ github.run_id }}-${{ github.run_attempt }}" >> "$GITHUB_OUTPUT"
+
+          FILTER='*'
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ inputs.filter }}" ]; then
+            FILTER='${{ inputs.filter }}'
+          fi
+
+          echo "filter=$FILTER" >> "$GITHUB_OUTPUT"
+
+      - name: Restore dependencies
+        run: dotnet restore LibSharp.sln
+
+      - name: Run benchmarks (current commit)
+        shell: pwsh
+        run: |
+          ./benchmarks/run-benchmarks.ps1 -Label "${{ steps.vars.outputs.after_label }}" -Filter "${{ steps.vars.outputs.filter }}"
+
+      - name: Upload benchmark artifacts (current commit)
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results-${{ steps.vars.outputs.after_label }}
+          path: benchmarks/results/${{ steps.vars.outputs.after_label }}
+          if-no-files-found: error
+
+      - name: Detect previous commit
+        id: prev
+        if: github.event_name == 'workflow_dispatch' && inputs.compare_previous_commit
+        shell: bash
+        run: |
+          if git rev-parse --verify HEAD^ >/dev/null 2>&1; then
+            echo "has_previous=true" >> "$GITHUB_OUTPUT"
+            echo "previous_sha=$(git rev-parse HEAD^)" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_previous=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run benchmarks (previous commit)
+        id: previous
+        if: github.event_name == 'workflow_dispatch' && inputs.compare_previous_commit && steps.prev.outputs.has_previous == 'true'
+        shell: bash
+        run: |
+          CURRENT_SHA="${{ github.sha }}"
+          PREVIOUS_SHA="${{ steps.prev.outputs.previous_sha }}"
+
+          echo "comparison_ready=false" >> "$GITHUB_OUTPUT"
+
+          git checkout --detach "$PREVIOUS_SHA"
+
+          if [ ! -f "benchmarks/run-benchmarks.ps1" ]; then
+            echo "Skipping previous commit benchmark run: benchmarks script not found."
+            git checkout --detach "$CURRENT_SHA"
+            exit 0
+          fi
+
+          pwsh ./benchmarks/run-benchmarks.ps1 -Label "${{ steps.vars.outputs.before_label }}" -Filter "${{ steps.vars.outputs.filter }}"
+
+          git checkout --detach "$CURRENT_SHA"
+          echo "comparison_ready=true" >> "$GITHUB_OUTPUT"
+
+      - name: Compare benchmark runs
+        if: github.event_name == 'workflow_dispatch' && inputs.compare_previous_commit && steps.prev.outputs.has_previous == 'true' && steps.previous.outputs.comparison_ready == 'true'
+        shell: pwsh
+        run: |
+          [double]$threshold = 0
+          [double]::TryParse('${{ inputs.regression_threshold }}', [ref]$threshold) | Out-Null
+
+          ./benchmarks/compare-benchmarks.ps1 `
+            -Before "${{ steps.vars.outputs.before_label }}" `
+            -After "${{ steps.vars.outputs.after_label }}" `
+            -RegressionThreshold $threshold
+
+      - name: Upload benchmark artifacts (comparison)
+        if: github.event_name == 'workflow_dispatch' && inputs.compare_previous_commit && steps.prev.outputs.has_previous == 'true' && steps.previous.outputs.comparison_ready == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-comparison-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            benchmarks/results/${{ steps.vars.outputs.before_label }}
+            benchmarks/results/comparison-${{ steps.vars.outputs.after_label }}-vs-${{ steps.vars.outputs.before_label }}.csv
+          if-no-files-found: warn
