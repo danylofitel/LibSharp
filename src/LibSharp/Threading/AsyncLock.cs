@@ -4,7 +4,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace LibSharp.Common
+namespace LibSharp.Threading
 {
     /// <summary>
     /// An async-compatible mutual exclusion lock.

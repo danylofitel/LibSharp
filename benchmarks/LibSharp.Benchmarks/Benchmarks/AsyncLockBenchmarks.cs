@@ -1,7 +1,7 @@
 using System.Threading;
 using System.Threading.Tasks;
 using BenchmarkDotNet.Attributes;
-using LibSharp.Common;
+using LibSharp.Threading;
 
 namespace LibSharp.Benchmarks.Benchmarks
 {

@@ -3,10 +3,10 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using LibSharp.Common;
+using LibSharp.Threading;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
-namespace LibSharp.UnitTests.Common
+namespace LibSharp.UnitTests.Threading
 {
     [TestClass]
     public class AsyncLockUnitTests
