@@ -1,6 +1,6 @@
 ﻿# Changelog
 
-- 3.0.0: Added AsyncLock. Renamed Box to Optional, allowed null values.
+- 3.0.0: Added AsyncLock. Renamed Box to Optional, allowed null values. ProactiveAsyncCache constructor now accepts ProactiveAsyncCacheOptions with more controls.
 - 2.0.4: More robust disposal of async caches in edge cases.
 - 2.0.3: ProactiveAsyncCache now calculates retry delay based on refresh interval and pre-fetch offset. Minor bug fixes and improvements.
 - 2.0.2: ProactiveAsyncCache now supports an optional refreshTimeout parameter. Minor bug fixes and improvements.

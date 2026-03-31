@@ -36,7 +36,7 @@ namespace LibSharp.UnitTests.Caching
         }
 
         [TestMethod]
-        public void Constructor_DoesNotStartBackgroundTask()
+        public void Constructor_DoesNotStartBackgroundTask_WhenAutoStartIsDisabled()
         {
             // Arrange
             int callCount = 0;
@@ -47,7 +47,8 @@ namespace LibSharp.UnitTests.Caching
                     return Task.FromResult(42);
                 },
                 TimeSpan.FromHours(1),
-                TimeSpan.Zero);
+                TimeSpan.Zero,
+                new ProactiveAsyncCacheOptions { AutoStart = false });
 
             // Assert — factory cannot be called without Start() or GetValueAsync()
             Assert.AreEqual(0, callCount);
@@ -95,8 +96,12 @@ namespace LibSharp.UnitTests.Caching
         [TestMethod]
         public void HasValue_ReturnsFalseBeforeFirstFetch()
         {
-            // Arrange
-            using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.FromHours(1), TimeSpan.Zero);
+            // Arrange — disable auto-start so no background fetch races with the assertion
+            using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+                _ => Task.FromResult(42),
+                TimeSpan.FromHours(1),
+                TimeSpan.Zero,
+                new ProactiveAsyncCacheOptions { AutoStart = false });
 
             // Act & Assert
             Assert.IsFalse(cache.HasValue);
@@ -105,8 +110,12 @@ namespace LibSharp.UnitTests.Caching
         [TestMethod]
         public void Expiration_ReturnsNullBeforeFirstFetch()
         {
-            // Arrange
-            using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.FromHours(1), TimeSpan.Zero);
+            // Arrange — disable auto-start so no background fetch races with the assertion
+            using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+                _ => Task.FromResult(42),
+                TimeSpan.FromHours(1),
+                TimeSpan.Zero,
+                new ProactiveAsyncCacheOptions { AutoStart = false });
 
             // Act & Assert
             Assert.IsNull(cache.Expiration);
@@ -428,7 +437,7 @@ namespace LibSharp.UnitTests.Caching
                 },
                 TimeSpan.FromMilliseconds(100),
                 TimeSpan.Zero,
-                allowStaleReads: true);
+                new ProactiveAsyncCacheOptions { AllowStaleReads = true });
 
             // Act — get the first value
             int first = await cache.GetValueAsync().ConfigureAwait(false);
@@ -473,7 +482,7 @@ namespace LibSharp.UnitTests.Caching
                 },
                 TimeSpan.FromMilliseconds(100),
                 TimeSpan.Zero,
-                allowStaleReads: true);
+                new ProactiveAsyncCacheOptions { AllowStaleReads = true });
 
             // Act — get the first value
             int first = await cache.GetValueAsync().ConfigureAwait(false);
@@ -510,8 +519,7 @@ namespace LibSharp.UnitTests.Caching
                 },
                 TimeSpan.FromMilliseconds(300),
                 TimeSpan.FromMilliseconds(150),
-                allowStaleReads: true);
-            cache.Start();
+                new ProactiveAsyncCacheOptions { AllowStaleReads = true });
 
             try
             {
@@ -629,7 +637,7 @@ namespace LibSharp.UnitTests.Caching
         [TestMethod]
         public async Task GetValueAsync_FactoryThrows_CanRetrySuccessfully()
         {
-            // Arrange
+            // Arrange — auto-start disabled so GetValueAsync drives call 1 (which throws)
             int callCount = 0;
 
             using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
@@ -644,7 +652,8 @@ namespace LibSharp.UnitTests.Caching
                     return Task.FromResult(42);
                 },
                 TimeSpan.FromHours(1),
-                TimeSpan.Zero);
+                TimeSpan.Zero,
+                new ProactiveAsyncCacheOptions { AutoStart = false });
 
             // Act — first call fails
             _ = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
@@ -801,12 +810,14 @@ namespace LibSharp.UnitTests.Caching
                 },
                 TimeSpan.FromMilliseconds(200),
                 TimeSpan.FromMilliseconds(50),
-                onBackgroundRefreshError: ex =>
+                new ProactiveAsyncCacheOptions
                 {
-                    capturedError = ex;
-                    _ = errorSignal.Release();
+                    OnBackgroundRefreshError = ex =>
+                    {
+                        capturedError = ex;
+                        _ = errorSignal.Release();
+                    },
                 });
-            cache.Start();
 
             try
             {
@@ -834,7 +845,7 @@ namespace LibSharp.UnitTests.Caching
         [TestMethod]
         public async Task GetValueAsync_WorksWithoutCallingStart()
         {
-            // Arrange
+            // Arrange — auto-start disabled; GetValueAsync should trigger fetches on its own
             int callCount = 0;
             using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
                 (CancellationToken ct) =>
@@ -843,7 +854,8 @@ namespace LibSharp.UnitTests.Caching
                     return Task.FromResult(result);
                 },
                 TimeSpan.FromMilliseconds(100),
-                TimeSpan.Zero);
+                TimeSpan.Zero,
+                new ProactiveAsyncCacheOptions { AutoStart = false });
 
             // Act — use the cache without ever calling Start
             int first = await cache.GetValueAsync().ConfigureAwait(false);
@@ -899,7 +911,7 @@ namespace LibSharp.UnitTests.Caching
         [TestMethod]
         public async Task GetValueAsync_AllowStaleReads_Enabled_WorksWithoutCallingStart()
         {
-            // Arrange
+            // Arrange — auto-start disabled; GetValueAsync should trigger fetches on its own
             int callCount = 0;
             using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
                 (CancellationToken ct) =>
@@ -909,7 +921,7 @@ namespace LibSharp.UnitTests.Caching
                 },
                 TimeSpan.FromMilliseconds(100),
                 TimeSpan.Zero,
-                allowStaleReads: true);
+                new ProactiveAsyncCacheOptions { AutoStart = false, AllowStaleReads = true });
 
             // Act — use the cache without ever calling Start
             int first = await cache.GetValueAsync().ConfigureAwait(false);
@@ -937,7 +949,7 @@ namespace LibSharp.UnitTests.Caching
                     _ => Task.FromResult(42),
                     TimeSpan.FromMinutes(1),
                     TimeSpan.Zero,
-                    refreshTimeout: TimeSpan.Zero).Dispose());
+                    new ProactiveAsyncCacheOptions { RefreshTimeout = TimeSpan.Zero }).Dispose());
         }
 
         [TestMethod]
@@ -948,7 +960,7 @@ namespace LibSharp.UnitTests.Caching
                     _ => Task.FromResult(42),
                     TimeSpan.FromMinutes(1),
                     TimeSpan.Zero,
-                    refreshTimeout: TimeSpan.FromSeconds(-1)).Dispose());
+                    new ProactiveAsyncCacheOptions { RefreshTimeout = TimeSpan.FromSeconds(-1) }).Dispose());
         }
 
         [TestMethod]
@@ -972,7 +984,7 @@ namespace LibSharp.UnitTests.Caching
                 },
                 TimeSpan.FromMilliseconds(100),
                 TimeSpan.Zero,
-                refreshTimeout: TimeSpan.FromMilliseconds(200));
+                new ProactiveAsyncCacheOptions { RefreshTimeout = TimeSpan.FromMilliseconds(200) });
 
             // Act — first call succeeds normally
             int first = await cache.GetValueAsync().ConfigureAwait(false);
@@ -993,6 +1005,9 @@ namespace LibSharp.UnitTests.Caching
             // Arrange
             int callCount = 0;
 
+            // Auto-start disabled: GetValueAsync drives call 1; the background's call 2
+            // is the one that hangs and times out. With auto-start the shifted call numbering
+            // causes call 3 to fire within the assertion window.
             using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
                 async (CancellationToken ct) =>
                 {
@@ -1008,8 +1023,7 @@ namespace LibSharp.UnitTests.Caching
                 },
                 TimeSpan.FromMilliseconds(100),
                 TimeSpan.Zero,
-                allowStaleReads: true,
-                refreshTimeout: TimeSpan.FromMilliseconds(200));
+                new ProactiveAsyncCacheOptions { AutoStart = false, AllowStaleReads = true, RefreshTimeout = TimeSpan.FromMilliseconds(200) });
 
             // First call succeeds
             int first = await cache.GetValueAsync().ConfigureAwait(false);
@@ -1041,7 +1055,7 @@ namespace LibSharp.UnitTests.Caching
                 },
                 TimeSpan.FromHours(1),
                 TimeSpan.Zero,
-                refreshTimeout: TimeSpan.FromSeconds(5));
+                new ProactiveAsyncCacheOptions { RefreshTimeout = TimeSpan.FromSeconds(5) });
 
             // Act
             int value = await cache.GetValueAsync().ConfigureAwait(false);
@@ -1082,9 +1096,7 @@ namespace LibSharp.UnitTests.Caching
                 },
                 TimeSpan.FromMilliseconds(200),
                 TimeSpan.FromMilliseconds(50),
-                refreshTimeout: TimeSpan.FromMilliseconds(500));
-
-            cache.Start();
+                new ProactiveAsyncCacheOptions { RefreshTimeout = TimeSpan.FromMilliseconds(500) });
 
             // Wait for initial fetch
             int first = await cache.GetValueAsync().ConfigureAwait(false);
@@ -1125,13 +1137,14 @@ namespace LibSharp.UnitTests.Caching
                 // Retry delay = (refreshInterval - preFetchOffset) / 2 = 75ms.
                 TimeSpan.FromMilliseconds(200),
                 TimeSpan.FromMilliseconds(50),
-                onBackgroundRefreshError: ex =>
+                new ProactiveAsyncCacheOptions
                 {
-                    capturedError = ex;
-                    _ = errorSignal.Release();
+                    OnBackgroundRefreshError = ex =>
+                    {
+                        capturedError = ex;
+                        _ = errorSignal.Release();
+                    },
                 });
-
-            cache.Start();
 
             try
             {
@@ -1182,12 +1195,13 @@ namespace LibSharp.UnitTests.Caching
                 },
                 TimeSpan.FromMilliseconds(200),
                 TimeSpan.FromMilliseconds(50),
-                onBackgroundRefreshError: ex =>
+                new ProactiveAsyncCacheOptions
                 {
-                    throw new InvalidOperationException("Callback threw!");
+                    OnBackgroundRefreshError = ex =>
+                    {
+                        throw new InvalidOperationException("Callback threw!");
+                    },
                 });
-
-            cache.Start();
 
             try
             {
@@ -1247,12 +1261,13 @@ namespace LibSharp.UnitTests.Caching
                 },
                 TimeSpan.FromMilliseconds(200),
                 TimeSpan.FromMilliseconds(50),
-                onBackgroundRefreshError: ex =>
+                new ProactiveAsyncCacheOptions
                 {
-                    throw new InvalidOperationException("Callback explodes");
+                    OnBackgroundRefreshError = ex =>
+                    {
+                        throw new InvalidOperationException("Callback explodes");
+                    },
                 });
-
-            cache.Start();
 
             try
             {
