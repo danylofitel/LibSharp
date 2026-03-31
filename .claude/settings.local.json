@@ -4,7 +4,8 @@
       "Bash(dotnet build:*)",
       "Bash(dotnet test:*)",
       "Bash(powershell.exe -Command \"Get-Process -Name testhost -ErrorAction SilentlyContinue | Stop-Process -Force; Write-Host done\")",
-      "Bash(git mv:*)"
+      "Bash(git mv:*)",
+      "Bash(dotnet pack:*)"
     ]
   }
 }
