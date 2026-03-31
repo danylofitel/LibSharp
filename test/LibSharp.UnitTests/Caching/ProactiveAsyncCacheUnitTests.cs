@@ -1,6 +1,7 @@
-﻿// Copyright (c) LibSharp. All rights reserved.
+// Copyright (c) LibSharp. All rights reserved.
 
 using System;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,6 +13,8 @@ namespace LibSharp.UnitTests.Caching;
 [TestClass]
 public class ProactiveAsyncCacheUnitTests
 {
+    // ── Constructor validation ────────────────────────────────────────────
+
     [TestMethod]
     public void Constructor_ThrowsOnNullFactory()
     {
@@ -49,131 +52,57 @@ public class ProactiveAsyncCacheUnitTests
     }
 
     [TestMethod]
-    public async Task Constructor_DoesNotStartBackgroundTask_WhenAutoStartIsDisabled()
+    public async Task Constructor_WithSmallestValidRefreshWindow_ClampsRetryDelayToPositive()
     {
-        // Arrange
-        int callCount = 0;
+        // Arrange — refreshInterval=2 ticks, preFetchOffset=1 tick; (2-1)/2=0, must clamp to 1.
+        TaskCompletionSource<int> tcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
         ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
-            ct =>
-            {
-                _ = Interlocked.Increment(ref callCount);
-                return Task.FromResult(42);
-            },
-            TimeSpan.FromHours(1),
-            TimeSpan.Zero,
-            new ProactiveAsyncCacheOptions { AutoStart = false });
+            _ => tcs.Task,
+            TimeSpan.FromTicks(2),
+            TimeSpan.FromTicks(1));
         await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
-        // Assert — factory cannot be called without Start() or GetValueAsync()
-        Assert.AreEqual(0, callCount);
+        FieldInfo retryDelayField = typeof(ProactiveAsyncCache<int>).GetField("m_retryDelay", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.IsNotNull(retryDelayField, "Could not find m_retryDelay field.");
+        TimeSpan retryDelay = (TimeSpan)retryDelayField.GetValue(cache);
+
+        Assert.IsTrue(retryDelay > TimeSpan.Zero, $"Expected a positive retry delay, but got {retryDelay}.");
+
+        tcs.SetResult(0);
     }
 
-    [TestMethod]
-    public async Task Start_TriggersInitialFetch()
-    {
-        // Arrange
-        int callCount = 0;
-        using SemaphoreSlim fetchSignal = new SemaphoreSlim(0);
-
-        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
-            ct =>
-            {
-                _ = Interlocked.Increment(ref callCount);
-                _ = fetchSignal.Release();
-                return Task.FromResult(42);
-            },
-            TimeSpan.FromHours(1),
-            TimeSpan.Zero);
-
-        try
-        {
-            // Act
-            cache.Start();
-            bool fetched = await fetchSignal.WaitAsync(TimeSpan.FromSeconds(5), TestContext.CancellationToken).ConfigureAwait(false);
-
-            // Assert — Start should have triggered the initial fetch
-            Assert.IsTrue(fetched, "Start did not trigger the initial fetch.");
-            Assert.AreEqual(1, callCount);
-
-            // fetchSignal fires inside the factory, before FetchAndUpdateAsync writes
-            // m_snapshot. GetValueAsync awaits the same fetch task, so it returns only
-            // after the snapshot is committed — eliminating the race on HasValue.
-            _ = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
-            Assert.IsTrue(cache.HasValue);
-        }
-        finally
-        {
-            await cache.DisposeAsync().ConfigureAwait(false);
-        }
-    }
+    // ── HasValue / Expiration ─────────────────────────────────────────────
 
     [TestMethod]
     public async Task HasValue_ReturnsFalseBeforeFirstFetch()
     {
-        // Arrange — disable auto-start so no background fetch races with the assertion
+        // Arrange — factory blocks so HasValue is guaranteed false on the first read.
+        TaskCompletionSource<int> tcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
         ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
-            _ => Task.FromResult(42),
+            _ => tcs.Task,
             TimeSpan.FromHours(1),
-            TimeSpan.Zero,
-            new ProactiveAsyncCacheOptions { AutoStart = false });
+            TimeSpan.Zero);
         await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
-        // Act & Assert
         Assert.IsFalse(cache.HasValue);
+
+        tcs.SetResult(42);
     }
 
     [TestMethod]
     public async Task Expiration_ReturnsNullBeforeFirstFetch()
     {
-        // Arrange — disable auto-start so no background fetch races with the assertion
+        // Arrange — factory blocks so Expiration is guaranteed null on the first read.
+        TaskCompletionSource<int> tcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
         ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
-            _ => Task.FromResult(42),
-            TimeSpan.FromHours(1),
-            TimeSpan.Zero,
-            new ProactiveAsyncCacheOptions { AutoStart = false });
-        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
-
-        // Act & Assert
-        Assert.IsNull(cache.Expiration);
-    }
-
-    [TestMethod]
-    public async Task GetValueAsync_ReturnsValueFromFactory()
-    {
-        // Arrange
-        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.FromHours(1), TimeSpan.Zero);
-        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
-
-        // Act
-        int value = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
-
-        // Assert
-        Assert.AreEqual(42, value);
-    }
-
-    [TestMethod]
-    public async Task GetValueAsync_ReturnsCachedValueOnSubsequentCalls()
-    {
-        // Arrange
-        int callCount = 0;
-        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
-            ct =>
-            {
-                int result = Interlocked.Increment(ref callCount);
-                return Task.FromResult(result);
-            },
+            _ => tcs.Task,
             TimeSpan.FromHours(1),
             TimeSpan.Zero);
         await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
-        // Act
-        int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
-        int second = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+        Assert.IsNull(cache.Expiration);
 
-        // Assert
-        Assert.AreEqual(1, first);
-        Assert.AreEqual(1, second);
-        Assert.AreEqual(1, callCount);
+        tcs.SetResult(42);
     }
 
     [TestMethod]
@@ -227,26 +156,45 @@ public class ProactiveAsyncCacheUnitTests
         _ = Assert.ThrowsExactly<ObjectDisposedException>(() => _ = cache.Expiration);
     }
 
+    // ── GetValueAsync ─────────────────────────────────────────────────────
+
     [TestMethod]
-    public async Task GetValueAsync_ThrowsWhenDisposed()
+    public async Task GetValueAsync_ReturnsValueFromFactory()
     {
         // Arrange
         ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.FromHours(1), TimeSpan.Zero);
-        await cache.DisposeAsync().ConfigureAwait(false);
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
-        // Act & Assert
-        _ = await Assert.ThrowsExactlyAsync<ObjectDisposedException>(
-            async () => await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false)).ConfigureAwait(false);
+        // Act
+        int value = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+
+        // Assert
+        Assert.AreEqual(42, value);
     }
 
     [TestMethod]
-    public async Task DisposeAsync_CanBeCalledSafely()
+    public async Task GetValueAsync_ReturnsCachedValueOnSubsequentCalls()
     {
         // Arrange
-        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.FromHours(1), TimeSpan.Zero);
+        int callCount = 0;
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            ct =>
+            {
+                int result = Interlocked.Increment(ref callCount);
+                return Task.FromResult(result);
+            },
+            TimeSpan.FromHours(1),
+            TimeSpan.Zero);
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         // Act
-        await cache.DisposeAsync().ConfigureAwait(false);
+        int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+        int second = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+
+        // Assert
+        Assert.AreEqual(1, first);
+        Assert.AreEqual(1, second);
+        Assert.AreEqual(1, callCount);
     }
 
     [TestMethod]
@@ -264,304 +212,15 @@ public class ProactiveAsyncCacheUnitTests
     }
 
     [TestMethod]
-    public async Task Start_CanBeCalledOnce()
-    {
-        // Arrange & Act
-        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.FromHours(1), TimeSpan.Zero);
-        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
-        cache.Start();
-    }
-
-    [TestMethod]
-    public async Task Start_IsIdempotent()
-    {
-        // Arrange
-        int callCount = 0;
-        using SemaphoreSlim fetchSignal = new SemaphoreSlim(0);
-
-        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
-            ct =>
-            {
-                _ = Interlocked.Increment(ref callCount);
-                _ = fetchSignal.Release();
-                return Task.FromResult(42);
-            },
-            TimeSpan.FromHours(1),
-            TimeSpan.Zero);
-
-        try
-        {
-            // Act — calling Start multiple times should trigger exactly one fetch
-            cache.Start();
-            cache.Start();
-            cache.Start();
-
-            _ = await fetchSignal.WaitAsync(TimeSpan.FromSeconds(5), TestContext.CancellationToken).ConfigureAwait(false);
-
-            // Assert — factory called exactly once. The signal fires inside the factory
-            // before it returns, and SemaphoreSlim resumes waiters asynchronously, so by
-            // the time WaitAsync returns the factory has already completed. With a 1-hour
-            // refresh interval no spontaneous re-trigger is possible.
-            Assert.AreEqual(1, callCount);
-        }
-        finally
-        {
-            await cache.DisposeAsync().ConfigureAwait(false);
-        }
-    }
-
-    [TestMethod]
-    public async Task Start_ThrowsWhenDisposed()
+    public async Task GetValueAsync_ThrowsWhenDisposed()
     {
         // Arrange
         ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.FromHours(1), TimeSpan.Zero);
         await cache.DisposeAsync().ConfigureAwait(false);
 
         // Act & Assert
-        _ = Assert.ThrowsExactly<ObjectDisposedException>(() => cache.Start());
-    }
-
-    [TestMethod]
-    public async Task DisposeAsync_CanBeCalledTwice()
-    {
-        // Arrange
-        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.FromHours(1), TimeSpan.Zero);
-
-        // Act — should not throw
-        await cache.DisposeAsync().ConfigureAwait(false);
-        await cache.DisposeAsync().ConfigureAwait(false);
-    }
-
-    [TestMethod]
-    public async Task DisposeAsync_WithBackgroundTaskRunning()
-    {
-        // Arrange
-        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.FromHours(1), TimeSpan.Zero);
-        cache.Start();
-        _ = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
-
-        // Act — should stop the background task cleanly
-        await cache.DisposeAsync().ConfigureAwait(false);
-    }
-
-    [TestMethod]
-    public async Task BackgroundRefresh_RefreshesValueBeforeExpiration()
-    {
-        // Arrange
-        int callCount = 0;
-        using SemaphoreSlim fetchSignal = new SemaphoreSlim(0);
-
-        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
-            ct =>
-            {
-                int result = Interlocked.Increment(ref callCount);
-                _ = fetchSignal.Release();
-                return Task.FromResult(result);
-            },
-            TimeSpan.FromMilliseconds(100),
-            TimeSpan.FromMilliseconds(20));
-        cache.Start();
-
-        try
-        {
-            // Act — trigger the first fetch
-            int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
-            Assert.AreEqual(1, first);
-
-            // Consume the signal from the first fetch
-            _ = await fetchSignal.WaitAsync(TimeSpan.FromSeconds(5), TestContext.CancellationToken).ConfigureAwait(false);
-
-            // Wait for the background pre-fetch to trigger
-            bool refreshed = await fetchSignal.WaitAsync(TimeSpan.FromSeconds(5), TestContext.CancellationToken).ConfigureAwait(false);
-            Assert.IsTrue(refreshed, "Background refresh did not occur within the expected time.");
-
-            // Assert — value should have been refreshed. The factory uses Task.FromResult
-            // (synchronous), so FetchAndUpdateAsync writes m_snapshot before the semaphore
-            // waiter is scheduled. The snapshot is already updated when WaitAsync returns.
-            int second = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
-            Assert.AreEqual(2, second);
-        }
-        finally
-        {
-            await cache.DisposeAsync().ConfigureAwait(false);
-        }
-    }
-
-    [TestMethod]
-    public async Task BackgroundRefresh_WithPreFetchOffset_RefreshesEarly()
-    {
-        // Arrange
-        int callCount = 0;
-        using SemaphoreSlim fetchSignal = new SemaphoreSlim(0);
-
-        // refreshInterval = 200ms, preFetchOffset = 100ms → background fires at ~100ms
-        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
-            ct =>
-            {
-                int result = Interlocked.Increment(ref callCount);
-                _ = fetchSignal.Release();
-                return Task.FromResult(result);
-            },
-            TimeSpan.FromMilliseconds(200),
-            TimeSpan.FromMilliseconds(100));
-        cache.Start();
-
-        try
-        {
-            // Trigger the first fetch
-            int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
-            Assert.AreEqual(1, first);
-            _ = await fetchSignal.WaitAsync(TimeSpan.FromSeconds(5), TestContext.CancellationToken).ConfigureAwait(false);
-
-            // The background refresh should fire ~200ms after the first fetch
-            DateTime beforeRefresh = DateTime.UtcNow;
-            bool refreshed = await fetchSignal.WaitAsync(TimeSpan.FromSeconds(5), TestContext.CancellationToken).ConfigureAwait(false);
-            Assert.IsTrue(refreshed, "Background refresh did not occur.");
-
-            // The refresh should happen well before the 600ms expiration
-            TimeSpan elapsed = DateTime.UtcNow - beforeRefresh;
-            Assert.IsLessThan(TimeSpan.FromMilliseconds(500), elapsed, $"Refresh took too long: {elapsed.TotalMilliseconds}ms.");
-        }
-        finally
-        {
-            await cache.DisposeAsync().ConfigureAwait(false);
-        }
-    }
-
-    [TestMethod]
-    public async Task GetValueAsync_ReturnsStaleValueWhileRefreshing()
-    {
-        // Arrange
-        int callCount = 0;
-        TaskCompletionSource<int> secondFetchTcs = new TaskCompletionSource<int>();
-
-        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
-            ct =>
-            {
-                int count = Interlocked.Increment(ref callCount);
-                if (count == 1)
-                {
-                    return Task.FromResult(100);
-                }
-
-                // Second fetch is slow — controlled by TCS
-                return secondFetchTcs.Task;
-            },
-            TimeSpan.FromMilliseconds(50),
-            TimeSpan.Zero,
-            new ProactiveAsyncCacheOptions { AllowStaleReads = true });
-        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
-
-        // Act — get the first value
-        int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
-        Assert.AreEqual(100, first);
-
-        // Wait for expiration
-        await Task.Delay(80, TestContext.CancellationToken).ConfigureAwait(false);
-
-        // Get the value again — should return the stale value immediately,
-        // not block on the slow second fetch
-        int stale = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
-        Assert.AreEqual(100, stale);
-
-        // Complete the background fetch
-        secondFetchTcs.SetResult(200);
-        await Task.Yield();
-
-        // Now the refreshed value should be available
-        int refreshed = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
-        Assert.AreEqual(200, refreshed);
-    }
-
-    [TestMethod]
-    public async Task GetValueAsync_ReturnsStaleValueWhenFactoryFails()
-    {
-        // Arrange
-        int callCount = 0;
-        using SemaphoreSlim fetchSignal = new SemaphoreSlim(0);
-
-        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
-            ct =>
-            {
-                int count = Interlocked.Increment(ref callCount);
-                _ = fetchSignal.Release();
-
-                if (count >= 2)
-                {
-                    throw new InvalidOperationException("Factory error");
-                }
-
-                return Task.FromResult(42);
-            },
-            TimeSpan.FromMilliseconds(50),
-            TimeSpan.Zero,
-            new ProactiveAsyncCacheOptions { AllowStaleReads = true });
-        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
-
-        // Act — get the first value
-        int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
-        Assert.AreEqual(42, first);
-        _ = await fetchSignal.WaitAsync(TimeSpan.FromSeconds(5), TestContext.CancellationToken).ConfigureAwait(false);
-
-        // Wait for expiration
-        await Task.Delay(80, TestContext.CancellationToken).ConfigureAwait(false);
-
-        // Get the value again — should return the stale value, not throw
-        int stale = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
-        Assert.AreEqual(42, stale);
-    }
-
-    [TestMethod]
-    public async Task GetValueAsync_SlowFactory_ReadersNeverBlock()
-    {
-        // Simulates refreshInterval=2s, preFetchOffset=1s with a factory that
-        // sometimes takes longer than the pre-fetch window.
-        int callCount = 0;
-        TaskCompletionSource<int> slowFetchTcs = new TaskCompletionSource<int>();
-
-        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
-            ct =>
-            {
-                int count = Interlocked.Increment(ref callCount);
-                if (count == 2)
-                {
-                    // Second fetch is very slow — simulates Cosmos DB latency spike
-                    return slowFetchTcs.Task;
-                }
-
-                return Task.FromResult(count * 10);
-            },
-            TimeSpan.FromMilliseconds(100),
-            TimeSpan.FromMilliseconds(50),
-            new ProactiveAsyncCacheOptions { AllowStaleReads = true });
-
-        try
-        {
-            // First fetch
-            int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
-            Assert.AreEqual(10, first);
-
-            // Wait past expiration (background pre-fetch triggers at ~50ms but is slow)
-            await Task.Delay(120, TestContext.CancellationToken).ConfigureAwait(false);
-
-            // Reader should get the stale value immediately, not block
-            Task<int> readerTask = cache.GetValueAsync(TestContext.CancellationToken);
-            Assert.IsTrue(readerTask.IsCompleted, "Reader should not block when stale value is available.");
-            int stale = await readerTask.ConfigureAwait(false);
-            Assert.AreEqual(10, stale);
-
-            // Complete the slow fetch
-            slowFetchTcs.SetResult(20);
-            await Task.Yield();
-
-            // Now the fresh value should be available
-            int fresh = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
-            Assert.AreEqual(20, fresh);
-        }
-        finally
-        {
-            await cache.DisposeAsync().ConfigureAwait(false);
-        }
+        _ = await Assert.ThrowsExactlyAsync<ObjectDisposedException>(
+            async () => await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false)).ConfigureAwait(false);
     }
 
     [TestMethod]
@@ -652,37 +311,382 @@ public class ProactiveAsyncCacheUnitTests
     }
 
     [TestMethod]
-    public async Task GetValueAsync_FactoryThrows_CanRetrySuccessfully()
+    public async Task GetValueAsync_AllowStaleReads_Disabled_BlocksOnExpiredValue()
     {
-        // Arrange — auto-start disabled so GetValueAsync drives call 1 (which throws)
+        // Arrange — default mode (allowStaleReads: false)
         int callCount = 0;
+        TaskCompletionSource<int> secondFetchTcs = new TaskCompletionSource<int>();
 
         ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
-            _ =>
+            ct =>
             {
                 int count = Interlocked.Increment(ref callCount);
                 if (count == 1)
                 {
-                    throw new InvalidOperationException("Transient failure");
+                    return Task.FromResult(100);
+                }
+
+                return secondFetchTcs.Task;
+            },
+            TimeSpan.FromMilliseconds(50),
+            TimeSpan.Zero);
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
+
+        // First call
+        int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+        Assert.AreEqual(100, first);
+
+        // Wait for expiration
+        await Task.Delay(80, TestContext.CancellationToken).ConfigureAwait(false);
+
+        // Second call — should block because allowStaleReads is false
+        Task<int> blockedReader = cache.GetValueAsync(TestContext.CancellationToken);
+        Assert.IsFalse(blockedReader.IsCompleted, "Reader should block when allowStaleReads is false.");
+
+        // Complete the fetch
+        secondFetchTcs.SetResult(200);
+        int refreshed = await blockedReader.ConfigureAwait(false);
+        Assert.AreEqual(200, refreshed);
+    }
+
+    [TestMethod]
+    public async Task GetValueAsync_ReturnsStaleValueWhileRefreshing()
+    {
+        // Arrange
+        int callCount = 0;
+        TaskCompletionSource<int> secondFetchTcs = new TaskCompletionSource<int>();
+
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            ct =>
+            {
+                int count = Interlocked.Increment(ref callCount);
+                if (count == 1)
+                {
+                    return Task.FromResult(100);
+                }
+
+                // Second fetch is slow — controlled by TCS
+                return secondFetchTcs.Task;
+            },
+            TimeSpan.FromMilliseconds(50),
+            TimeSpan.Zero,
+            allowStaleReads: true);
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
+
+        // Act — get the first value
+        int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+        Assert.AreEqual(100, first);
+
+        // Wait for expiration
+        await Task.Delay(80, TestContext.CancellationToken).ConfigureAwait(false);
+
+        // Get the value again — should return the stale value immediately,
+        // not block on the slow second fetch
+        int stale = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+        Assert.AreEqual(100, stale);
+
+        // Complete the background fetch
+        secondFetchTcs.SetResult(200);
+        await Task.Yield();
+
+        // Now the refreshed value should be available
+        int refreshed = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+        Assert.AreEqual(200, refreshed);
+    }
+
+    [TestMethod]
+    public async Task GetValueAsync_ReturnsStaleValueWhenFactoryFails()
+    {
+        // Arrange
+        int callCount = 0;
+        using SemaphoreSlim fetchSignal = new SemaphoreSlim(0);
+
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            ct =>
+            {
+                int count = Interlocked.Increment(ref callCount);
+                _ = fetchSignal.Release();
+
+                if (count >= 2)
+                {
+                    throw new InvalidOperationException("Factory error");
                 }
 
                 return Task.FromResult(42);
             },
-            TimeSpan.FromHours(1),
+            TimeSpan.FromMilliseconds(50),
             TimeSpan.Zero,
-            new ProactiveAsyncCacheOptions { AutoStart = false });
+            allowStaleReads: true);
         await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
-        // Act — first call fails
-        _ = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
-            () => cache.GetValueAsync(TestContext.CancellationToken)).ConfigureAwait(false);
+        // Act — get the first value
+        int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+        Assert.AreEqual(42, first);
+        _ = await fetchSignal.WaitAsync(TimeSpan.FromSeconds(5), TestContext.CancellationToken).ConfigureAwait(false);
 
-        // Second call should succeed with a new fetch
-        int value = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+        // Wait for expiration
+        await Task.Delay(80, TestContext.CancellationToken).ConfigureAwait(false);
 
-        // Assert
-        Assert.AreEqual(42, value);
-        Assert.AreEqual(2, callCount);
+        // Get the value again — should return the stale value, not throw
+        int stale = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+        Assert.AreEqual(42, stale);
+    }
+
+    [TestMethod]
+    public async Task GetValueAsync_SlowFactory_ReadersNeverBlock()
+    {
+        // Simulates refreshInterval=2s, preFetchOffset=1s with a factory that
+        // sometimes takes longer than the pre-fetch window.
+        int callCount = 0;
+        TaskCompletionSource<int> slowFetchTcs = new TaskCompletionSource<int>();
+
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            ct =>
+            {
+                int count = Interlocked.Increment(ref callCount);
+                if (count == 2)
+                {
+                    // Second fetch is very slow — simulates Cosmos DB latency spike
+                    return slowFetchTcs.Task;
+                }
+
+                return Task.FromResult(count * 10);
+            },
+            TimeSpan.FromMilliseconds(100),
+            TimeSpan.FromMilliseconds(50),
+            allowStaleReads: true);
+
+        try
+        {
+            // First fetch
+            int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+            Assert.AreEqual(10, first);
+
+            // Wait past expiration (background pre-fetch triggers at ~50ms but is slow)
+            await Task.Delay(120, TestContext.CancellationToken).ConfigureAwait(false);
+
+            // Reader should get the stale value immediately, not block
+            Task<int> readerTask = cache.GetValueAsync(TestContext.CancellationToken);
+            Assert.IsTrue(readerTask.IsCompleted, "Reader should not block when stale value is available.");
+            int stale = await readerTask.ConfigureAwait(false);
+            Assert.AreEqual(10, stale);
+
+            // Complete the slow fetch
+            slowFetchTcs.SetResult(20);
+            await Task.Yield();
+
+            // Now the fresh value should be available
+            int fresh = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+            Assert.AreEqual(20, fresh);
+        }
+        finally
+        {
+            await cache.DisposeAsync().ConfigureAwait(false);
+        }
+    }
+
+    // ── Disposal ──────────────────────────────────────────────────────────
+
+    [TestMethod]
+    public async Task DisposeAsync_CanBeCalledSafely()
+    {
+        // Arrange
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.FromHours(1), TimeSpan.Zero);
+
+        // Act
+        await cache.DisposeAsync().ConfigureAwait(false);
+    }
+
+    [TestMethod]
+    public async Task DisposeAsync_CanBeCalledTwice()
+    {
+        // Arrange
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.FromHours(1), TimeSpan.Zero);
+
+        // Act — should not throw
+        await cache.DisposeAsync().ConfigureAwait(false);
+        await cache.DisposeAsync().ConfigureAwait(false);
+    }
+
+    [TestMethod]
+    public async Task DisposeAsync_WithBackgroundTaskRunning()
+    {
+        // Arrange
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.FromHours(1), TimeSpan.Zero);
+        _ = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+
+        // Act — should stop the background task cleanly
+        await cache.DisposeAsync().ConfigureAwait(false);
+    }
+
+    [TestMethod]
+    public async Task DisposeAsync_WithBackgroundTaskRunning_CompletesCleanly()
+    {
+        // Arrange — exercises the DisposeAsync() path with an active background task.
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            _ => Task.FromResult(42),
+            TimeSpan.FromHours(1),
+            TimeSpan.Zero);
+        _ = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+
+        // Act — async dispose should cancel and wait for the background task
+        await cache.DisposeAsync().ConfigureAwait(false);
+
+        // Assert — accessing the cache after DisposeAsync should throw
+        _ = Assert.ThrowsExactly<ObjectDisposedException>(() => _ = cache.HasValue);
+    }
+
+    [TestMethod]
+    public async Task DisposeAsync_WhileCallerIsAwaitingFetch()
+    {
+        // Arrange
+        TaskCompletionSource<int> fetchTcs = new TaskCompletionSource<int>();
+
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            ct =>
+            {
+                // Register cancellation so the fetch completes when disposed
+                _ = ct.Register(() => fetchTcs.TrySetCanceled(ct));
+                return fetchTcs.Task;
+            },
+            TimeSpan.FromHours(1),
+            TimeSpan.Zero);
+
+        // Start a GetValueAsync that will block on the slow factory
+        Task<int> getTask = cache.GetValueAsync(TestContext.CancellationToken);
+
+        // Act — dispose while the caller is still waiting
+        await cache.DisposeAsync().ConfigureAwait(false);
+
+        // Assert — the caller observes ObjectDisposedException because the cache was disposed
+        _ = await Assert.ThrowsExactlyAsync<ObjectDisposedException>(() => getTask).ConfigureAwait(false);
+    }
+
+    [TestMethod]
+    public async Task DisposeAsync_WhileInFlightFetchIsRunning_WaitsForFetchToComplete()
+    {
+        // Verifies the m_pendingFetch drain path in DisposeAsync. The background loop starts
+        // an initial fetch immediately; if the factory ignores cancellation, DisposeAsync
+        // must block until the factory completes rather than returning while m_snapshot is
+        // still being mutated.
+        using SemaphoreSlim factoryStarted = new SemaphoreSlim(0, 1);
+        TaskCompletionSource<int> factoryTcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        int factoryCompleteCount = 0;
+
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            async ct =>
+            {
+                _ = factoryStarted.Release();
+                // Deliberately ignore ct: the factory must complete after DisposeAsync
+                // is blocking on m_pendingFetch, regardless of CTS cancellation.
+                int value = await factoryTcs.Task.ConfigureAwait(false);
+                _ = Interlocked.Increment(ref factoryCompleteCount);
+                return value;
+            },
+            TimeSpan.FromHours(1),
+            TimeSpan.Zero);
+
+        // Wait for the background loop's initial fetch to start.
+        await factoryStarted.WaitAsync(TestContext.CancellationToken).ConfigureAwait(false);
+
+        // Start disposal — it must block waiting for the in-flight fetch.
+        Task disposeTask = cache.DisposeAsync().AsTask();
+
+        // Give disposal time to reach its await on m_pendingFetch. Without the drain,
+        // it would complete immediately (<1ms); with it, it must block here.
+        await Task.Delay(50, TestContext.CancellationToken).ConfigureAwait(false);
+        Assert.IsFalse(disposeTask.IsCompleted, "DisposeAsync should be blocked waiting for the in-flight fetch.");
+
+        // Unblock the factory — disposal can now drain and complete.
+        factoryTcs.SetResult(42);
+        await disposeTask.ConfigureAwait(false);
+
+        // Assert — factory ran and wrote its result before DisposeAsync returned.
+        Assert.AreEqual(1, factoryCompleteCount);
+    }
+
+    // ── Background refresh ────────────────────────────────────────────────
+
+    [TestMethod]
+    public async Task BackgroundRefresh_RefreshesValueBeforeExpiration()
+    {
+        // Arrange
+        int callCount = 0;
+        using SemaphoreSlim fetchSignal = new SemaphoreSlim(0);
+
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            ct =>
+            {
+                int result = Interlocked.Increment(ref callCount);
+                _ = fetchSignal.Release();
+                return Task.FromResult(result);
+            },
+            TimeSpan.FromMilliseconds(100),
+            TimeSpan.FromMilliseconds(20));
+
+        try
+        {
+            // Act — trigger the first fetch
+            int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+            Assert.AreEqual(1, first);
+
+            // Consume the signal from the first fetch
+            _ = await fetchSignal.WaitAsync(TimeSpan.FromSeconds(5), TestContext.CancellationToken).ConfigureAwait(false);
+
+            // Wait for the background pre-fetch to trigger
+            bool refreshed = await fetchSignal.WaitAsync(TimeSpan.FromSeconds(5), TestContext.CancellationToken).ConfigureAwait(false);
+            Assert.IsTrue(refreshed, "Background refresh did not occur within the expected time.");
+
+            // Assert — value should have been refreshed. The factory uses Task.FromResult
+            // (synchronous), so FetchAndUpdateAsync writes m_snapshot before the semaphore
+            // waiter is scheduled. The snapshot is already updated when WaitAsync returns.
+            int second = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+            Assert.AreEqual(2, second);
+        }
+        finally
+        {
+            await cache.DisposeAsync().ConfigureAwait(false);
+        }
+    }
+
+    [TestMethod]
+    public async Task BackgroundRefresh_WithPreFetchOffset_RefreshesEarly()
+    {
+        // Arrange
+        int callCount = 0;
+        using SemaphoreSlim fetchSignal = new SemaphoreSlim(0);
+
+        // refreshInterval = 200ms, preFetchOffset = 100ms → background fires at ~100ms
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            ct =>
+            {
+                int result = Interlocked.Increment(ref callCount);
+                _ = fetchSignal.Release();
+                return Task.FromResult(result);
+            },
+            TimeSpan.FromMilliseconds(200),
+            TimeSpan.FromMilliseconds(100));
+
+        try
+        {
+            // Trigger the first fetch
+            int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+            Assert.AreEqual(1, first);
+            _ = await fetchSignal.WaitAsync(TimeSpan.FromSeconds(5), TestContext.CancellationToken).ConfigureAwait(false);
+
+            // The background refresh should fire ~200ms after the first fetch
+            DateTime beforeRefresh = DateTime.UtcNow;
+            bool refreshed = await fetchSignal.WaitAsync(TimeSpan.FromSeconds(5), TestContext.CancellationToken).ConfigureAwait(false);
+            Assert.IsTrue(refreshed, "Background refresh did not occur.");
+
+            // The refresh should happen well before the 600ms expiration
+            TimeSpan elapsed = DateTime.UtcNow - beforeRefresh;
+            Assert.IsLessThan(TimeSpan.FromMilliseconds(500), elapsed, $"Refresh took too long: {elapsed.TotalMilliseconds}ms.");
+        }
+        finally
+        {
+            await cache.DisposeAsync().ConfigureAwait(false);
+        }
     }
 
     [TestMethod]
@@ -707,7 +711,6 @@ public class ProactiveAsyncCacheUnitTests
             },
             TimeSpan.FromMilliseconds(100),
             TimeSpan.FromMilliseconds(20));
-        cache.Start();
 
         try
         {
@@ -752,7 +755,6 @@ public class ProactiveAsyncCacheUnitTests
             },
             TimeSpan.FromMilliseconds(200),
             TimeSpan.FromMilliseconds(40));
-        cache.Start();
 
         try
         {
@@ -779,375 +781,12 @@ public class ProactiveAsyncCacheUnitTests
     }
 
     [TestMethod]
-    public async Task DisposeAsync_WhileCallerIsAwaitingFetch()
-    {
-        // Arrange
-        TaskCompletionSource<int> fetchTcs = new TaskCompletionSource<int>();
-
-        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
-            ct =>
-            {
-                // Register cancellation so the fetch completes when disposed
-                _ = ct.Register(() => fetchTcs.TrySetCanceled(ct));
-                return fetchTcs.Task;
-            },
-            TimeSpan.FromHours(1),
-            TimeSpan.Zero);
-
-        // Start a GetValueAsync that will block on the slow factory
-        Task<int> getTask = cache.GetValueAsync(TestContext.CancellationToken);
-
-        // Act — dispose while the caller is still waiting
-        await cache.DisposeAsync().ConfigureAwait(false);
-
-        // Assert — the caller observes ObjectDisposedException because the cache was disposed
-        _ = await Assert.ThrowsExactlyAsync<ObjectDisposedException>(() => getTask).ConfigureAwait(false);
-    }
-
-    [TestMethod]
-    public async Task BackgroundRefresh_OnErrorCallback_IsInvokedOnFailure()
-    {
-        // Arrange
-        int callCount = 0;
-        Exception capturedError = null;
-        using SemaphoreSlim errorSignal = new SemaphoreSlim(0);
-        using SemaphoreSlim fetchSignal = new SemaphoreSlim(0);
-
-        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
-            ct =>
-            {
-                int count = Interlocked.Increment(ref callCount);
-                _ = fetchSignal.Release();
-
-                if (count == 2)
-                {
-                    throw new InvalidOperationException("Background failure");
-                }
-
-                return Task.FromResult(count);
-            },
-            TimeSpan.FromMilliseconds(100),
-            TimeSpan.FromMilliseconds(20),
-            new ProactiveAsyncCacheOptions
-            {
-                OnBackgroundRefreshError = ex =>
-                {
-                    capturedError = ex;
-                    _ = errorSignal.Release();
-                },
-            });
-
-        try
-        {
-            // Trigger the first fetch
-            int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
-            Assert.AreEqual(1, first);
-            _ = await fetchSignal.WaitAsync(TimeSpan.FromSeconds(5), TestContext.CancellationToken).ConfigureAwait(false);
-
-            // Wait for the background to fail on the second fetch
-            _ = await fetchSignal.WaitAsync(TimeSpan.FromSeconds(5), TestContext.CancellationToken).ConfigureAwait(false);
-
-            // Wait for the error callback to be invoked
-            bool errorReceived = await errorSignal.WaitAsync(TimeSpan.FromSeconds(5), TestContext.CancellationToken).ConfigureAwait(false);
-            Assert.IsTrue(errorReceived, "Error callback was not invoked.");
-            Assert.IsNotNull(capturedError);
-            _ = Assert.IsInstanceOfType<InvalidOperationException>(capturedError);
-            Assert.AreEqual("Background failure", capturedError.Message);
-        }
-        finally
-        {
-            await cache.DisposeAsync().ConfigureAwait(false);
-        }
-    }
-
-    [TestMethod]
-    public async Task GetValueAsync_WorksWithoutCallingStart()
-    {
-        // Arrange — auto-start disabled; GetValueAsync should trigger fetches on its own
-        int callCount = 0;
-        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
-            ct =>
-            {
-                int result = Interlocked.Increment(ref callCount);
-                return Task.FromResult(result);
-            },
-            TimeSpan.FromMilliseconds(50),
-            TimeSpan.Zero,
-            new ProactiveAsyncCacheOptions { AutoStart = false });
-        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
-
-        // Act — use the cache without ever calling Start
-        int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
-        Assert.AreEqual(1, first);
-
-        // Wait for expiration
-        await Task.Delay(80, TestContext.CancellationToken).ConfigureAwait(false);
-
-        // Default mode (allowStaleReads: false): blocks until new value is fetched
-        int second = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
-        Assert.AreEqual(2, second);
-        Assert.AreEqual(2, callCount);
-    }
-
-    [TestMethod]
-    public async Task GetValueAsync_AllowStaleReads_Disabled_BlocksOnExpiredValue()
-    {
-        // Arrange — default mode (allowStaleReads: false)
-        int callCount = 0;
-        TaskCompletionSource<int> secondFetchTcs = new TaskCompletionSource<int>();
-
-        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
-            ct =>
-            {
-                int count = Interlocked.Increment(ref callCount);
-                if (count == 1)
-                {
-                    return Task.FromResult(100);
-                }
-
-                return secondFetchTcs.Task;
-            },
-            TimeSpan.FromMilliseconds(50),
-            TimeSpan.Zero);
-        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
-
-        // First call
-        int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
-        Assert.AreEqual(100, first);
-
-        // Wait for expiration
-        await Task.Delay(80, TestContext.CancellationToken).ConfigureAwait(false);
-
-        // Second call — should block because allowStaleReads is false
-        Task<int> blockedReader = cache.GetValueAsync(TestContext.CancellationToken);
-        Assert.IsFalse(blockedReader.IsCompleted, "Reader should block when allowStaleReads is false.");
-
-        // Complete the fetch
-        secondFetchTcs.SetResult(200);
-        int refreshed = await blockedReader.ConfigureAwait(false);
-        Assert.AreEqual(200, refreshed);
-    }
-
-    [TestMethod]
-    public async Task GetValueAsync_AllowStaleReads_Enabled_WorksWithoutCallingStart()
-    {
-        // Arrange — auto-start disabled; GetValueAsync should trigger fetches on its own
-        int callCount = 0;
-        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
-            ct =>
-            {
-                int result = Interlocked.Increment(ref callCount);
-                return Task.FromResult(result);
-            },
-            TimeSpan.FromMilliseconds(50),
-            TimeSpan.Zero,
-            new ProactiveAsyncCacheOptions { AutoStart = false, AllowStaleReads = true });
-        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
-
-        // Act — use the cache without ever calling Start
-        int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
-        Assert.AreEqual(1, first);
-
-        // Wait for expiration
-        await Task.Delay(80, TestContext.CancellationToken).ConfigureAwait(false);
-
-        // Stale-while-revalidate: returns stale value immediately
-        int second = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
-        Assert.AreEqual(1, second);
-        await Task.Yield();
-
-        // After the background fetch completes, the refreshed value is available
-        int third = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
-        Assert.AreEqual(2, third);
-        Assert.AreEqual(2, callCount);
-    }
-
-    [TestMethod]
-    public void Constructor_ThrowsOnZeroRefreshTimeout()
-    {
-        _ = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
-        {
-            _ = new ProactiveAsyncCache<int>(
-                _ => Task.FromResult(42),
-                TimeSpan.FromMinutes(1),
-                TimeSpan.Zero,
-                new ProactiveAsyncCacheOptions { RefreshTimeout = TimeSpan.Zero });
-        });
-    }
-
-    [TestMethod]
-    public void Constructor_ThrowsOnNegativeRefreshTimeout()
-    {
-        _ = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
-        {
-            _ = new ProactiveAsyncCache<int>(
-                _ => Task.FromResult(42),
-                TimeSpan.FromMinutes(1),
-                TimeSpan.Zero,
-                new ProactiveAsyncCacheOptions { RefreshTimeout = TimeSpan.FromSeconds(-1) });
-        });
-    }
-
-    [TestMethod]
-    public async Task RefreshTimeout_CancelsSlowFactory()
-    {
-        // Arrange — factory that never completes on its own
-        int callCount = 0;
-
-        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
-            async ct =>
-            {
-                int count = Interlocked.Increment(ref callCount);
-                if (count == 1)
-                {
-                    return 42;
-                }
-
-                // Second call: simulate a hang that respects cancellation
-                await Task.Delay(Timeout.InfiniteTimeSpan, ct).ConfigureAwait(false);
-                return 99; // Never reached
-            },
-            TimeSpan.FromMilliseconds(50),
-            TimeSpan.Zero,
-            new ProactiveAsyncCacheOptions { RefreshTimeout = TimeSpan.FromMilliseconds(150) });
-        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
-
-        // Act — first call succeeds normally
-        int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
-        Assert.AreEqual(42, first);
-
-        // Wait for expiration
-        await Task.Delay(80, TestContext.CancellationToken).ConfigureAwait(false);
-
-        // Second call blocks on the pending fetch which will be cancelled by the
-        // timeout, surfacing the cancellation to the caller.
-        _ = await Assert.ThrowsExactlyAsync<TaskCanceledException>(
-            () => cache.GetValueAsync(TestContext.CancellationToken)).ConfigureAwait(false);
-    }
-
-    [TestMethod]
-    public async Task RefreshTimeout_AllowStaleReads_ReturnsStaleWhileTimeoutFires()
-    {
-        // Arrange
-        int callCount = 0;
-
-        // Auto-start disabled: GetValueAsync drives call 1; the background's call 2
-        // is the one that hangs and times out. With auto-start the shifted call numbering
-        // causes call 3 to fire within the assertion window.
-        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
-            async ct =>
-            {
-                int count = Interlocked.Increment(ref callCount);
-                if (count == 1)
-                {
-                    return 100;
-                }
-
-                // Hang until cancelled by timeout
-                await Task.Delay(Timeout.InfiniteTimeSpan, ct).ConfigureAwait(false);
-                return 999;
-            },
-            TimeSpan.FromMilliseconds(50),
-            TimeSpan.Zero,
-            new ProactiveAsyncCacheOptions { AutoStart = false, AllowStaleReads = true, RefreshTimeout = TimeSpan.FromMilliseconds(150) });
-        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
-
-        // First call succeeds
-        int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
-        Assert.AreEqual(100, first);
-
-        // Wait for expiration
-        await Task.Delay(80, TestContext.CancellationToken).ConfigureAwait(false);
-
-        // Stale read returns immediately, does not block
-        int stale = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
-        Assert.AreEqual(100, stale);
-
-        // Wait for the timeout to fire and cancel the hung fetch
-        await Task.Delay(200, TestContext.CancellationToken).ConfigureAwait(false);
-
-        // The fetch should have been cancelled; a new attempt can be made
-        Assert.AreEqual(2, callCount);
-    }
-
-    [TestMethod]
-    public async Task RefreshTimeout_SuccessfulFetchWithinTimeout()
-    {
-        // Arrange — factory completes well within the timeout
-        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
-            async ct =>
-            {
-                await Task.Delay(50, ct).ConfigureAwait(false);
-                return 42;
-            },
-            TimeSpan.FromHours(1),
-            TimeSpan.Zero,
-            new ProactiveAsyncCacheOptions { RefreshTimeout = TimeSpan.FromSeconds(5) });
-        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
-
-        // Act
-        int value = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
-
-        // Assert
-        Assert.AreEqual(42, value);
-    }
-
-    [TestMethod]
     [Timeout(30_000, CooperativeCancellation = true)]
-    public async Task RefreshTimeout_BackgroundLoopSurvivesTimeoutAndRetries()
-    {
-        // Arrange — call 1 succeeds, call 2 hangs (times out), call 3 succeeds again.
-        // Validates that a timeout does NOT kill the background refresh loop.
-        int callCount = 0;
-        TaskCompletionSource thirdCallCompleted = new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
-            async ct =>
-            {
-                int count = Interlocked.Increment(ref callCount);
-
-                if (count == 1)
-                {
-                    return 10;
-                }
-
-                if (count == 2)
-                {
-                    // Hang until cancelled by timeout
-                    await Task.Delay(Timeout.InfiniteTimeSpan, ct).ConfigureAwait(false);
-                    return -1;
-                }
-
-                // Third+ call succeeds
-                _ = thirdCallCompleted.TrySetResult();
-                return 30;
-            },
-            TimeSpan.FromMilliseconds(100),
-            TimeSpan.FromMilliseconds(20),
-            new ProactiveAsyncCacheOptions { RefreshTimeout = TimeSpan.FromMilliseconds(200) });
-
-        // Wait for initial fetch
-        int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
-        Assert.AreEqual(10, first);
-
-        // Wait for the background loop to trigger pre-fetch (call 2 — will timeout),
-        // then retry (call 3 — will succeed). Retry delay = (refreshInterval - preFetchOffset) / 2 = 40ms.
-        await thirdCallCompleted.Task.WaitAsync(TimeSpan.FromSeconds(15), TestContext.CancellationToken).ConfigureAwait(false);
-
-        Assert.IsGreaterThanOrEqualTo(3, callCount, $"Expected at least 3 factory calls, got {callCount}.");
-
-        await cache.DisposeAsync().ConfigureAwait(false);
-    }
-
-    [TestMethod]
-    [Timeout(30_000, CooperativeCancellation = true)]
-    public async Task Start_InitialFetchFails_RetriesUntilSuccess()
+    public async Task BackgroundRefresh_InitialFetchFails_RetriesUntilSuccess()
     {
         // Arrange — first call fails, second succeeds. Exercises the initial-fetch
-        // retry loop in StartBackgroundRefresh, including the error callback and retry delay.
+        // retry loop in StartBackgroundRefresh.
         int callCount = 0;
-        Exception capturedError = null;
-        using SemaphoreSlim errorSignal = new SemaphoreSlim(0);
         TaskCompletionSource firstValueReady = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
@@ -1164,25 +803,11 @@ public class ProactiveAsyncCacheUnitTests
             },
             // Retry delay = (refreshInterval - preFetchOffset) / 2 = 40ms.
             TimeSpan.FromMilliseconds(100),
-            TimeSpan.FromMilliseconds(20),
-            new ProactiveAsyncCacheOptions
-            {
-                OnBackgroundRefreshError = ex =>
-                {
-                    capturedError = ex;
-                    _ = errorSignal.Release();
-                },
-            });
+            TimeSpan.FromMilliseconds(20));
 
         try
         {
-            // Wait for the error callback to fire
-            bool errorReceived = await errorSignal.WaitAsync(TimeSpan.FromSeconds(10), TestContext.CancellationToken).ConfigureAwait(false);
-            Assert.IsTrue(errorReceived, "Error callback was not invoked for initial fetch failure.");
-            Assert.IsNotNull(capturedError);
-            _ = Assert.IsInstanceOfType<InvalidOperationException>(capturedError);
-
-            // Wait for the retry to succeed (retry delay ~75ms).
+            // Wait for the retry to succeed.
             await firstValueReady.Task.WaitAsync(TimeSpan.FromSeconds(15), TestContext.CancellationToken).ConfigureAwait(false);
 
             // The value should now be available
@@ -1194,167 +819,6 @@ public class ProactiveAsyncCacheUnitTests
         {
             await cache.DisposeAsync().ConfigureAwait(false);
         }
-    }
-
-    [TestMethod]
-    [Timeout(30_000, CooperativeCancellation = true)]
-    public async Task BackgroundRefresh_ErrorCallbackThrows_LoopContinues()
-    {
-        // Arrange — the error callback itself throws. The background loop must
-        // swallow the callback exception and continue retrying.
-        int callCount = 0;
-        TaskCompletionSource thirdCallDone = new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
-            ct =>
-            {
-                int count = Interlocked.Increment(ref callCount);
-                if (count == 2)
-                {
-                    throw new InvalidOperationException("Transient failure");
-                }
-
-                if (count >= 3)
-                {
-                    _ = thirdCallDone.TrySetResult();
-                }
-
-                return Task.FromResult(count);
-            },
-            TimeSpan.FromMilliseconds(100),
-            TimeSpan.FromMilliseconds(20),
-            new ProactiveAsyncCacheOptions
-            {
-                OnBackgroundRefreshError = ex =>
-                {
-                    throw new InvalidOperationException("Callback threw!");
-                },
-            });
-
-        try
-        {
-            int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
-            Assert.AreEqual(1, first);
-
-            // Wait for the background loop to fail (call 2), swallow the callback
-            // exception, and retry (call 3).
-            await thirdCallDone.Task.WaitAsync(TimeSpan.FromSeconds(15), TestContext.CancellationToken).ConfigureAwait(false);
-            Assert.IsGreaterThanOrEqualTo(3, callCount, $"Expected at least 3 calls, got {callCount}.");
-        }
-        finally
-        {
-            await cache.DisposeAsync().ConfigureAwait(false);
-        }
-    }
-
-    [TestMethod]
-    public async Task DisposeAsync_WithBackgroundTaskRunning_CompletesCleanly()
-    {
-        // Arrange — exercises the DisposeAsync() path with an active background task.
-        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
-            _ => Task.FromResult(42),
-            TimeSpan.FromHours(1),
-            TimeSpan.Zero);
-
-        cache.Start();
-        _ = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
-
-        // Act — async dispose should cancel and wait for the background task
-        await cache.DisposeAsync().ConfigureAwait(false);
-
-        // Assert — accessing the cache after DisposeAsync should throw
-        _ = Assert.ThrowsExactly<ObjectDisposedException>(() => _ = cache.HasValue);
-    }
-
-    [TestMethod]
-    [Timeout(30_000, CooperativeCancellation = true)]
-    public async Task Start_InitialFetchFails_ErrorCallbackThrows_LoopContinues()
-    {
-        // Arrange — initial fetch fails AND the error callback throws.
-        // The background loop must survive both and eventually succeed.
-        int callCount = 0;
-        TaskCompletionSource secondCallDone = new(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
-            ct =>
-            {
-                int count = Interlocked.Increment(ref callCount);
-                if (count == 1)
-                {
-                    throw new InvalidOperationException("Initial failure");
-                }
-
-                _ = secondCallDone.TrySetResult();
-                return Task.FromResult(77);
-            },
-            TimeSpan.FromMilliseconds(100),
-            TimeSpan.FromMilliseconds(20),
-            new ProactiveAsyncCacheOptions
-            {
-                OnBackgroundRefreshError = ex =>
-                {
-                    throw new InvalidOperationException("Callback explodes");
-                },
-            });
-
-        try
-        {
-            await secondCallDone.Task.WaitAsync(TimeSpan.FromSeconds(15), TestContext.CancellationToken).ConfigureAwait(false);
-
-            int value = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
-            Assert.AreEqual(77, value);
-            Assert.IsGreaterThanOrEqualTo(2, callCount);
-        }
-        finally
-        {
-            await cache.DisposeAsync().ConfigureAwait(false);
-        }
-    }
-
-    [TestMethod]
-    public async Task DisposeAsync_WhileIndependentFetchIsInFlight_WaitsForFetchToComplete()
-    {
-        // Verifies the m_pendingFetch drain path in DisposeAsync. When AutoStart = false
-        // (or when the background loop is sleeping), GetValueAsync creates a fetch
-        // independently of m_backgroundTask. Before the fix, DisposeAsync only awaited
-        // m_backgroundTask and returned while that fetch was still mutating m_snapshot.
-        using SemaphoreSlim factoryStarted = new SemaphoreSlim(0, 1);
-        TaskCompletionSource<int> factoryTcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-        int factoryCompleteCount = 0;
-
-        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
-            async ct =>
-            {
-                _ = factoryStarted.Release();
-                // Deliberately ignore ct: the factory must complete after DisposeAsync
-                // is blocking on m_pendingFetch, regardless of CTS cancellation.
-                int value = await factoryTcs.Task.ConfigureAwait(false);
-                _ = Interlocked.Increment(ref factoryCompleteCount);
-                return value;
-            },
-            TimeSpan.FromHours(1),
-            TimeSpan.Zero,
-            new ProactiveAsyncCacheOptions { AutoStart = false });
-
-        // Start a fetch that blocks inside the factory
-        _ = cache.GetValueAsync(TestContext.CancellationToken);
-        await factoryStarted.WaitAsync(TestContext.CancellationToken).ConfigureAwait(false);
-
-        // Start disposal — it sets m_isDisposed, cancels the CTS, then must block
-        // waiting for m_pendingFetch (which depends on factoryTcs).
-        Task disposeTask = cache.DisposeAsync().AsTask();
-
-        // Give disposal time to reach its await on m_pendingFetch. Without the fix,
-        // it would complete immediately (<1ms); with the fix it must block here.
-        await Task.Delay(50, TestContext.CancellationToken).ConfigureAwait(false);
-        Assert.IsFalse(disposeTask.IsCompleted, "DisposeAsync should be blocked waiting for the in-flight fetch.");
-
-        // Unblock the factory — disposal can now drain and complete
-        factoryTcs.SetResult(42);
-        await disposeTask.ConfigureAwait(false);
-
-        // Assert — factory ran and wrote its result before DisposeAsync returned
-        Assert.AreEqual(1, factoryCompleteCount);
     }
 
     public TestContext TestContext { get; set; }
