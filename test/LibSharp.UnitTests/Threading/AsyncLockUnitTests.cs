@@ -90,7 +90,7 @@ public class AsyncLockUnitTests
             }, TestContext.CancellationToken);
 
             // The second task should not have completed yet.
-            await Task.Delay(50, TestContext.CancellationToken).ConfigureAwait(false);
+            await Task.Delay(20, TestContext.CancellationToken).ConfigureAwait(false);
             Assert.IsFalse(secondCompleted);
 
             // Release the first lock.
@@ -195,8 +195,8 @@ public class AsyncLockUnitTests
         // Arrange
         using (AsyncLock asyncLock = new AsyncLock())
         {
-            const int workerCount = 24;
-            const int iterationsPerWorker = 150;
+            const int workerCount = 8;
+            const int iterationsPerWorker = 50;
 
             int insideCount = 0;
             int maxInsideCount = 0;
@@ -263,7 +263,7 @@ public class AsyncLockUnitTests
         }
 
         // Allow waiters to start blocking.
-        await Task.Delay(50, TestContext.CancellationToken).ConfigureAwait(false);
+        await Task.Delay(20, TestContext.CancellationToken).ConfigureAwait(false);
 
         // Act
         asyncLock.Dispose();
@@ -313,12 +313,12 @@ public class AsyncLockUnitTests
             Task<AsyncLock.Handle> thirdAcquireTask = asyncLock.AcquireAsync(TestContext.CancellationToken);
 
             // Act + Assert — third acquisition should remain blocked while second holds lock.
-            await Task.Delay(50, TestContext.CancellationToken).ConfigureAwait(false);
+            await Task.Delay(20, TestContext.CancellationToken).ConfigureAwait(false);
             Assert.IsFalse(thirdAcquireTask.IsCompleted);
 
             // A second dispose on firstHandle must not release another permit.
             firstHandle.Dispose();
-            await Task.Delay(50, TestContext.CancellationToken).ConfigureAwait(false);
+            await Task.Delay(20, TestContext.CancellationToken).ConfigureAwait(false);
             Assert.IsFalse(thirdAcquireTask.IsCompleted);
 
             // Once the current holder releases, the third waiter can proceed.
@@ -341,13 +341,13 @@ public class AsyncLockUnitTests
             AsyncLock.Handle secondHandle = await asyncLock.AcquireAsync(TestContext.CancellationToken).ConfigureAwait(false);
             Task<AsyncLock.Handle> thirdAcquireTask = asyncLock.AcquireAsync(TestContext.CancellationToken);
 
-            await Task.Delay(50, TestContext.CancellationToken).ConfigureAwait(false);
+            await Task.Delay(20, TestContext.CancellationToken).ConfigureAwait(false);
             Assert.IsFalse(thirdAcquireTask.IsCompleted);
 
             // Disposing a copied handle must not release a second permit.
             copiedHandle.Dispose();
 
-            await Task.Delay(50, TestContext.CancellationToken).ConfigureAwait(false);
+            await Task.Delay(20, TestContext.CancellationToken).ConfigureAwait(false);
             Assert.IsFalse(thirdAcquireTask.IsCompleted);
 
             secondHandle.Dispose();

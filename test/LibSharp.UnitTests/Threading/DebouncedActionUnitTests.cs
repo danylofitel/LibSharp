@@ -37,11 +37,11 @@ public class DebouncedActionUnitTests
     {
         // Arrange
         int callCount = 0;
-        using DebouncedAction debounced = new DebouncedAction(() => Interlocked.Increment(ref callCount), TimeSpan.FromMilliseconds(50));
+        using DebouncedAction debounced = new DebouncedAction(() => Interlocked.Increment(ref callCount), TimeSpan.FromMilliseconds(20));
 
         // Act
         debounced.Invoke();
-        await Task.Delay(150, TestContext.CancellationToken).ConfigureAwait(false);
+        await Task.Delay(80, TestContext.CancellationToken).ConfigureAwait(false);
 
         // Assert
         Assert.AreEqual(1, callCount);
@@ -61,7 +61,7 @@ public class DebouncedActionUnitTests
             await Task.Delay(10, TestContext.CancellationToken).ConfigureAwait(false);
         }
 
-        await Task.Delay(300, TestContext.CancellationToken).ConfigureAwait(false);
+        await Task.Delay(150, TestContext.CancellationToken).ConfigureAwait(false);
 
         // Assert
         Assert.AreEqual(1, callCount);
@@ -72,15 +72,15 @@ public class DebouncedActionUnitTests
     {
         // Arrange
         int callCount = 0;
-        using DebouncedAction debounced = new DebouncedAction(() => Interlocked.Increment(ref callCount), TimeSpan.FromMilliseconds(50));
+        using DebouncedAction debounced = new DebouncedAction(() => Interlocked.Increment(ref callCount), TimeSpan.FromMilliseconds(20));
 
         // Act — first wave
         debounced.Invoke();
-        await Task.Delay(150, TestContext.CancellationToken).ConfigureAwait(false);
+        await Task.Delay(80, TestContext.CancellationToken).ConfigureAwait(false);
 
         // Second wave
         debounced.Invoke();
-        await Task.Delay(150, TestContext.CancellationToken).ConfigureAwait(false);
+        await Task.Delay(80, TestContext.CancellationToken).ConfigureAwait(false);
 
         // Assert
         Assert.AreEqual(2, callCount);
@@ -110,12 +110,12 @@ public class DebouncedActionUnitTests
     {
         // Arrange
         int callCount = 0;
-        DebouncedAction debounced = new DebouncedAction(() => Interlocked.Increment(ref callCount), TimeSpan.FromMilliseconds(100));
+        DebouncedAction debounced = new DebouncedAction(() => Interlocked.Increment(ref callCount), TimeSpan.FromMilliseconds(30));
 
         // Act
         debounced.Invoke();
         debounced.Dispose();
-        await Task.Delay(300, TestContext.CancellationToken).ConfigureAwait(false);
+        await Task.Delay(80, TestContext.CancellationToken).ConfigureAwait(false);
 
         // Assert — the timer was cancelled so the action should not have fired
         Assert.AreEqual(0, callCount);

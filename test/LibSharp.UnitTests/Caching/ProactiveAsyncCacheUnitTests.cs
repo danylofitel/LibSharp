@@ -1,6 +1,7 @@
-// Copyright (c) LibSharp. All rights reserved.
+﻿// Copyright (c) LibSharp. All rights reserved.
 
 using System;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using LibSharp.Caching;
@@ -346,8 +347,8 @@ public class ProactiveAsyncCacheUnitTests
                 _ = fetchSignal.Release();
                 return Task.FromResult(result);
             },
-            TimeSpan.FromMilliseconds(200),
-            TimeSpan.FromMilliseconds(50));
+            TimeSpan.FromMilliseconds(100),
+            TimeSpan.FromMilliseconds(20));
         cache.Start();
 
         try
@@ -382,7 +383,7 @@ public class ProactiveAsyncCacheUnitTests
         int callCount = 0;
         using SemaphoreSlim fetchSignal = new SemaphoreSlim(0);
 
-        // refreshInterval = 600ms, preFetchOffset = 400ms → background fires at ~200ms
+        // refreshInterval = 200ms, preFetchOffset = 100ms → background fires at ~100ms
         ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
             ct =>
             {
@@ -390,8 +391,8 @@ public class ProactiveAsyncCacheUnitTests
                 _ = fetchSignal.Release();
                 return Task.FromResult(result);
             },
-            TimeSpan.FromMilliseconds(600),
-            TimeSpan.FromMilliseconds(400));
+            TimeSpan.FromMilliseconds(200),
+            TimeSpan.FromMilliseconds(100));
         cache.Start();
 
         try
@@ -435,7 +436,7 @@ public class ProactiveAsyncCacheUnitTests
                 // Second fetch is slow — controlled by TCS
                 return secondFetchTcs.Task;
             },
-            TimeSpan.FromMilliseconds(100),
+            TimeSpan.FromMilliseconds(50),
             TimeSpan.Zero,
             new ProactiveAsyncCacheOptions { AllowStaleReads = true });
 
@@ -444,7 +445,7 @@ public class ProactiveAsyncCacheUnitTests
         Assert.AreEqual(100, first);
 
         // Wait for expiration
-        await Task.Delay(150, TestContext.CancellationToken).ConfigureAwait(false);
+        await Task.Delay(80, TestContext.CancellationToken).ConfigureAwait(false);
 
         // Get the value again — should return the stale value immediately,
         // not block on the slow second fetch
@@ -480,7 +481,7 @@ public class ProactiveAsyncCacheUnitTests
 
                 return Task.FromResult(42);
             },
-            TimeSpan.FromMilliseconds(100),
+            TimeSpan.FromMilliseconds(50),
             TimeSpan.Zero,
             new ProactiveAsyncCacheOptions { AllowStaleReads = true });
 
@@ -490,7 +491,7 @@ public class ProactiveAsyncCacheUnitTests
         _ = await fetchSignal.WaitAsync(TimeSpan.FromSeconds(5), TestContext.CancellationToken).ConfigureAwait(false);
 
         // Wait for expiration
-        await Task.Delay(150, TestContext.CancellationToken).ConfigureAwait(false);
+        await Task.Delay(80, TestContext.CancellationToken).ConfigureAwait(false);
 
         // Get the value again — should return the stale value, not throw
         int stale = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
@@ -517,8 +518,8 @@ public class ProactiveAsyncCacheUnitTests
 
                 return Task.FromResult(count * 10);
             },
-            TimeSpan.FromMilliseconds(300),
-            TimeSpan.FromMilliseconds(150),
+            TimeSpan.FromMilliseconds(100),
+            TimeSpan.FromMilliseconds(50),
             new ProactiveAsyncCacheOptions { AllowStaleReads = true });
 
         try
@@ -527,8 +528,8 @@ public class ProactiveAsyncCacheUnitTests
             int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
             Assert.AreEqual(10, first);
 
-            // Wait past expiration (background pre-fetch triggers at ~150ms but is slow)
-            await Task.Delay(400, TestContext.CancellationToken).ConfigureAwait(false);
+            // Wait past expiration (background pre-fetch triggers at ~50ms but is slow)
+            await Task.Delay(120, TestContext.CancellationToken).ConfigureAwait(false);
 
             // Reader should get the stale value immediately, not block
             Task<int> readerTask = cache.GetValueAsync(TestContext.CancellationToken);
@@ -687,8 +688,8 @@ public class ProactiveAsyncCacheUnitTests
 
                 return Task.FromResult(count);
             },
-            TimeSpan.FromMilliseconds(200),
-            TimeSpan.FromMilliseconds(50));
+            TimeSpan.FromMilliseconds(100),
+            TimeSpan.FromMilliseconds(20));
         cache.Start();
 
         try
@@ -702,12 +703,12 @@ public class ProactiveAsyncCacheUnitTests
             _ = await fetchSignal.WaitAsync(TimeSpan.FromSeconds(5), TestContext.CancellationToken).ConfigureAwait(false);
 
             // Wait for the background to retry (third fetch) which should succeed.
-            // Retry delay = (refreshInterval - preFetchOffset) / 2 = 75ms.
+            // Retry delay = (refreshInterval - preFetchOffset) / 2 = 40ms.
             bool retried = await fetchSignal.WaitAsync(TimeSpan.FromSeconds(10), TestContext.CancellationToken).ConfigureAwait(false);
             Assert.IsTrue(retried, "Background did not retry after transient failure.");
 
             // Allow snapshot update
-            await Task.Delay(50, TestContext.CancellationToken).ConfigureAwait(false);
+            await Task.Delay(30, TestContext.CancellationToken).ConfigureAwait(false);
 
             int value = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
             Assert.AreEqual(3, value);
@@ -724,7 +725,7 @@ public class ProactiveAsyncCacheUnitTests
         // Arrange
         int callCount = 0;
 
-        // refreshInterval = 500ms, preFetchOffset = 100ms → background fires at ~400ms.
+        // refreshInterval = 200ms, preFetchOffset = 40ms → background fires at ~160ms.
         // But GetValueAsync will keep the value fresh, so the background should skip.
         ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
             ct =>
@@ -732,8 +733,8 @@ public class ProactiveAsyncCacheUnitTests
                 int result = Interlocked.Increment(ref callCount);
                 return Task.FromResult(result);
             },
-            TimeSpan.FromMilliseconds(500),
-            TimeSpan.FromMilliseconds(100));
+            TimeSpan.FromMilliseconds(200),
+            TimeSpan.FromMilliseconds(40));
         cache.Start();
 
         try
@@ -742,16 +743,16 @@ public class ProactiveAsyncCacheUnitTests
             int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
             Assert.AreEqual(1, first);
 
-            // Manually re-fetch right before the background would fire
-            await Task.Delay(350, TestContext.CancellationToken).ConfigureAwait(false);
+            // Wait until just before the background fires at ~160ms
+            await Task.Delay(120, TestContext.CancellationToken).ConfigureAwait(false);
 
-            // Force a fresh snapshot by waiting for expiration and re-fetching
-            await Task.Delay(200, TestContext.CancellationToken).ConfigureAwait(false);
+            // Wait for background refresh to complete and value to be updated
+            await Task.Delay(80, TestContext.CancellationToken).ConfigureAwait(false);
             int refreshed = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
             Assert.AreEqual(2, refreshed);
 
             // Wait a bit and verify no extra fetches happened
-            await Task.Delay(100, TestContext.CancellationToken).ConfigureAwait(false);
+            await Task.Delay(50, TestContext.CancellationToken).ConfigureAwait(false);
             Assert.AreEqual(2, callCount);
         }
         finally
@@ -808,8 +809,8 @@ public class ProactiveAsyncCacheUnitTests
 
                 return Task.FromResult(count);
             },
-            TimeSpan.FromMilliseconds(200),
-            TimeSpan.FromMilliseconds(50),
+            TimeSpan.FromMilliseconds(100),
+            TimeSpan.FromMilliseconds(20),
             new ProactiveAsyncCacheOptions
             {
                 OnBackgroundRefreshError = ex =>
@@ -853,7 +854,7 @@ public class ProactiveAsyncCacheUnitTests
                 int result = Interlocked.Increment(ref callCount);
                 return Task.FromResult(result);
             },
-            TimeSpan.FromMilliseconds(100),
+            TimeSpan.FromMilliseconds(50),
             TimeSpan.Zero,
             new ProactiveAsyncCacheOptions { AutoStart = false });
 
@@ -862,7 +863,7 @@ public class ProactiveAsyncCacheUnitTests
         Assert.AreEqual(1, first);
 
         // Wait for expiration
-        await Task.Delay(150, TestContext.CancellationToken).ConfigureAwait(false);
+        await Task.Delay(80, TestContext.CancellationToken).ConfigureAwait(false);
 
         // Default mode (allowStaleReads: false): blocks until new value is fetched
         int second = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
@@ -888,7 +889,7 @@ public class ProactiveAsyncCacheUnitTests
 
                 return secondFetchTcs.Task;
             },
-            TimeSpan.FromMilliseconds(100),
+            TimeSpan.FromMilliseconds(50),
             TimeSpan.Zero);
 
         // First call
@@ -896,7 +897,7 @@ public class ProactiveAsyncCacheUnitTests
         Assert.AreEqual(100, first);
 
         // Wait for expiration
-        await Task.Delay(150, TestContext.CancellationToken).ConfigureAwait(false);
+        await Task.Delay(80, TestContext.CancellationToken).ConfigureAwait(false);
 
         // Second call — should block because allowStaleReads is false
         Task<int> blockedReader = cache.GetValueAsync(TestContext.CancellationToken);
@@ -919,7 +920,7 @@ public class ProactiveAsyncCacheUnitTests
                 int result = Interlocked.Increment(ref callCount);
                 return Task.FromResult(result);
             },
-            TimeSpan.FromMilliseconds(100),
+            TimeSpan.FromMilliseconds(50),
             TimeSpan.Zero,
             new ProactiveAsyncCacheOptions { AutoStart = false, AllowStaleReads = true });
 
@@ -928,7 +929,7 @@ public class ProactiveAsyncCacheUnitTests
         Assert.AreEqual(1, first);
 
         // Wait for expiration
-        await Task.Delay(150, TestContext.CancellationToken).ConfigureAwait(false);
+        await Task.Delay(80, TestContext.CancellationToken).ConfigureAwait(false);
 
         // Stale-while-revalidate: returns stale value immediately
         int second = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
@@ -982,16 +983,16 @@ public class ProactiveAsyncCacheUnitTests
                 await Task.Delay(Timeout.InfiniteTimeSpan, ct).ConfigureAwait(false);
                 return 99; // Never reached
             },
-            TimeSpan.FromMilliseconds(100),
+            TimeSpan.FromMilliseconds(50),
             TimeSpan.Zero,
-            new ProactiveAsyncCacheOptions { RefreshTimeout = TimeSpan.FromMilliseconds(200) });
+            new ProactiveAsyncCacheOptions { RefreshTimeout = TimeSpan.FromMilliseconds(150) });
 
         // Act — first call succeeds normally
         int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
         Assert.AreEqual(42, first);
 
         // Wait for expiration
-        await Task.Delay(150, TestContext.CancellationToken).ConfigureAwait(false);
+        await Task.Delay(80, TestContext.CancellationToken).ConfigureAwait(false);
 
         // Second call blocks on the pending fetch which will be cancelled by the
         // timeout, surfacing the cancellation to the caller.
@@ -1021,23 +1022,23 @@ public class ProactiveAsyncCacheUnitTests
                 await Task.Delay(Timeout.InfiniteTimeSpan, ct).ConfigureAwait(false);
                 return 999;
             },
-            TimeSpan.FromMilliseconds(100),
+            TimeSpan.FromMilliseconds(50),
             TimeSpan.Zero,
-            new ProactiveAsyncCacheOptions { AutoStart = false, AllowStaleReads = true, RefreshTimeout = TimeSpan.FromMilliseconds(200) });
+            new ProactiveAsyncCacheOptions { AutoStart = false, AllowStaleReads = true, RefreshTimeout = TimeSpan.FromMilliseconds(150) });
 
         // First call succeeds
         int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
         Assert.AreEqual(100, first);
 
         // Wait for expiration
-        await Task.Delay(150, TestContext.CancellationToken).ConfigureAwait(false);
+        await Task.Delay(80, TestContext.CancellationToken).ConfigureAwait(false);
 
         // Stale read returns immediately, does not block
         int stale = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
         Assert.AreEqual(100, stale);
 
         // Wait for the timeout to fire and cancel the hung fetch
-        await Task.Delay(300, TestContext.CancellationToken).ConfigureAwait(false);
+        await Task.Delay(200, TestContext.CancellationToken).ConfigureAwait(false);
 
         // The fetch should have been cancelled; a new attempt can be made
         Assert.AreEqual(2, callCount);
@@ -1062,6 +1063,33 @@ public class ProactiveAsyncCacheUnitTests
 
         // Assert
         Assert.AreEqual(42, value);
+    }
+
+    [TestMethod]
+    public async Task Dispose_WithRefreshTimeoutAfterSuccessfulFetch_CompletesQuickly()
+    {
+        // Arrange
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            async ct =>
+            {
+                await Task.Delay(50, ct).ConfigureAwait(false);
+                return 42;
+            },
+            TimeSpan.FromHours(1),
+            TimeSpan.Zero,
+            new ProactiveAsyncCacheOptions { RefreshTimeout = TimeSpan.FromSeconds(5) });
+
+        _ = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+
+        // Act
+        Stopwatch stopwatch = Stopwatch.StartNew();
+        cache.Dispose();
+        stopwatch.Stop();
+
+        // Assert
+        Assert.IsTrue(
+            stopwatch.Elapsed < TimeSpan.FromSeconds(1),
+            $"Expected sync Dispose to finish quickly, but it took {stopwatch.Elapsed}.");
     }
 
     [TestMethod]
@@ -1094,16 +1122,16 @@ public class ProactiveAsyncCacheUnitTests
                 _ = thirdCallCompleted.TrySetResult();
                 return 30;
             },
-            TimeSpan.FromMilliseconds(200),
-            TimeSpan.FromMilliseconds(50),
-            new ProactiveAsyncCacheOptions { RefreshTimeout = TimeSpan.FromMilliseconds(500) });
+            TimeSpan.FromMilliseconds(100),
+            TimeSpan.FromMilliseconds(20),
+            new ProactiveAsyncCacheOptions { RefreshTimeout = TimeSpan.FromMilliseconds(200) });
 
         // Wait for initial fetch
         int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
         Assert.AreEqual(10, first);
 
         // Wait for the background loop to trigger pre-fetch (call 2 — will timeout),
-        // then retry (call 3 — will succeed). Retry delay = (refreshInterval - preFetchOffset) / 2 = 75ms.
+        // then retry (call 3 — will succeed). Retry delay = (refreshInterval - preFetchOffset) / 2 = 40ms.
         await thirdCallCompleted.Task.WaitAsync(TimeSpan.FromSeconds(15), TestContext.CancellationToken).ConfigureAwait(false);
 
         Assert.IsGreaterThanOrEqualTo(3, callCount, $"Expected at least 3 factory calls, got {callCount}.");
@@ -1134,9 +1162,9 @@ public class ProactiveAsyncCacheUnitTests
                 _ = firstValueReady.TrySetResult();
                 return Task.FromResult(99);
             },
-            // Retry delay = (refreshInterval - preFetchOffset) / 2 = 75ms.
-            TimeSpan.FromMilliseconds(200),
-            TimeSpan.FromMilliseconds(50),
+            // Retry delay = (refreshInterval - preFetchOffset) / 2 = 40ms.
+            TimeSpan.FromMilliseconds(100),
+            TimeSpan.FromMilliseconds(20),
             new ProactiveAsyncCacheOptions
             {
                 OnBackgroundRefreshError = ex =>
@@ -1193,8 +1221,8 @@ public class ProactiveAsyncCacheUnitTests
 
                 return Task.FromResult(count);
             },
-            TimeSpan.FromMilliseconds(200),
-            TimeSpan.FromMilliseconds(50),
+            TimeSpan.FromMilliseconds(100),
+            TimeSpan.FromMilliseconds(20),
             new ProactiveAsyncCacheOptions
             {
                 OnBackgroundRefreshError = ex =>
@@ -1259,8 +1287,8 @@ public class ProactiveAsyncCacheUnitTests
                 _ = secondCallDone.TrySetResult();
                 return Task.FromResult(77);
             },
-            TimeSpan.FromMilliseconds(200),
-            TimeSpan.FromMilliseconds(50),
+            TimeSpan.FromMilliseconds(100),
+            TimeSpan.FromMilliseconds(20),
             new ProactiveAsyncCacheOptions
             {
                 OnBackgroundRefreshError = ex =>

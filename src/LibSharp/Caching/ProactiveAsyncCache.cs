@@ -173,13 +173,28 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, I
             backgroundTask = m_backgroundTask;
         }
 
-        if (backgroundTask is not null && !backgroundTask.Wait(TimeSpan.FromSeconds(30)))
+        if (backgroundTask is null)
         {
-            // The background task did not complete in time — the value factory may be
-            // ignoring CancellationToken. Prefer DisposeAsync for graceful shutdown.
+            m_cts.Dispose();
+            return;
         }
 
-        m_cts.Dispose();
+        if (backgroundTask.IsCompleted)
+        {
+            backgroundTask.GetAwaiter().GetResult();
+            m_cts.Dispose();
+            return;
+        }
+
+        // Dispose() is best-effort: if the background task is still draining after cancellation,
+        // finish disposal asynchronously rather than blocking the caller thread. Use DisposeAsync
+        // when the caller needs to await full shutdown.
+        _ = backgroundTask.ContinueWith(
+            static (task, state) => CompleteDeferredDispose(task, (CancellationTokenSource)state),
+            m_cts,
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously,
+            TaskScheduler.Default);
     }
 
     // Half the quiet window between fetches: always positive (constructor enforces
@@ -381,6 +396,21 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, I
         catch (ObjectDisposedException)
         {
             // Cache was disposed before the first value arrived.
+        }
+    }
+
+    private static void CompleteDeferredDispose(Task backgroundTask, CancellationTokenSource cancellationTokenSource)
+    {
+        try
+        {
+            if (backgroundTask.IsFaulted)
+            {
+                _ = backgroundTask.Exception;
+            }
+        }
+        finally
+        {
+            cancellationTokenSource.Dispose();
         }
     }
 

@@ -66,11 +66,11 @@ public class ThrottledActionUnitTests
     {
         // Arrange
         int callCount = 0;
-        ThrottledAction throttled = new ThrottledAction(() => Interlocked.Increment(ref callCount), TimeSpan.FromMilliseconds(50));
+        ThrottledAction throttled = new ThrottledAction(() => Interlocked.Increment(ref callCount), TimeSpan.FromMilliseconds(20));
 
         // Act
         throttled.Invoke();
-        await Task.Delay(150, TestContext.CancellationToken).ConfigureAwait(false);
+        await Task.Delay(60, TestContext.CancellationToken).ConfigureAwait(false);
         throttled.Invoke();
 
         // Assert
@@ -82,7 +82,7 @@ public class ThrottledActionUnitTests
     {
         // Arrange
         int callCount = 0;
-        ThrottledAction throttled = new ThrottledAction(() => Interlocked.Increment(ref callCount), TimeSpan.FromMilliseconds(50));
+        ThrottledAction throttled = new ThrottledAction(() => Interlocked.Increment(ref callCount), TimeSpan.FromMilliseconds(20));
 
         // Act — first call fires, rapid follow-ups are dropped
         for (int i = 0; i < 5; i++)
@@ -90,7 +90,7 @@ public class ThrottledActionUnitTests
             throttled.Invoke();
         }
 
-        await Task.Delay(150, TestContext.CancellationToken).ConfigureAwait(false);
+        await Task.Delay(60, TestContext.CancellationToken).ConfigureAwait(false);
 
         // After interval, call fires again
         throttled.Invoke();
