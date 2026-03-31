@@ -6,7 +6,8 @@
       "Bash(powershell.exe -Command \"Get-Process -Name testhost -ErrorAction SilentlyContinue | Stop-Process -Force; Write-Host done\")",
       "Bash(git mv:*)",
       "Bash(dotnet pack:*)",
-      "Bash(grep -n \"^\\\\s*\\\\\\(public\\\\|internal\\\\\\)\\\\s*\\\\\\(abstract\\\\|sealed\\\\|static\\\\\\)\\\\?\\\\s*class\\\\|^\\\\s*\\\\\\(public\\\\|internal\\\\\\)\\\\s*\\\\\\(abstract\\\\|sealed\\\\|static\\\\\\)\\\\?\\\\s*record\" e:/Repos/LibSharp/src/LibSharp/Caching/*.cs)"
+      "Bash(grep -n \"^\\\\s*\\\\\\(public\\\\|internal\\\\\\)\\\\s*\\\\\\(abstract\\\\|sealed\\\\|static\\\\\\)\\\\?\\\\s*class\\\\|^\\\\s*\\\\\\(public\\\\|internal\\\\\\)\\\\s*\\\\\\(abstract\\\\|sealed\\\\|static\\\\\\)\\\\?\\\\s*record\" e:/Repos/LibSharp/src/LibSharp/Caching/*.cs)",
+      "Bash(ls e:/Repos/LibSharp/*.md)"
     ]
   }
 }

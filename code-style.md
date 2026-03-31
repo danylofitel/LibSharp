@@ -1,4 +1,4 @@
-# Code style
+﻿# Code style
 
 Generally speaking, there is no right or wrong when it comes to specific styles. For the most part they are a matter of personal preferences.
 That said, we are going to enfore a specific coding style that we agree upon, and there are at least 2 good reasons for doing that:
