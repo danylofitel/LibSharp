@@ -10,27 +10,28 @@ Here are the language specific styles.
 
 ## C\#
 
-The general coding style is based on the standard C# style.
+The general coding style is based on standard C# style and is enforced by .editorconfig.
 
 ### Naming Conventions
 
-* Interfaces start with "I" and use CamelCap, e.g. IMyInterface
-* Classes use CamelCap, e.g. MyClass
-* Functions use CamelCap, e.g. MyMethods
-* Properties use CamelCap, e.g. MyProperty
-* Constants use CamelCap, e.g. MyConstant
-* Static members start with "s_" prefix and use camelCase, e.g. s_myStaticMember
-* Class members start with "m_" prefix and use camelCase, e.g. m_myClassMember
+* Interfaces start with "I" and use PascalCase, e.g. IMyInterface
+* Classes use PascalCase, e.g. MyClass
+* Methods use PascalCase, e.g. MyMethod
+* Properties use PascalCase, e.g. MyProperty
+* Constants use PascalCase, e.g. MyConstant
+* Static fields start with "s_" prefix and use camelCase, e.g. s_myStaticField
+* Instance fields start with "m_" prefix and use camelCase, e.g. m_myField
 * Local variables use camelCase, e.g. myVariable
-* Function parameters use camelCase, e.g. myParameter
+* Method parameters use camelCase, e.g. myParameter
 
 ### Namespaces
 
 * Namespaces correspond to the folder structure
-* Use block-scoped namespaces for consistency across the codebase
+* Use file-scoped namespaces
 
 ### Files
 
+* Every C# file must include the standard header line: "Copyright (c) LibSharp. All rights reserved."
 * Each file contains only one class
 * The name of the file matches the name of the class it contains
 
@@ -39,14 +40,11 @@ The general coding style is based on the standard C# style.
 * Usings are placed on top of the file outside of namespace
 * System usings are placed first
 * Usings are sorted alphabetically
-* Usings should be fully qualified
 
 ### Access Modifiers
 
 * All entities should have explicit access modifiers
-* Everything starts as private by default and is exposed only if necessary
-* Protected and default access modifiers should be avoided
-* Constructors, methods and properties may be public, members must be private
+* Keep visibility as narrow as possible and expose only what is needed
 
 ### Class Structure
 
@@ -71,11 +69,17 @@ Elements within a class are ordered as follows:
 
 ### Keywords and Features
 
-* .this qualifier should not be used
+* this. qualifier should not be used
 * var keyword should not be used
 * out and ref parameters should not be used in new functions
 * Members should be declared as readonly by default
-* Use modern C# features when they improve clarity, but keep style consistent with existing code
+* Prefer braces for all control flow blocks
+* Prefer using blocks over simple using statements
+* Do not use target-typed new expressions
+* Do not use expression-bodied constructors
+* Do not use primary constructors
+* Do not use collection expressions
+* Use modern C# features only when they are consistent with .editorconfig settings
 
 ### Other
 
