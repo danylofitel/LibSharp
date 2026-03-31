@@ -11,7 +11,7 @@ namespace LibSharp.Caching;
 /// An async cache that proactively refreshes its value in the background before it expires.
 /// </summary>
 /// <typeparam name="T">Value type.</typeparam>
-public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, IAsyncDisposable
+public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposable
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="ProactiveAsyncCache{T}"/> class.
@@ -44,6 +44,7 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, I
         m_fetchFunc = valueFactory;
         m_refreshInterval = refreshInterval;
         m_preFetchOffset = preFetchOffset;
+        m_retryDelay = (refreshInterval - preFetchOffset) / 2;
         m_allowStaleReads = options.AllowStaleReads;
         m_refreshTimeout = options.RefreshTimeout;
         m_onBackgroundRefreshError = options.OnBackgroundRefreshError;
@@ -69,8 +70,8 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, I
 
         lock (m_lock)
         {
-            // Re-check disposal under lock to close the race with DisposeAsync/Dispose.
-            // Without this, Dispose could read m_backgroundTask (null), return, dispose
+            // Re-check disposal under lock to close the race with DisposeAsync.
+            // Without this, DisposeAsync could read m_backgroundTask (null), return, dispose
             // the CTS, and then this write starts a task against an already-disposed CTS.
             if (Volatile.Read(ref m_isDisposed) != 0)
             {
@@ -125,11 +126,26 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, I
         }
 
         // Either no value at all (first call) or stale reads are disabled.
-        CacheSnapshot result = await fetchTask.WaitAsync(cancellationToken).ConfigureAwait(false);
-        return result.Value;
+        try
+        {
+            CacheSnapshot result = await fetchTask.WaitAsync(cancellationToken).ConfigureAwait(false);
+            return result.Value;
+        }
+        catch (OperationCanceledException) when (Volatile.Read(ref m_isDisposed) != 0 && !cancellationToken.IsCancellationRequested)
+        {
+            // The fetch was cancelled by disposal, not by the caller. Surface this as
+            // ObjectDisposedException so callers can distinguish the two cases.
+            throw new ObjectDisposedException(GetType().Name);
+        }
     }
 
     /// <inheritdoc/>
+    /// <remarks>
+    /// If the value factory does not honour its <see cref="CancellationToken"/> and no
+    /// <see cref="ProactiveAsyncCacheOptions.RefreshTimeout"/> is configured, this method may block
+    /// indefinitely while waiting for an in-flight fetch to complete. Configure
+    /// <see cref="ProactiveAsyncCacheOptions.RefreshTimeout"/> to bound the wait.
+    /// </remarks>
     public async ValueTask DisposeAsync()
     {
         if (Interlocked.Exchange(ref m_isDisposed, 1) != 0)
@@ -139,68 +155,52 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, I
 
         m_cts.Cancel();
 
-        // Read m_backgroundTask under lock to synchronize with Start(), which writes it
-        // under the same lock. Without this, we could read null, return, and dispose the
-        // CTS while Start() is about to launch (or has just launched) the background task.
+        // Read both m_backgroundTask and m_pendingFetch under the same lock.
+        // m_backgroundTask must be read under lock to synchronize with Start() — see the
+        // lock in Start(). m_pendingFetch must be read here too: GetValueAsync() can create
+        // a fetch independently of the background loop (e.g. when AutoStart = false or while
+        // the background loop is sleeping on the refresh timer). Awaiting m_backgroundTask
+        // alone does not drain that independently-created fetch, and the factory could still
+        // write m_snapshot after DisposeAsync would otherwise return.
         Task backgroundTask;
+        Task<CacheSnapshot> pendingFetch;
         lock (m_lock)
         {
             backgroundTask = m_backgroundTask;
+            pendingFetch = m_pendingFetch;
         }
 
         if (backgroundTask is not null)
         {
-            await backgroundTask.ConfigureAwait(false);
+            // Swallow any fault from the background task — the refresh loop is internally
+            // defensive and should not fault, but we must never throw from a disposal method.
+            try
+            {
+                await backgroundTask.ConfigureAwait(false);
+            }
+            catch
+            {
+                // Intentionally swallowed.
+            }
+        }
+
+        if (pendingFetch is not null && !pendingFetch.IsCompleted)
+        {
+            // Wait for any in-flight fetch to drain. After m_isDisposed = 1, no new fetch
+            // can be created (GetOrCreateFetchTask checks disposal under the lock), so this
+            // single read captures the last possible in-flight fetch.
+            try
+            {
+                _ = await pendingFetch.ConfigureAwait(false);
+            }
+            catch
+            {
+                // Intentionally swallowed.
+            }
         }
 
         m_cts.Dispose();
     }
-
-    /// <inheritdoc/>
-    public void Dispose()
-    {
-        if (Interlocked.Exchange(ref m_isDisposed, 1) != 0)
-        {
-            return;
-        }
-
-        m_cts.Cancel();
-
-        // Read m_backgroundTask under lock to synchronize with Start() — see DisposeAsync.
-        Task backgroundTask;
-        lock (m_lock)
-        {
-            backgroundTask = m_backgroundTask;
-        }
-
-        if (backgroundTask is null)
-        {
-            m_cts.Dispose();
-            return;
-        }
-
-        if (backgroundTask.IsCompleted)
-        {
-            backgroundTask.GetAwaiter().GetResult();
-            m_cts.Dispose();
-            return;
-        }
-
-        // Dispose() is best-effort: if the background task is still draining after cancellation,
-        // finish disposal asynchronously rather than blocking the caller thread. Use DisposeAsync
-        // when the caller needs to await full shutdown.
-        _ = backgroundTask.ContinueWith(
-            static (task, state) => CompleteDeferredDispose(task, (CancellationTokenSource)state),
-            m_cts,
-            CancellationToken.None,
-            TaskContinuationOptions.ExecuteSynchronously,
-            TaskScheduler.Default);
-    }
-
-    // Half the quiet window between fetches: always positive (constructor enforces
-    // preFetchOffset < refreshInterval), scales with the configured interval, and
-    // is always less than refreshInterval so the background loop retries before expiration.
-    private TimeSpan RetryDelay => (m_refreshInterval - m_preFetchOffset) / 2;
 
     private Task<CacheSnapshot> GetOrCreateFetchTask(bool forceRefresh = false)
     {
@@ -251,6 +251,16 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, I
             // If this becomes a bottleneck, wrapping in Task.Run would release the lock
             // immediately at the cost of an extra thread-pool hop.
             m_pendingFetch = FetchAndUpdateAsync();
+
+            // Proactively observe any fault so TaskScheduler.UnobservedTaskException
+            // never fires, even if the task is faulted but never awaited (e.g. the cache
+            // is disposed while a stale-read caller got the old value and nobody awaits it).
+            _ = m_pendingFetch.ContinueWith(
+                static t => _ = t.Exception,
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+
             return m_pendingFetch;
         }
     }
@@ -285,6 +295,27 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, I
         }
     }
 
+    private void InvokeErrorCallbackInBackground(Exception exception)
+    {
+        Action<Exception> callback = m_onBackgroundRefreshError;
+        if (callback is null)
+        {
+            return;
+        }
+
+        _ = Task.Run(() =>
+        {
+            try
+            {
+                callback(exception);
+            }
+            catch
+            {
+                // Never let a callback exception produce an unobserved task fault.
+            }
+        });
+    }
+
     private async Task StartBackgroundRefresh()
     {
         try
@@ -308,19 +339,14 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, I
                 }
                 catch (Exception ex)
                 {
-                    try
-                    {
-                        m_onBackgroundRefreshError?.Invoke(ex);
-                    }
-                    catch
-                    {
-                        // Never let a callback exception crash the background loop.
-                    }
+                    // Fire on the thread pool so a blocking or slow callback cannot delay
+                    // the refresh loop or prevent DisposeAsync from completing.
+                    InvokeErrorCallbackInBackground(ex);
 
                     // Wait before retrying to avoid tight-looping on persistent failures.
                     try
                     {
-                        await Task.Delay(RetryDelay, m_cts.Token).ConfigureAwait(false);
+                        await Task.Delay(m_retryDelay, m_cts.Token).ConfigureAwait(false);
                     }
                     catch (OperationCanceledException)
                     {
@@ -367,20 +393,15 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, I
                 }
                 catch (Exception ex)
                 {
-                    try
-                    {
-                        m_onBackgroundRefreshError?.Invoke(ex);
-                    }
-                    catch
-                    {
-                        // Never let a callback exception crash the background loop.
-                    }
+                    // Fire on the thread pool so a blocking or slow callback cannot delay
+                    // the refresh loop or prevent DisposeAsync from completing.
+                    InvokeErrorCallbackInBackground(ex);
 
                     // Transient failure; wait before retrying to avoid tight-looping
                     // when the snapshot is already expired.
                     try
                     {
-                        await Task.Delay(RetryDelay, m_cts.Token).ConfigureAwait(false);
+                        await Task.Delay(m_retryDelay, m_cts.Token).ConfigureAwait(false);
                     }
                     catch (OperationCanceledException)
                     {
@@ -399,27 +420,17 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IDisposable, I
         }
     }
 
-    private static void CompleteDeferredDispose(Task backgroundTask, CancellationTokenSource cancellationTokenSource)
-    {
-        try
-        {
-            if (backgroundTask.IsFaulted)
-            {
-                _ = backgroundTask.Exception;
-            }
-        }
-        finally
-        {
-            cancellationTokenSource.Dispose();
-        }
-    }
-
     private readonly CancellationTokenSource m_cts;
     private readonly object m_lock;
     private readonly TaskCompletionSource m_firstValueSignal;
     private readonly Func<CancellationToken, Task<T>> m_fetchFunc;
     private readonly TimeSpan m_refreshInterval;
     private readonly TimeSpan m_preFetchOffset;
+
+    // Half the quiet window between fetches: always positive (constructor enforces
+    // preFetchOffset < refreshInterval), scales with the configured interval, and
+    // is always less than refreshInterval so the background loop retries before expiration.
+    private readonly TimeSpan m_retryDelay;
     private readonly bool m_allowStaleReads;
     private readonly TimeSpan? m_refreshTimeout;
     private readonly Action<Exception> m_onBackgroundRefreshError;

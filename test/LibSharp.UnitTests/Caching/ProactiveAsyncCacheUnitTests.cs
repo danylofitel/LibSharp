@@ -1,7 +1,7 @@
 ﻿// Copyright (c) LibSharp. All rights reserved.
 
 using System;
-using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using LibSharp.Caching;
@@ -15,33 +15,45 @@ public class ProactiveAsyncCacheUnitTests
     [TestMethod]
     public void Constructor_ThrowsOnNullFactory()
     {
-        _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ProactiveAsyncCache<int>(null, TimeSpan.FromMinutes(1), TimeSpan.FromSeconds(10)).Dispose());
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() =>
+        {
+            _ = new ProactiveAsyncCache<int>(null, TimeSpan.FromMinutes(1), TimeSpan.FromSeconds(10));
+        });
     }
 
     [TestMethod]
     public void Constructor_ThrowsOnZeroRefreshInterval()
     {
-        _ = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.Zero, TimeSpan.Zero).Dispose());
+        _ = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
+        {
+            _ = new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.Zero, TimeSpan.Zero);
+        });
     }
 
     [TestMethod]
     public void Constructor_ThrowsOnNegativePreFetchOffset()
     {
-        _ = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.FromMinutes(1), TimeSpan.FromSeconds(-1)).Dispose());
+        _ = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
+        {
+            _ = new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.FromMinutes(1), TimeSpan.FromSeconds(-1));
+        });
     }
 
     [TestMethod]
     public void Constructor_ThrowsWhenPreFetchOffsetExceedsRefreshInterval()
     {
-        _ = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(2)).Dispose());
+        _ = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
+        {
+            _ = new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(2));
+        });
     }
 
     [TestMethod]
-    public void Constructor_DoesNotStartBackgroundTask_WhenAutoStartIsDisabled()
+    public async Task Constructor_DoesNotStartBackgroundTask_WhenAutoStartIsDisabled()
     {
         // Arrange
         int callCount = 0;
-        using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
             ct =>
             {
                 _ = Interlocked.Increment(ref callCount);
@@ -50,6 +62,7 @@ public class ProactiveAsyncCacheUnitTests
             TimeSpan.FromHours(1),
             TimeSpan.Zero,
             new ProactiveAsyncCacheOptions { AutoStart = false });
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         // Assert — factory cannot be called without Start() or GetValueAsync()
         Assert.AreEqual(0, callCount);
@@ -95,28 +108,30 @@ public class ProactiveAsyncCacheUnitTests
     }
 
     [TestMethod]
-    public void HasValue_ReturnsFalseBeforeFirstFetch()
+    public async Task HasValue_ReturnsFalseBeforeFirstFetch()
     {
         // Arrange — disable auto-start so no background fetch races with the assertion
-        using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
             _ => Task.FromResult(42),
             TimeSpan.FromHours(1),
             TimeSpan.Zero,
             new ProactiveAsyncCacheOptions { AutoStart = false });
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         // Act & Assert
         Assert.IsFalse(cache.HasValue);
     }
 
     [TestMethod]
-    public void Expiration_ReturnsNullBeforeFirstFetch()
+    public async Task Expiration_ReturnsNullBeforeFirstFetch()
     {
         // Arrange — disable auto-start so no background fetch races with the assertion
-        using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
             _ => Task.FromResult(42),
             TimeSpan.FromHours(1),
             TimeSpan.Zero,
             new ProactiveAsyncCacheOptions { AutoStart = false });
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         // Act & Assert
         Assert.IsNull(cache.Expiration);
@@ -126,7 +141,8 @@ public class ProactiveAsyncCacheUnitTests
     public async Task GetValueAsync_ReturnsValueFromFactory()
     {
         // Arrange
-        using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.FromHours(1), TimeSpan.Zero);
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.FromHours(1), TimeSpan.Zero);
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         // Act
         int value = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
@@ -140,7 +156,7 @@ public class ProactiveAsyncCacheUnitTests
     {
         // Arrange
         int callCount = 0;
-        using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
             ct =>
             {
                 int result = Interlocked.Increment(ref callCount);
@@ -148,6 +164,7 @@ public class ProactiveAsyncCacheUnitTests
             },
             TimeSpan.FromHours(1),
             TimeSpan.Zero);
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         // Act
         int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
@@ -163,7 +180,8 @@ public class ProactiveAsyncCacheUnitTests
     public async Task HasValue_ReturnsTrueAfterFetch()
     {
         // Arrange
-        using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.FromHours(1), TimeSpan.Zero);
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.FromHours(1), TimeSpan.Zero);
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         // Act
         _ = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
@@ -176,7 +194,8 @@ public class ProactiveAsyncCacheUnitTests
     public async Task Expiration_ReturnsValueAfterFetch()
     {
         // Arrange
-        using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.FromHours(1), TimeSpan.Zero);
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.FromHours(1), TimeSpan.Zero);
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         // Act
         _ = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
@@ -187,24 +206,24 @@ public class ProactiveAsyncCacheUnitTests
     }
 
     [TestMethod]
-    public void HasValue_ThrowsWhenDisposed()
+    public async Task HasValue_ThrowsWhenDisposed()
     {
         // Arrange
         ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.FromHours(1), TimeSpan.Zero);
-        cache.Dispose();
+        await cache.DisposeAsync().ConfigureAwait(false);
 
-        // Act
+        // Act & Assert
         _ = Assert.ThrowsExactly<ObjectDisposedException>(() => _ = cache.HasValue);
     }
 
     [TestMethod]
-    public void Expiration_ThrowsWhenDisposed()
+    public async Task Expiration_ThrowsWhenDisposed()
     {
         // Arrange
         ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.FromHours(1), TimeSpan.Zero);
-        cache.Dispose();
+        await cache.DisposeAsync().ConfigureAwait(false);
 
-        // Act
+        // Act & Assert
         _ = Assert.ThrowsExactly<ObjectDisposedException>(() => _ = cache.Expiration);
     }
 
@@ -213,10 +232,11 @@ public class ProactiveAsyncCacheUnitTests
     {
         // Arrange
         ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.FromHours(1), TimeSpan.Zero);
-        cache.Dispose();
+        await cache.DisposeAsync().ConfigureAwait(false);
 
-        // Act
-        _ = await Assert.ThrowsExactlyAsync<ObjectDisposedException>(async () => await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false)).ConfigureAwait(false);
+        // Act & Assert
+        _ = await Assert.ThrowsExactlyAsync<ObjectDisposedException>(
+            async () => await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false)).ConfigureAwait(false);
     }
 
     [TestMethod]
@@ -233,7 +253,8 @@ public class ProactiveAsyncCacheUnitTests
     public async Task GetValueAsync_WithReferenceType_ReturnsValue()
     {
         // Arrange
-        using ProactiveAsyncCache<string> cache = new ProactiveAsyncCache<string>(_ => Task.FromResult("hello"), TimeSpan.FromHours(1), TimeSpan.Zero);
+        ProactiveAsyncCache<string> cache = new ProactiveAsyncCache<string>(_ => Task.FromResult("hello"), TimeSpan.FromHours(1), TimeSpan.Zero);
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         // Act
         string value = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
@@ -243,10 +264,11 @@ public class ProactiveAsyncCacheUnitTests
     }
 
     [TestMethod]
-    public void Start_CanBeCalledOnce()
+    public async Task Start_CanBeCalledOnce()
     {
         // Arrange & Act
-        using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.FromHours(1), TimeSpan.Zero);
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.FromHours(1), TimeSpan.Zero);
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
         cache.Start();
     }
 
@@ -289,25 +311,14 @@ public class ProactiveAsyncCacheUnitTests
     }
 
     [TestMethod]
-    public void Start_ThrowsWhenDisposed()
+    public async Task Start_ThrowsWhenDisposed()
     {
         // Arrange
         ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.FromHours(1), TimeSpan.Zero);
-        cache.Dispose();
+        await cache.DisposeAsync().ConfigureAwait(false);
 
-        // Act
+        // Act & Assert
         _ = Assert.ThrowsExactly<ObjectDisposedException>(() => cache.Start());
-    }
-
-    [TestMethod]
-    public void Dispose_CanBeCalledTwice()
-    {
-        // Arrange
-        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.FromHours(1), TimeSpan.Zero);
-
-        // Act — should not throw
-        cache.Dispose();
-        cache.Dispose();
     }
 
     [TestMethod]
@@ -424,7 +435,7 @@ public class ProactiveAsyncCacheUnitTests
         int callCount = 0;
         TaskCompletionSource<int> secondFetchTcs = new TaskCompletionSource<int>();
 
-        using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
             ct =>
             {
                 int count = Interlocked.Increment(ref callCount);
@@ -439,6 +450,7 @@ public class ProactiveAsyncCacheUnitTests
             TimeSpan.FromMilliseconds(50),
             TimeSpan.Zero,
             new ProactiveAsyncCacheOptions { AllowStaleReads = true });
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         // Act — get the first value
         int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
@@ -468,7 +480,7 @@ public class ProactiveAsyncCacheUnitTests
         int callCount = 0;
         using SemaphoreSlim fetchSignal = new SemaphoreSlim(0);
 
-        using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
             ct =>
             {
                 int count = Interlocked.Increment(ref callCount);
@@ -484,6 +496,7 @@ public class ProactiveAsyncCacheUnitTests
             TimeSpan.FromMilliseconds(50),
             TimeSpan.Zero,
             new ProactiveAsyncCacheOptions { AllowStaleReads = true });
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         // Act — get the first value
         int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
@@ -558,7 +571,7 @@ public class ProactiveAsyncCacheUnitTests
         int callCount = 0;
         TaskCompletionSource<int> fetchTcs = new TaskCompletionSource<int>();
 
-        using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
             ct =>
             {
                 _ = Interlocked.Increment(ref callCount);
@@ -566,6 +579,7 @@ public class ProactiveAsyncCacheUnitTests
             },
             TimeSpan.FromHours(1),
             TimeSpan.Zero);
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         // Act — start multiple concurrent calls
         Task<int> task1 = cache.GetValueAsync(TestContext.CancellationToken);
@@ -589,10 +603,11 @@ public class ProactiveAsyncCacheUnitTests
         // Arrange
         TaskCompletionSource<int> fetchTcs = new TaskCompletionSource<int>();
 
-        using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
             ct => fetchTcs.Task,
             TimeSpan.FromHours(1),
             TimeSpan.Zero);
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         using CancellationTokenSource callerCts = new CancellationTokenSource();
 
@@ -619,10 +634,11 @@ public class ProactiveAsyncCacheUnitTests
         // Arrange
         TaskCompletionSource<int> fetchTcs = new TaskCompletionSource<int>();
 
-        using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
             ct => fetchTcs.Task,
             TimeSpan.FromHours(1),
             TimeSpan.Zero);
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         using CancellationTokenSource cts = new CancellationTokenSource();
         cts.Cancel();
@@ -641,7 +657,7 @@ public class ProactiveAsyncCacheUnitTests
         // Arrange — auto-start disabled so GetValueAsync drives call 1 (which throws)
         int callCount = 0;
 
-        using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
             _ =>
             {
                 int count = Interlocked.Increment(ref callCount);
@@ -655,6 +671,7 @@ public class ProactiveAsyncCacheUnitTests
             TimeSpan.FromHours(1),
             TimeSpan.Zero,
             new ProactiveAsyncCacheOptions { AutoStart = false });
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         // Act — first call fails
         _ = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
@@ -783,8 +800,8 @@ public class ProactiveAsyncCacheUnitTests
         // Act — dispose while the caller is still waiting
         await cache.DisposeAsync().ConfigureAwait(false);
 
-        // Assert — the caller should observe a cancellation or ObjectDisposedException
-        _ = await Assert.ThrowsExactlyAsync<TaskCanceledException>(() => getTask).ConfigureAwait(false);
+        // Assert — the caller observes ObjectDisposedException because the cache was disposed
+        _ = await Assert.ThrowsExactlyAsync<ObjectDisposedException>(() => getTask).ConfigureAwait(false);
     }
 
     [TestMethod]
@@ -848,7 +865,7 @@ public class ProactiveAsyncCacheUnitTests
     {
         // Arrange — auto-start disabled; GetValueAsync should trigger fetches on its own
         int callCount = 0;
-        using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
             ct =>
             {
                 int result = Interlocked.Increment(ref callCount);
@@ -857,6 +874,7 @@ public class ProactiveAsyncCacheUnitTests
             TimeSpan.FromMilliseconds(50),
             TimeSpan.Zero,
             new ProactiveAsyncCacheOptions { AutoStart = false });
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         // Act — use the cache without ever calling Start
         int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
@@ -878,7 +896,7 @@ public class ProactiveAsyncCacheUnitTests
         int callCount = 0;
         TaskCompletionSource<int> secondFetchTcs = new TaskCompletionSource<int>();
 
-        using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
             ct =>
             {
                 int count = Interlocked.Increment(ref callCount);
@@ -891,6 +909,7 @@ public class ProactiveAsyncCacheUnitTests
             },
             TimeSpan.FromMilliseconds(50),
             TimeSpan.Zero);
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         // First call
         int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
@@ -914,7 +933,7 @@ public class ProactiveAsyncCacheUnitTests
     {
         // Arrange — auto-start disabled; GetValueAsync should trigger fetches on its own
         int callCount = 0;
-        using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
             ct =>
             {
                 int result = Interlocked.Increment(ref callCount);
@@ -923,6 +942,7 @@ public class ProactiveAsyncCacheUnitTests
             TimeSpan.FromMilliseconds(50),
             TimeSpan.Zero,
             new ProactiveAsyncCacheOptions { AutoStart = false, AllowStaleReads = true });
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         // Act — use the cache without ever calling Start
         int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
@@ -946,22 +966,26 @@ public class ProactiveAsyncCacheUnitTests
     public void Constructor_ThrowsOnZeroRefreshTimeout()
     {
         _ = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
-            new ProactiveAsyncCache<int>(
+        {
+            _ = new ProactiveAsyncCache<int>(
                 _ => Task.FromResult(42),
                 TimeSpan.FromMinutes(1),
                 TimeSpan.Zero,
-                new ProactiveAsyncCacheOptions { RefreshTimeout = TimeSpan.Zero }).Dispose());
+                new ProactiveAsyncCacheOptions { RefreshTimeout = TimeSpan.Zero });
+        });
     }
 
     [TestMethod]
     public void Constructor_ThrowsOnNegativeRefreshTimeout()
     {
         _ = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
-            new ProactiveAsyncCache<int>(
+        {
+            _ = new ProactiveAsyncCache<int>(
                 _ => Task.FromResult(42),
                 TimeSpan.FromMinutes(1),
                 TimeSpan.Zero,
-                new ProactiveAsyncCacheOptions { RefreshTimeout = TimeSpan.FromSeconds(-1) }).Dispose());
+                new ProactiveAsyncCacheOptions { RefreshTimeout = TimeSpan.FromSeconds(-1) });
+        });
     }
 
     [TestMethod]
@@ -970,7 +994,7 @@ public class ProactiveAsyncCacheUnitTests
         // Arrange — factory that never completes on its own
         int callCount = 0;
 
-        using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
             async ct =>
             {
                 int count = Interlocked.Increment(ref callCount);
@@ -986,6 +1010,7 @@ public class ProactiveAsyncCacheUnitTests
             TimeSpan.FromMilliseconds(50),
             TimeSpan.Zero,
             new ProactiveAsyncCacheOptions { RefreshTimeout = TimeSpan.FromMilliseconds(150) });
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         // Act — first call succeeds normally
         int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
@@ -1009,7 +1034,7 @@ public class ProactiveAsyncCacheUnitTests
         // Auto-start disabled: GetValueAsync drives call 1; the background's call 2
         // is the one that hangs and times out. With auto-start the shifted call numbering
         // causes call 3 to fire within the assertion window.
-        using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
             async ct =>
             {
                 int count = Interlocked.Increment(ref callCount);
@@ -1025,6 +1050,7 @@ public class ProactiveAsyncCacheUnitTests
             TimeSpan.FromMilliseconds(50),
             TimeSpan.Zero,
             new ProactiveAsyncCacheOptions { AutoStart = false, AllowStaleReads = true, RefreshTimeout = TimeSpan.FromMilliseconds(150) });
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         // First call succeeds
         int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
@@ -1048,27 +1074,6 @@ public class ProactiveAsyncCacheUnitTests
     public async Task RefreshTimeout_SuccessfulFetchWithinTimeout()
     {
         // Arrange — factory completes well within the timeout
-        using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
-            async ct =>
-            {
-                await Task.Delay(50, ct).ConfigureAwait(false);
-                return 42;
-            },
-            TimeSpan.FromHours(1),
-            TimeSpan.Zero,
-            new ProactiveAsyncCacheOptions { RefreshTimeout = TimeSpan.FromSeconds(5) });
-
-        // Act
-        int value = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
-
-        // Assert
-        Assert.AreEqual(42, value);
-    }
-
-    [TestMethod]
-    public async Task Dispose_WithRefreshTimeoutAfterSuccessfulFetch_CompletesQuickly()
-    {
-        // Arrange
         ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
             async ct =>
             {
@@ -1078,18 +1083,13 @@ public class ProactiveAsyncCacheUnitTests
             TimeSpan.FromHours(1),
             TimeSpan.Zero,
             new ProactiveAsyncCacheOptions { RefreshTimeout = TimeSpan.FromSeconds(5) });
-
-        _ = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         // Act
-        Stopwatch stopwatch = Stopwatch.StartNew();
-        cache.Dispose();
-        stopwatch.Stop();
+        int value = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
 
         // Assert
-        Assert.IsTrue(
-            stopwatch.Elapsed < TimeSpan.FromSeconds(1),
-            $"Expected sync Dispose to finish quickly, but it took {stopwatch.Elapsed}.");
+        Assert.AreEqual(42, value);
     }
 
     [TestMethod]
@@ -1248,9 +1248,9 @@ public class ProactiveAsyncCacheUnitTests
     }
 
     [TestMethod]
-    public async Task Dispose_WithBackgroundTaskRunning_CompletesCleanly()
+    public async Task DisposeAsync_WithBackgroundTaskRunning_CompletesCleanly()
     {
-        // Arrange — exercises the sync Dispose() path with an active background task.
+        // Arrange — exercises the DisposeAsync() path with an active background task.
         ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
             _ => Task.FromResult(42),
             TimeSpan.FromHours(1),
@@ -1259,10 +1259,10 @@ public class ProactiveAsyncCacheUnitTests
         cache.Start();
         _ = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
 
-        // Act — sync dispose should cancel and wait for the background task
-        cache.Dispose();
+        // Act — async dispose should cancel and wait for the background task
+        await cache.DisposeAsync().ConfigureAwait(false);
 
-        // Assert — accessing the cache after Dispose should throw
+        // Assert — accessing the cache after DisposeAsync should throw
         _ = Assert.ThrowsExactly<ObjectDisposedException>(() => _ = cache.HasValue);
     }
 
@@ -1309,6 +1309,52 @@ public class ProactiveAsyncCacheUnitTests
         {
             await cache.DisposeAsync().ConfigureAwait(false);
         }
+    }
+
+    [TestMethod]
+    public async Task DisposeAsync_WhileIndependentFetchIsInFlight_WaitsForFetchToComplete()
+    {
+        // Verifies the m_pendingFetch drain path in DisposeAsync. When AutoStart = false
+        // (or when the background loop is sleeping), GetValueAsync creates a fetch
+        // independently of m_backgroundTask. Before the fix, DisposeAsync only awaited
+        // m_backgroundTask and returned while that fetch was still mutating m_snapshot.
+        using SemaphoreSlim factoryStarted = new SemaphoreSlim(0, 1);
+        TaskCompletionSource<int> factoryTcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        int factoryCompleteCount = 0;
+
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            async ct =>
+            {
+                _ = factoryStarted.Release();
+                // Deliberately ignore ct: the factory must complete after DisposeAsync
+                // is blocking on m_pendingFetch, regardless of CTS cancellation.
+                int value = await factoryTcs.Task.ConfigureAwait(false);
+                _ = Interlocked.Increment(ref factoryCompleteCount);
+                return value;
+            },
+            TimeSpan.FromHours(1),
+            TimeSpan.Zero,
+            new ProactiveAsyncCacheOptions { AutoStart = false });
+
+        // Start a fetch that blocks inside the factory
+        _ = cache.GetValueAsync(TestContext.CancellationToken);
+        await factoryStarted.WaitAsync(TestContext.CancellationToken).ConfigureAwait(false);
+
+        // Start disposal — it sets m_isDisposed, cancels the CTS, then must block
+        // waiting for m_pendingFetch (which depends on factoryTcs).
+        Task disposeTask = cache.DisposeAsync().AsTask();
+
+        // Give disposal time to reach its await on m_pendingFetch. Without the fix,
+        // it would complete immediately (<1ms); with the fix it must block here.
+        await Task.Delay(50, TestContext.CancellationToken).ConfigureAwait(false);
+        Assert.IsFalse(disposeTask.IsCompleted, "DisposeAsync should be blocked waiting for the in-flight fetch.");
+
+        // Unblock the factory — disposal can now drain and complete
+        factoryTcs.SetResult(42);
+        await disposeTask.ConfigureAwait(false);
+
+        // Assert — factory ran and wrote its result before DisposeAsync returned
+        Assert.AreEqual(1, factoryCompleteCount);
     }
 
     public TestContext TestContext { get; set; }

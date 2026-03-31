@@ -4,6 +4,7 @@
   - Added `AsyncLock`, `DebouncedAction`, `ThrottledAction`, `ConcurrentHashSet`, and `Result` classes
   - Renamed `Box` to `Optional`; null values are now allowed
   - `Optional<T>.GetHashCode` now differentiates between an empty optional and an optional wrapping `null`
+  - `ProactiveAsyncCache<T>` no longer implements `IDisposable`; use `await using` / `DisposeAsync()` instead
   - `ProactiveAsyncCache` constructor now accepts a `ProactiveAsyncCacheOptions` object with additional controls
   - Regex extensions now return a `bool` indicating whether the regex match timed out
   - `MinPriorityQueue<T>` and `MaxPriorityQueue<T>`: `Contains` and `Remove` now use the queue's comparer instead of `object.Equals`, making them consistent with the ordering relation
