@@ -9,7 +9,7 @@ namespace LibSharp.Collections
     /// A reverse comparer.
     /// </summary>
     /// <typeparam name="TComparable">Comparable type.</typeparam>
-    public class ReverseComparer<TComparable> : IComparer<TComparable>
+    public sealed class ReverseComparer<TComparable> : IComparer<TComparable>
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="ReverseComparer{TComparable}"/> class.

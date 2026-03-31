@@ -12,7 +12,7 @@ namespace LibSharp.Caching
     /// </summary>
     /// <typeparam name="T">Value type.</typeparam>
     /// <remarks>Should not be used with IDisposable or IAsyncDisposable value types since it does not dispose of values.</remarks>
-    public class LazyAsyncExecutionAndPublication<T> : IDisposable
+    public sealed class LazyAsyncExecutionAndPublication<T> : IDisposable
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="LazyAsyncExecutionAndPublication{T}"/> class from a value.
@@ -78,25 +78,12 @@ namespace LibSharp.Caching
         /// <inheritdoc/>
         public void Dispose()
         {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
-        /// <summary>
-        /// Disposes of the value.
-        /// </summary>
-        /// <param name="disposing">True if the method was called by Dispose(), false if by the finalizer.</param>
-        protected virtual void Dispose(bool disposing)
-        {
             if (Interlocked.Exchange(ref m_isDisposed, 1) != 0)
             {
                 return;
             }
 
-            if (disposing)
-            {
-                m_lock.Dispose();
-            }
+            m_lock.Dispose();
         }
 
         private readonly AsyncLock m_lock = new AsyncLock();

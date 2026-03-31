@@ -10,7 +10,7 @@ namespace LibSharp.Caching
     /// </summary>
     /// <typeparam name="T">Value type.</typeparam>
     /// <remarks>Should not be used with IDisposable value types since it does not dispose of expired values.</remarks>
-    public class ValueCache<T> : IValueCache<T>
+    public sealed class ValueCache<T> : IValueCache<T>
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="ValueCache{T}"/> class from a value factory.

@@ -13,7 +13,7 @@ namespace LibSharp.Collections
     /// This implementation is not thread-safe.
     /// </summary>
     /// <typeparam name="T">Comparable type of queue items.</typeparam>
-    public class MaxPriorityQueue<T> : IPriorityQueue<T>
+    public sealed class MaxPriorityQueue<T> : IPriorityQueue<T>
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="MaxPriorityQueue{Item}"/> class.

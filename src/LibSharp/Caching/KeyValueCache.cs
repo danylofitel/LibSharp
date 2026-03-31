@@ -17,7 +17,7 @@ namespace LibSharp.Caching
     /// This is by design for bounded key spaces.
     /// Do not use with unbounded key spaces as memory will grow monotonically.
     /// </remarks>
-    public class KeyValueCache<TKey, TValue> : IKeyValueCache<TKey, TValue>
+    public sealed class KeyValueCache<TKey, TValue> : IKeyValueCache<TKey, TValue>
         where TKey : notnull
     {
         /// <summary>

@@ -12,7 +12,7 @@ namespace LibSharp.Caching
     /// </summary>
     /// <typeparam name="T">Value type.</typeparam>
     /// <remarks>Should not be used with IDisposable or IAsyncDisposable value types since it does not dispose of values.</remarks>
-    public class LazyAsyncPublicationOnly<T>
+    public sealed class LazyAsyncPublicationOnly<T>
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="LazyAsyncPublicationOnly{T}"/> class from a value.

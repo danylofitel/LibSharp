@@ -6,7 +6,7 @@ using LibSharp.Common;
 namespace LibSharp.Caching
 {
     /// <inheritdoc/>
-    public class Initializer<T> : IInitializer<T>
+    public sealed class Initializer<T> : IInitializer<T>
     {
         /// <inheritdoc/>
         public bool HasValue

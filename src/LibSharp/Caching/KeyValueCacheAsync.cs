@@ -18,7 +18,7 @@ namespace LibSharp.Caching
     /// This is by design for bounded key spaces.
     /// Do not use with unbounded key spaces as memory will grow monotonically.
     /// </remarks>
-    public class KeyValueCacheAsync<TKey, TValue> : IKeyValueCacheAsync<TKey, TValue>, IDisposable
+    public sealed class KeyValueCacheAsync<TKey, TValue> : IKeyValueCacheAsync<TKey, TValue>, IDisposable
         where TKey : notnull
     {
         /// <summary>
@@ -147,33 +147,20 @@ namespace LibSharp.Caching
         /// </summary>
         public void Dispose()
         {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
-        /// <summary>
-        /// Disposes of the cache.
-        /// </summary>
-        /// <param name="disposing">True if the method was called during disposal, false otherwise.</param>
-        protected virtual void Dispose(bool disposing)
-        {
             if (Interlocked.Exchange(ref m_isDisposed, 1) != 0)
             {
                 return;
             }
 
-            if (disposing)
+            foreach (Lazy<ValueCacheAsync<TValue>> cache in m_cache.Values)
             {
-                foreach (Lazy<ValueCacheAsync<TValue>> cache in m_cache.Values)
+                if (cache.IsValueCreated)
                 {
-                    if (cache.IsValueCreated)
-                    {
-                        cache.Value.Dispose();
-                    }
+                    cache.Value.Dispose();
                 }
-
-                m_cache.Clear();
             }
+
+            m_cache.Clear();
         }
 
         private ValueCacheAsync<TValue> CreateValueCache(TKey key)

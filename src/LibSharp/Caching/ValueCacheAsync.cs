@@ -12,7 +12,7 @@ namespace LibSharp.Caching
     /// </summary>
     /// <typeparam name="T">Value type.</typeparam>
     /// <remarks>Should not be used with IDisposable value types since it does not dispose of expired values.</remarks>
-    public class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
+    public sealed class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="ValueCacheAsync{T}"/> class from a value factory.
@@ -124,25 +124,12 @@ namespace LibSharp.Caching
         /// </summary>
         public void Dispose()
         {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
-        /// <summary>
-        /// Disposes of the cache.
-        /// </summary>
-        /// <param name="disposing">True if the method was called during disposal, false otherwise.</param>
-        protected virtual void Dispose(bool disposing)
-        {
             if (Interlocked.Exchange(ref m_isDisposed, 1) != 0)
             {
                 return;
             }
 
-            if (disposing)
-            {
-                m_lock.Dispose();
-            }
+            m_lock.Dispose();
         }
 
         private static DateTime GetExpiration(TimeSpan timeToLive)

@@ -12,7 +12,7 @@ namespace LibSharp.Caching
     /// </summary>
     /// <typeparam name="T">Value type.</typeparam>
     /// <remarks>Should not be used with IDisposable or IAsyncDisposable value types since it does not dispose of values.</remarks>
-    public class InitializerAsyncPublicationOnly<T> : IInitializerAsync<T>
+    public sealed class InitializerAsyncPublicationOnly<T> : IInitializerAsync<T>
     {
         /// <inheritdoc/>
         public bool HasValue => m_value is not null;
