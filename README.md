@@ -207,6 +207,15 @@ BenchmarkDotNet setup and benchmark scripts are available in [`benchmarks/`](ben
         _ = maxPq.Dequeue(); // 2
         _ = maxPq.Dequeue(); // 1
     }
+
+    private static async IAsyncEnumerable<int> GetNumbersAsync()
+    {
+        for (int i = 0; i < 200; i++)
+        {
+            await Task.Yield();
+            yield return i;
+        }
+    }
 ```
 
 ### Threading

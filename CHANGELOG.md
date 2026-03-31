@@ -1,6 +1,6 @@
-# Changelog
+﻿# Changelog
 
-- 3.0.0
+- 3.0.0-beta.1
   - Added `AsyncLock`, `DebouncedAction`, `ThrottledAction`, `ConcurrentHashSet`, and `Result` classes
   - Renamed `Box` to `Optional`; null values are now allowed
   - `ProactiveAsyncCache` constructor now accepts a `ProactiveAsyncCacheOptions` object with additional controls

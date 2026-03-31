@@ -1,7 +1,7 @@
 ﻿# Code style
 
 Generally speaking, there is no right or wrong when it comes to specific styles. For the most part they are a matter of personal preferences.
-That said, we are going to enfore a specific coding style that we agree upon, and there are at least 2 good reasons for doing that:
+That said, we are going to enforce a specific coding style that we agree upon, and there are at least 2 good reasons for doing that:
 
 * The team spends zero time arguing about their subjective preferences when IDE makes those decisions
 * Having the style enforced by IDE means that all code is consistently formatted. It makes it easier to read for team members as they are used to it, and it's very easy to change from one style to another
@@ -27,6 +27,7 @@ The general coding style is based on the standard C# style.
 ### Namespaces
 
 * Namespaces correspond to the folder structure
+* Use block-scoped namespaces for consistency across the codebase
 
 ### Files
 
@@ -74,6 +75,7 @@ Elements within a class are ordered as follows:
 * var keyword should not be used
 * out and ref parameters should not be used in new functions
 * Members should be declared as readonly by default
+* Use modern C# features when they improve clarity, but keep style consistent with existing code
 
 ### Other
 

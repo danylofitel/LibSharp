@@ -17,17 +17,17 @@
     <Authors>Danylo Fitel</Authors>
     <Copyright>Copyright (c) Danylo Fitel 2026</Copyright>
     <Description>Extends the standard library with:
-- Async lock - provides a mechanism for asynchronous mutual exclusion for async code.
-- Async lazy (PublicationOnly and ExecutionAndPublication thread safety modes).
-- Sync and async in-memory value cache.
-- Sync and async in-memory key-value cache.
-- Proactive async cache that refreshes values in the background before they expire.
-- Min and max priority queues.
-- Argument validation methods.
-- Extension methods for collection interfaces.
-- Extension methods for standard library types like int, string, DateTime.</Description>
+  - Async lock and action frequency controls (debounce/throttle).
+  - Async lazy (PublicationOnly and ExecutionAndPublication thread safety modes).
+  - Sync and async in-memory value and key-value caches.
+  - Proactive async cache that refreshes values in the background before they expire.
+  - Thread-safe and priority-based collections.
+  - Optional and Result value types.
+  - Argument validation methods.
+  - Extension methods for collection interfaces.
+  - Extension methods for standard library types like int, string, DateTime.</Description>
     <PackageReleaseNotes>$([System.IO.File]::ReadAllText("$(MSBuildProjectDirectory)/../../CHANGELOG.md"))</PackageReleaseNotes>
-    <PackageTags>LibSharp;AsyncLazy;LazyAsync;Cache;AsyncCache;ThreadSafeCache;PriorityQueue;Collections;Extensions;ArgumentValidation</PackageTags>
+    <PackageTags>LibSharp;AsyncLock;Debounce;Throttle;AsyncLazy;LazyAsync;Cache;AsyncCache;ThreadSafeCache;ConcurrentHashSet;PriorityQueue;Collections;Result;Optional;Extensions;ArgumentValidation</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
     <PackageProjectUrl>https://www.nuget.org/packages/LibSharp</PackageProjectUrl>
