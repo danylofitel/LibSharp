@@ -178,12 +178,19 @@ BenchmarkDotNet setup and benchmark scripts are available in [`benchmarks/`](ben
         int asyncFirstIndex = await asyncEnumerable.FirstIndexOfAsync(x => x == 51, cancellationToken);
         int asyncLastIndex = await asyncEnumerable.LastIndexOfAsync(x => x == 51, cancellationToken);
 
-        // ConcurrentHashSet<T> — thread-safe hash set
+        // ConcurrentHashSet<T> — thread-safe hash set implementing ISet<T> and IReadOnlySet<T>
         ConcurrentHashSet<int> set = new ConcurrentHashSet<int>();
         bool added = set.Add(1);         // true
         added = set.Add(1);              // false — already present
         bool contains = set.Contains(1); // true
         bool removed = set.Remove(1);    // true
+
+        // Set algebra operations (not atomic at the collection level)
+        set.UnionWith(new[] { 2, 3 });
+        set.IntersectWith(new[] { 2, 4 });
+        set.ExceptWith(new[] { 4 });
+        bool subset = set.IsSubsetOf(new[] { 1, 2, 3 });
+        bool equal = set.SetEquals(new[] { 2 });
 
         // Min priority queue
         MinPriorityQueue<int> minPq = new MinPriorityQueue<int>();
