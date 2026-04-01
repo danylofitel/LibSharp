@@ -19,10 +19,15 @@ public interface IInitializerAsync<T>
 
     /// <summary>
     /// Gets the value, creates it if it has not been initialized.
-    /// Thread-safe, only one factory will ever be executed.
+    /// Thread-safe, only one successful factory result will ever be published.
     /// </summary>
     /// <param name="factory">Value factory.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The value.</returns>
+    /// <remarks>
+    /// If the factory faults or is canceled, the value is not considered initialized and a later call may retry.
+    /// </remarks>
+    /// <exception cref="ObjectDisposedException">Thrown if the initializer has been disposed.</exception>
+    /// <exception cref="OperationCanceledException">Thrown if <paramref name="cancellationToken"/> is canceled before the value is produced.</exception>
     Task<T> GetValueAsync(Func<CancellationToken, Task<T>> factory, CancellationToken cancellationToken = default);
 }

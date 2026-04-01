@@ -85,4 +85,67 @@ public class InitializerAsyncExecutionAndPublicationUnitTests
             }
         }
     }
+
+    [TestMethod]
+    public async Task GetValueAsync_ConcurrentCallers_OnlyOneFactoryExecutes()
+    {
+        // Arrange
+        using InitializerAsyncExecutionAndPublication<int> initializer = new InitializerAsyncExecutionAndPublication<int>();
+        TaskCompletionSource<bool> factoryStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource<bool> releaseFactory = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        int executionCount = 0;
+
+        async Task<int> Factory(CancellationToken cancellationToken)
+        {
+            _ = Interlocked.Increment(ref executionCount);
+            _ = factoryStarted.TrySetResult(true);
+            _ = await releaseFactory.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+            return 42;
+        }
+
+        Task<int>[] callers = new Task<int>[8];
+        for (int i = 0; i < callers.Length; i++)
+        {
+            callers[i] = Task.Run(() => initializer.GetValueAsync(Factory, CancellationToken.None), CancellationToken.None);
+        }
+
+        _ = await factoryStarted.Task.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+
+        // Act
+        releaseFactory.SetResult(true);
+        int[] results = await Task.WhenAll(callers).ConfigureAwait(false);
+
+        // Assert
+        CollectionAssert.AreEqual(new[] { 42, 42, 42, 42, 42, 42, 42, 42 }, results);
+        Assert.AreEqual(1, executionCount);
+        Assert.IsTrue(initializer.HasValue);
+    }
+
+    [TestMethod]
+    public async Task GetValueAsync_FactoryFailure_DoesNotCacheFailure()
+    {
+        // Arrange
+        using InitializerAsyncExecutionAndPublication<int> initializer = new InitializerAsyncExecutionAndPublication<int>();
+        int attemptCount = 0;
+
+        async Task<int> Factory(CancellationToken cancellationToken)
+        {
+            await Task.Yield();
+            return Interlocked.Increment(ref attemptCount) switch
+            {
+                1 => throw new InvalidOperationException("boom"),
+                _ => 42,
+            };
+        }
+
+        // Act
+        _ = await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () =>
+            await initializer.GetValueAsync(Factory, CancellationToken.None).ConfigureAwait(false)).ConfigureAwait(false);
+        int value = await initializer.GetValueAsync(Factory, CancellationToken.None).ConfigureAwait(false);
+
+        // Assert
+        Assert.AreEqual(42, value);
+        Assert.AreEqual(2, attemptCount);
+        Assert.IsTrue(initializer.HasValue);
+    }
 }

@@ -27,5 +27,7 @@ public interface IValueCacheAsync<T>
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The cached value.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown if the cache has been disposed.</exception>
+    /// <exception cref="OperationCanceledException">Thrown if <paramref name="cancellationToken"/> is canceled before the value is produced.</exception>
     Task<T> GetValueAsync(CancellationToken cancellationToken = default);
 }

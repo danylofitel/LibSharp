@@ -1,5 +1,6 @@
 ﻿// Copyright (c) LibSharp. All rights reserved.
 
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -19,5 +20,7 @@ public interface IKeyValueCacheAsync<TKey, TValue>
     /// <param name="key">Cache key.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The cached value.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown if the cache has been disposed.</exception>
+    /// <exception cref="OperationCanceledException">Thrown if <paramref name="cancellationToken"/> is canceled before the value is produced.</exception>
     Task<TValue> GetValueAsync(TKey key, CancellationToken cancellationToken = default);
 }

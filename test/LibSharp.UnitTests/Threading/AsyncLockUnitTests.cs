@@ -152,6 +152,31 @@ public class AsyncLockUnitTests
     }
 
     [TestMethod]
+    public async Task AcquireAsync_DisposedWhileWaiting_WithDefaultToken_ThrowsObjectDisposedException()
+    {
+        // Arrange
+        using AsyncLock asyncLock = new AsyncLock();
+        AsyncLock.Handle holder = await asyncLock.AcquireAsync().ConfigureAwait(false);
+
+        Task<ObjectDisposedException> waiterTask = Assert.ThrowsExactlyAsync<ObjectDisposedException>(async () =>
+        {
+            using (await asyncLock.AcquireAsync().ConfigureAwait(false))
+            {
+                Assert.Fail("Should not reach here.");
+            }
+        });
+
+        await Task.Delay(20, TestContext.CancellationToken).ConfigureAwait(false);
+
+        // Act
+        asyncLock.Dispose();
+
+        // Assert
+        _ = await waiterTask.ConfigureAwait(false);
+        holder.Dispose();
+    }
+
+    [TestMethod]
     public async Task AcquireAsync_CanceledWhileWaiting_ThrowsOperationCanceledException()
     {
         // Arrange

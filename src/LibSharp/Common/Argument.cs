@@ -1,4 +1,4 @@
-// Copyright (c) LibSharp. All rights reserved.
+﻿// Copyright (c) LibSharp. All rights reserved.
 
 using System;
 
@@ -25,17 +25,17 @@ public static class Argument
 
         if (value is null)
         {
-            throw new ArgumentNullException(name, $"Argument is null and is not equal to {equalValue}");
+            throw new ArgumentNullException(name, $"{name} must be equal to {equalValue}, but was null.");
         }
 
         if (equalValue is null)
         {
-            throw new ArgumentException($"{value} must be equal to null.", name);
+            throw new ArgumentException($"{name} must be equal to null, but was {value}.", name);
         }
 
         if (!value.Equals(equalValue))
         {
-            throw new ArgumentException($"{value} must be equal to {equalValue}.", name);
+            throw new ArgumentException($"{name} must be equal to {equalValue}, but was {value}.", name);
         }
     }
 
