@@ -48,6 +48,8 @@ public sealed class InitializerAsyncExecutionAndPublication<T> : IInitializerAsy
                     m_hasValue = true;
                 }
 
+                ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
+
                 return m_value;
             }
         }

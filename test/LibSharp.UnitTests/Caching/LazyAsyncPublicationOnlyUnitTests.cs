@@ -106,5 +106,37 @@ public class LazyAsyncPublicationOnlyUnitTests
             await lazy.GetValueAsync(CancellationToken.None).ConfigureAwait(false)).ConfigureAwait(false);
     }
 
+    [TestMethod]
+    public async Task GetValueAsync_ConcurrentCallers_PublishSingleWinningValue()
+    {
+        // Arrange
+        TaskCompletionSource<bool> bothFactoriesStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        int executionCount = 0;
+
+        LazyAsyncPublicationOnly<int> lazy = new LazyAsyncPublicationOnly<int>(async cancellationToken =>
+        {
+            int count = Interlocked.Increment(ref executionCount);
+            if (count == 2)
+            {
+                _ = bothFactoriesStarted.TrySetResult(true);
+            }
+
+            _ = await bothFactoriesStarted.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+            return count;
+        });
+
+        // Act
+        Task<int> first = Task.Run(() => lazy.GetValueAsync(CancellationToken.None), CancellationToken.None);
+        Task<int> second = Task.Run(() => lazy.GetValueAsync(CancellationToken.None), CancellationToken.None);
+        int[] results = await Task.WhenAll(first, second).ConfigureAwait(false);
+        int published = await lazy.GetValueAsync(CancellationToken.None).ConfigureAwait(false);
+
+        // Assert
+        Assert.AreEqual(2, executionCount);
+        Assert.AreEqual(results[0], results[1]);
+        Assert.AreEqual(results[0], published);
+        Assert.IsTrue(lazy.HasValue);
+    }
+
     public TestContext TestContext { get; set; }
 }

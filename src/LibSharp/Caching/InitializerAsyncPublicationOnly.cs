@@ -11,7 +11,11 @@ namespace LibSharp.Caching;
 /// Async initializer with LazyThreadSafetyMode.PublicationOnly.
 /// </summary>
 /// <typeparam name="T">Value type.</typeparam>
-/// <remarks>Should not be used with IDisposable or IAsyncDisposable value types since it does not dispose of values.</remarks>
+/// <remarks>
+/// Should not be used with IDisposable or IAsyncDisposable value types since it does not dispose of values.
+/// Concurrent callers may execute different factories more than once; only the first successfully published value is retained and returned to all callers.
+/// Faulted or canceled attempts are not cached and may be retried by later callers.
+/// </remarks>
 public sealed class InitializerAsyncPublicationOnly<T> : IInitializerAsync<T>
 {
     /// <inheritdoc/>

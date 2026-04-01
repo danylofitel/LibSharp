@@ -143,6 +143,66 @@ public class LazyAsyncExecutionAndPublicationUnitTests
     }
 
     [TestMethod]
+    public async Task GetValueAsync_ConcurrentCallers_OnlyOneFactoryExecutes()
+    {
+        // Arrange
+        TaskCompletionSource<bool> factoryStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource<bool> releaseFactory = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        int executionCount = 0;
+
+        using LazyAsyncExecutionAndPublication<int> lazy = new LazyAsyncExecutionAndPublication<int>(
+            async cancellationToken =>
+            {
+                _ = Interlocked.Increment(ref executionCount);
+                _ = factoryStarted.TrySetResult(true);
+                _ = await releaseFactory.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+                return 42;
+            });
+
+        Task<int>[] callers = new Task<int>[8];
+        for (int i = 0; i < callers.Length; i++)
+        {
+            callers[i] = Task.Run(() => lazy.GetValueAsync(CancellationToken.None), CancellationToken.None);
+        }
+
+        _ = await factoryStarted.Task.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+        Assert.AreEqual(1, executionCount);
+
+        // Act
+        releaseFactory.SetResult(true);
+        int[] results = await Task.WhenAll(callers).ConfigureAwait(false);
+
+        // Assert
+        CollectionAssert.AreEqual(new[] { 42, 42, 42, 42, 42, 42, 42, 42 }, results);
+        Assert.IsTrue(lazy.HasValue);
+    }
+
+    [TestMethod]
+    public async Task GetValueAsync_DisposedWhileFactoryIsInFlight_ThrowsObjectDisposedException()
+    {
+        // Arrange
+        TaskCompletionSource<bool> factoryStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource<int> factoryTcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        using LazyAsyncExecutionAndPublication<int> lazy = new LazyAsyncExecutionAndPublication<int>(
+            cancellationToken =>
+            {
+                _ = factoryStarted.TrySetResult(true);
+                return factoryTcs.Task;
+            });
+
+        Task<int> getTask = lazy.GetValueAsync(CancellationToken.None);
+        _ = await factoryStarted.Task.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+
+        // Act
+        lazy.Dispose();
+        factoryTcs.SetResult(42);
+
+        // Assert
+        _ = await Assert.ThrowsExactlyAsync<ObjectDisposedException>(() => getTask).ConfigureAwait(false);
+    }
+
+    [TestMethod]
     public async Task FromFactory_NullTask_ThrowsInvalidOperationException()
     {
         // Arrange

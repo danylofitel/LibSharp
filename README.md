@@ -274,10 +274,14 @@ Notes:
 * Some of the classes implement `IDisposable` interface and should be correctly disposed.
 * Be cautious when caching types that implement `IDisposable` interface as the values will not be automatically disposed by the caches.
 * Be cautious when using classes with `LazyThreadSafetyMode.PublicationOnly` behavior together with `IDisposable` types as discarded instances will not be disposed.
+* `PublicationOnly` implementations may run multiple factories concurrently and publish the first successful result.
+* Async lazy and initializer methods throw `InvalidOperationException` if a factory returns a null `Task`.
 
 #### Lazy
 
 Two different implementations of async lazy values are available — `LazyAsyncPublicationOnly` and `LazyAsyncExecutionAndPublication`. Those are async versions of `System.Lazy` class with `LazyThreadSafetyMode.PublicationOnly` and `LazyThreadSafetyMode.ExecutionAndPublication` modes respectively. The reason that async lazy implementations are separate classes is that `LazyAsyncExecutionAndPublication` implements `IDisposable` due to its usage of an instance of `SemaphoreSlim` whereas `LazyAsyncPublicationOnly` does not need to implement `IDisposable`.
+
+`LazyAsyncExecutionAndPublication` runs at most one in-flight factory and retries after failed or canceled attempts. `LazyAsyncPublicationOnly` may execute multiple concurrent factories, but only the first successfully published value is retained.
 
 ```csharp
     using LibSharp.Caching;
@@ -308,6 +312,8 @@ Two different implementations of async lazy values are available — `LazyAsyncP
 #### Initializers
 
 Initializers in LibSharp are equivalents of lazy types, with the only difference being that the value factory is provided at lazy initialization time instead of creation time. They also enable cases where different factories can be used to initialize the value, where only one will succeed at setting the value.
+
+`InitializerAsyncExecutionAndPublication` runs at most one in-flight factory and retries after failed or canceled attempts. `InitializerAsyncPublicationOnly` may execute multiple concurrent factories, but only the first successfully published value is retained.
 
 ```csharp
     using LibSharp.Caching;

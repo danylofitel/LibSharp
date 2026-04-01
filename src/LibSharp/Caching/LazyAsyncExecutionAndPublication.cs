@@ -12,7 +12,10 @@ namespace LibSharp.Caching;
 /// Async lazy with LazyThreadSafetyMode.ExecutionAndPublication.
 /// </summary>
 /// <typeparam name="T">Value type.</typeparam>
-/// <remarks>Should not be used with IDisposable or IAsyncDisposable value types since it does not dispose of values.</remarks>
+/// <remarks>
+/// Should not be used with IDisposable or IAsyncDisposable value types since it does not dispose of values.
+/// A successful initialization is cached permanently. Faulted or canceled attempts are not cached and may be retried by later callers.
+/// </remarks>
 public sealed class LazyAsyncExecutionAndPublication<T> : IDisposable
 {
     /// <summary>
@@ -55,6 +58,9 @@ public sealed class LazyAsyncExecutionAndPublication<T> : IDisposable
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The value.</returns>
+    /// <exception cref="ObjectDisposedException">Thrown if this instance has been disposed.</exception>
+    /// <exception cref="OperationCanceledException">Thrown if <paramref name="cancellationToken"/> is canceled before the value is produced.</exception>
+    /// <exception cref="InvalidOperationException">Thrown if the value factory returns a null task.</exception>
     public async Task<T> GetValueAsync(CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
@@ -70,6 +76,8 @@ public sealed class LazyAsyncExecutionAndPublication<T> : IDisposable
                     m_value = await factoryTask.ConfigureAwait(false);
                     m_hasValue = true;
                 }
+
+                ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
 
                 return m_value;
             }

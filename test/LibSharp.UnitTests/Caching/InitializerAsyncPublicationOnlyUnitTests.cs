@@ -54,4 +54,37 @@ public class InitializerAsyncPublicationOnlyUnitTests
         _ = await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () =>
             await lazy.GetValueAsync(_ => null, CancellationToken.None).ConfigureAwait(false)).ConfigureAwait(false);
     }
+
+    [TestMethod]
+    public async Task GetValueAsync_ConcurrentCallers_PublishSingleWinningValue()
+    {
+        // Arrange
+        InitializerAsyncPublicationOnly<int> initializer = new InitializerAsyncPublicationOnly<int>();
+        TaskCompletionSource<bool> bothFactoriesStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        int executionCount = 0;
+
+        async Task<int> Factory(CancellationToken cancellationToken)
+        {
+            int count = Interlocked.Increment(ref executionCount);
+            if (count == 2)
+            {
+                _ = bothFactoriesStarted.TrySetResult(true);
+            }
+
+            _ = await bothFactoriesStarted.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+            return count;
+        }
+
+        // Act
+        Task<int> first = Task.Run(() => initializer.GetValueAsync(Factory, CancellationToken.None), CancellationToken.None);
+        Task<int> second = Task.Run(() => initializer.GetValueAsync(Factory, CancellationToken.None), CancellationToken.None);
+        int[] results = await Task.WhenAll(first, second).ConfigureAwait(false);
+        int published = await initializer.GetValueAsync(Factory, CancellationToken.None).ConfigureAwait(false);
+
+        // Assert
+        Assert.AreEqual(2, executionCount);
+        Assert.AreEqual(results[0], results[1]);
+        Assert.AreEqual(results[0], published);
+        Assert.IsTrue(initializer.HasValue);
+    }
 }

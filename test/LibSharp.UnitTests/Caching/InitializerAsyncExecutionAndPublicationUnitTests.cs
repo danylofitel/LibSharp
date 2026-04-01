@@ -159,4 +159,30 @@ public class InitializerAsyncExecutionAndPublicationUnitTests
         _ = await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () =>
             await initializer.GetValueAsync(_ => null, CancellationToken.None).ConfigureAwait(false)).ConfigureAwait(false);
     }
+
+    [TestMethod]
+    public async Task GetValueAsync_DisposedWhileFactoryIsInFlight_ThrowsObjectDisposedException()
+    {
+        // Arrange
+        using InitializerAsyncExecutionAndPublication<int> initializer = new InitializerAsyncExecutionAndPublication<int>();
+        TaskCompletionSource<bool> factoryStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource<int> factoryTcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        Task<int> getTask = initializer.GetValueAsync(
+            cancellationToken =>
+            {
+                _ = factoryStarted.TrySetResult(true);
+                return factoryTcs.Task;
+            },
+            CancellationToken.None);
+
+        _ = await factoryStarted.Task.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+
+        // Act
+        initializer.Dispose();
+        factoryTcs.SetResult(42);
+
+        // Assert
+        _ = await Assert.ThrowsExactlyAsync<ObjectDisposedException>(() => getTask).ConfigureAwait(false);
+    }
 }
