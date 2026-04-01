@@ -13,7 +13,7 @@ namespace LibSharp.Collections;
 /// This implementation is not thread-safe.
 /// </summary>
 /// <typeparam name="T">Comparable type of queue items.</typeparam>
-public sealed class MinPriorityQueue<T> : IPriorityQueue<T>
+public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="MinPriorityQueue{Item}"/> class.
@@ -163,6 +163,19 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>
     }
 
     /// <inheritdoc/>
+    public bool TryPeek(out T item)
+    {
+        if (Count == 0)
+        {
+            item = default;
+            return false;
+        }
+
+        item = m_heap[1];
+        return true;
+    }
+
+    /// <inheritdoc/>
     public void Enqueue(T item)
     {
         ++m_version;
@@ -195,6 +208,19 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>
         Shrink();
 
         return min;
+    }
+
+    /// <inheritdoc/>
+    public bool TryDequeue(out T item)
+    {
+        if (Count == 0)
+        {
+            item = default;
+            return false;
+        }
+
+        item = Dequeue();
+        return true;
     }
 
     /// <inheritdoc/>

@@ -348,6 +348,37 @@ public class MaxPriorityQueueUnitTests
     }
 
     [TestMethod]
+    public void TryPeek_EmptyQueue_ReturnsFalseAndDefault()
+    {
+        // Arrange
+        IPriorityQueue<int> queue = new MaxPriorityQueue<int>();
+
+        // Act
+        bool result = queue.TryPeek(out int item);
+
+        // Assert
+        Assert.IsFalse(result);
+        Assert.AreEqual(default, item);
+        Assert.AreEqual(0, queue.Count);
+    }
+
+    [TestMethod]
+    public void TryPeek_NonEmptyQueue_ReturnsTrueWithoutRemoving()
+    {
+        // Arrange
+        IPriorityQueue<int> queue = new MaxPriorityQueue<int> { 4, 1, 3 };
+
+        // Act
+        bool result = queue.TryPeek(out int item);
+
+        // Assert
+        Assert.IsTrue(result);
+        Assert.AreEqual(4, item);
+        Assert.AreEqual(3, queue.Count);
+        Assert.AreEqual(4, queue.Peek());
+    }
+
+    [TestMethod]
     public void Dequeue_ThrowsForEmptyQueue()
     {
         // Arrange
@@ -355,6 +386,37 @@ public class MaxPriorityQueueUnitTests
 
         // Act
         _ = Assert.ThrowsExactly<InvalidOperationException>(() => queue.Dequeue());
+    }
+
+    [TestMethod]
+    public void TryDequeue_EmptyQueue_ReturnsFalseAndDefault()
+    {
+        // Arrange
+        IPriorityQueue<int> queue = new MaxPriorityQueue<int>();
+
+        // Act
+        bool result = queue.TryDequeue(out int item);
+
+        // Assert
+        Assert.IsFalse(result);
+        Assert.AreEqual(default, item);
+        Assert.AreEqual(0, queue.Count);
+    }
+
+    [TestMethod]
+    public void TryDequeue_NonEmptyQueue_ReturnsTrueAndRemovesLargestItem()
+    {
+        // Arrange
+        IPriorityQueue<int> queue = new MaxPriorityQueue<int> { 4, 1, 3 };
+
+        // Act
+        bool result = queue.TryDequeue(out int item);
+
+        // Assert
+        Assert.IsTrue(result);
+        Assert.AreEqual(4, item);
+        Assert.AreEqual(2, queue.Count);
+        Assert.AreEqual(3, queue.Peek());
     }
 
     [TestMethod]

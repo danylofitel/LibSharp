@@ -175,6 +175,9 @@ BenchmarkDotNet setup and benchmark scripts are available in [`benchmarks/`](ben
 
         // IAsyncEnumerable extensions
         IAsyncEnumerable<int> asyncEnumerable = GetNumbersAsync();
+        List<List<int>> asyncChunks = await CollectAsync(asyncEnumerable.Chunk(20, item => item), cancellationToken);
+        // Grouped by total weight ≤ 20: [ [0, 1, 2, 3, 4, 5], [6, 7], [8, 9], ... ]
+
         int asyncFirstIndex = await asyncEnumerable.FirstIndexOfAsync(x => x == 51, cancellationToken);
         int asyncLastIndex = await asyncEnumerable.LastIndexOfAsync(x => x == 51, cancellationToken);
 
@@ -203,6 +206,9 @@ BenchmarkDotNet setup and benchmark scripts are available in [`benchmarks/`](ben
         _ = minPq.Dequeue(); // 2
         _ = minPq.Dequeue(); // 3
 
+        bool minHasValue = minPq.TryPeek(out int minPeeked);
+        bool minRemoved = minPq.TryDequeue(out int minDequeued);
+
         // Max priority queue
         MaxPriorityQueue<int> maxPq = new MaxPriorityQueue<int>();
         maxPq.Enqueue(2);
@@ -213,6 +219,9 @@ BenchmarkDotNet setup and benchmark scripts are available in [`benchmarks/`](ben
         _ = maxPq.Dequeue(); // 3
         _ = maxPq.Dequeue(); // 2
         _ = maxPq.Dequeue(); // 1
+
+        bool maxHasValue = maxPq.TryPeek(out int maxPeeked);
+        bool maxRemoved = maxPq.TryDequeue(out int maxDequeued);
     }
 
     private static async IAsyncEnumerable<int> GetNumbersAsync()
@@ -222,6 +231,18 @@ BenchmarkDotNet setup and benchmark scripts are available in [`benchmarks/`](ben
             await Task.Yield();
             yield return i;
         }
+    }
+
+    private static async Task<List<T>> CollectAsync<T>(IAsyncEnumerable<T> source, CancellationToken cancellationToken)
+    {
+        List<T> results = new List<T>();
+
+        await foreach (T item in source.WithCancellation(cancellationToken))
+        {
+            results.Add(item);
+        }
+
+        return results;
     }
 ```
 

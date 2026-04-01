@@ -1,17 +1,24 @@
 ﻿# Changelog
 
 - 3.0.0
-  - Added `AsyncLock`, `DebouncedAction`, `ThrottledAction`, `ConcurrentHashSet`, and `Result` classes
-  - Renamed `Box` to `Optional`; null values are now allowed
-  - `Optional<T>.GetHashCode` now differentiates between an empty optional and an optional wrapping `null`
-  - Hardened async synchronization, debounce/dispose behavior, and proactive cache edge cases for production use
-  - Async cache/lazy/initializer factories now reject null task returns with a deliberate exception instead of failing with `NullReferenceException`
-  - `ProactiveAsyncCache<T>` no longer implements `IDisposable`; use `await using` / `DisposeAsync()` instead
-  - `ProactiveAsyncCache` no longer supports `refreshTimeout` and `onBackgroundRefreshError` parameters, and now always auto-starts in constructor
-  - Regex extensions now return a `bool` indicating whether the regex match timed out
-  - `MinPriorityQueue<T>` and `MaxPriorityQueue<T>`: `Contains` and `Remove` now use the queue's comparer instead of `object.Equals`, making them consistent with the ordering relation
-  - `FuncExtensions.RunWithTimeout`: timeout must now be strictly greater than zero
-  - `XmlSerializationExtensions`: `XmlSerializer` instances are now cached per type to avoid repeated dynamic assembly generation
+  - `Caching`
+    - Async cache/lazy/initializer factories now reject null task returns with a deliberate exception instead of failing with `NullReferenceException`
+    - `ProactiveAsyncCache<T>` no longer implements `IDisposable`; use `await using` / `DisposeAsync()` instead
+    - `ProactiveAsyncCache` no longer supports `refreshTimeout` and `onBackgroundRefreshError` parameters, and now always auto-starts in constructor
+  - `Collections`
+    - Added `ConcurrentHashSet`
+    - Added weighted `Chunk` extension method for `IAsyncEnumerable<T>`
+    - Added `TryPeek` and `TryDequeue` to `IPriorityQueue<T>`, `MinPriorityQueue<T>`, and `MaxPriorityQueue<T>`
+    - `MinPriorityQueue<T>` and `MaxPriorityQueue<T>`: `Contains` and `Remove` now use the queue's comparer instead of `object.Equals`, making them consistent with the ordering relation
+  - `Common`
+    - Added `Result`
+    - Renamed `Box` to `Optional`; null values are now allowed
+    - `Optional<T>.GetHashCode` now differentiates between an empty optional and an optional wrapping `null`
+    - Regex extensions now return a `bool` indicating whether the regex match timed out
+    - `FuncExtensions.RunWithTimeout`: timeout must now be strictly greater than zero
+    - `XmlSerializationExtensions`: `XmlSerializer` instances are now cached per type to avoid repeated dynamic assembly generation
+  - `Threading`
+    - Added `AsyncLock`, `DebouncedAction`, and `ThrottledAction`
 
 - 2.0.4
   - Improved disposal of async caches in edge cases

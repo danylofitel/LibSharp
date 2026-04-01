@@ -13,7 +13,7 @@ namespace LibSharp.Collections;
 /// This implementation is not thread-safe.
 /// </summary>
 /// <typeparam name="T">Comparable type of queue items.</typeparam>
-public sealed class MaxPriorityQueue<T> : IPriorityQueue<T>
+public sealed class MaxPriorityQueue<T> : IPriorityQueue<T>, ICollection
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="MaxPriorityQueue{Item}"/> class.
@@ -143,6 +143,12 @@ public sealed class MaxPriorityQueue<T> : IPriorityQueue<T>
     }
 
     /// <inheritdoc/>
+    public bool TryPeek(out T item)
+    {
+        return m_minPriorityQueue.TryPeek(out item);
+    }
+
+    /// <inheritdoc/>
     public void Enqueue(T item)
     {
         m_minPriorityQueue.Enqueue(item);
@@ -155,6 +161,12 @@ public sealed class MaxPriorityQueue<T> : IPriorityQueue<T>
     public T Dequeue()
     {
         return m_minPriorityQueue.Dequeue();
+    }
+
+    /// <inheritdoc/>
+    public bool TryDequeue(out T item)
+    {
+        return m_minPriorityQueue.TryDequeue(out item);
     }
 
     /// <inheritdoc/>
