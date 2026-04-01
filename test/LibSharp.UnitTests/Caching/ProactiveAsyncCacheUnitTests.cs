@@ -450,8 +450,18 @@ public class ProactiveAsyncCacheUnitTests
 
     [TestMethod]
     [Timeout(30_000, CooperativeCancellation = true)]
-    public async Task GetValueAsync_ReentrantFactory_ReusesPendingFetch()
+    public async Task GetValueAsync_FactoryReadsCache_JoinsPendingFetchInsteadOfRecursing()
     {
+        // Regression test: without the TCS early-publish fix, a factory that called
+        // GetValueAsync in its synchronous prologue (before returning its Task) would
+        // find m_pendingFetch unset, start a second FetchAndUpdateAsync, and recurse
+        // until a StackOverflowException.
+        //
+        // This test only covers the non-awaiting reentrant case: the factory issues the
+        // nested read but returns immediately without awaiting it. The awaiting case
+        // (factory awaits the nested GetValueAsync) would deadlock — that is a caller
+        // bug and is intentionally out of scope.
+
         // Arrange
         StrongBox<ProactiveAsyncCache<int>> cacheBox = new StrongBox<ProactiveAsyncCache<int>>();
         TaskCompletionSource cacheReady = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -475,7 +485,7 @@ public class ProactiveAsyncCacheUnitTests
         // Act
         int value = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
 
-        // Assert
+        // Assert — factory ran once; nested read joined the same fetch and got the same value.
         Assert.AreEqual(42, value);
         Assert.IsNotNull(nestedReadTask, "Expected the factory to issue a nested cache read.");
         Assert.AreEqual(42, await nestedReadTask.ConfigureAwait(false));
@@ -828,6 +838,51 @@ public class ProactiveAsyncCacheUnitTests
     }
 
     [TestMethod]
+    public async Task BackgroundRefresh_FactoryThrowsObjectDisposedException_CacheKeepsRunning()
+    {
+        // Arrange
+        int callCount = 0;
+        using SemaphoreSlim fetchSignal = new SemaphoreSlim(0);
+
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            ct =>
+            {
+                int count = Interlocked.Increment(ref callCount);
+                _ = fetchSignal.Release();
+
+                if (count == 2)
+                {
+                    throw new ObjectDisposedException("dependency");
+                }
+
+                return Task.FromResult(count);
+            },
+            TimeSpan.FromMilliseconds(100),
+            TimeSpan.FromMilliseconds(20));
+
+        try
+        {
+            int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+            Assert.AreEqual(1, first);
+            _ = await fetchSignal.WaitAsync(TimeSpan.FromSeconds(5), TestContext.CancellationToken).ConfigureAwait(false);
+
+            _ = await fetchSignal.WaitAsync(TimeSpan.FromSeconds(5), TestContext.CancellationToken).ConfigureAwait(false);
+
+            bool retried = await fetchSignal.WaitAsync(TimeSpan.FromSeconds(10), TestContext.CancellationToken).ConfigureAwait(false);
+            Assert.IsTrue(retried, "Background did not retry after ObjectDisposedException from the factory.");
+
+            await Task.Delay(30, TestContext.CancellationToken).ConfigureAwait(false);
+
+            int value = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+            Assert.AreEqual(3, value);
+        }
+        finally
+        {
+            await cache.DisposeAsync().ConfigureAwait(false);
+        }
+    }
+
+    [TestMethod]
     public async Task BackgroundRefresh_SkipsWhenValueIsFresh()
     {
         // Arrange
@@ -899,6 +954,43 @@ public class ProactiveAsyncCacheUnitTests
             await firstValueReady.Task.WaitAsync(TimeSpan.FromSeconds(15), TestContext.CancellationToken).ConfigureAwait(false);
 
             // The value should now be available
+            int value = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+            Assert.AreEqual(99, value);
+            Assert.IsGreaterThanOrEqualTo(2, callCount);
+        }
+        finally
+        {
+            await cache.DisposeAsync().ConfigureAwait(false);
+        }
+    }
+
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task BackgroundRefresh_InitialFetchThrowsObjectDisposedException_RetriesUntilSuccess()
+    {
+        // Arrange
+        int callCount = 0;
+        TaskCompletionSource firstValueReady = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            ct =>
+            {
+                int count = Interlocked.Increment(ref callCount);
+                if (count == 1)
+                {
+                    throw new ObjectDisposedException("dependency");
+                }
+
+                _ = firstValueReady.TrySetResult();
+                return Task.FromResult(99);
+            },
+            TimeSpan.FromMilliseconds(100),
+            TimeSpan.FromMilliseconds(20));
+
+        try
+        {
+            await firstValueReady.Task.WaitAsync(TimeSpan.FromSeconds(15), TestContext.CancellationToken).ConfigureAwait(false);
+
             int value = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
             Assert.AreEqual(99, value);
             Assert.IsGreaterThanOrEqualTo(2, callCount);

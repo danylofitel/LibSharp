@@ -274,7 +274,7 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
             {
                 return;
             }
-            catch (ObjectDisposedException)
+            catch (ObjectDisposedException) when (Volatile.Read(ref m_isDisposed) != 0)
             {
                 return;
             }
@@ -321,7 +321,7 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
             {
                 break;
             }
-            catch (ObjectDisposedException)
+            catch (ObjectDisposedException) when (Volatile.Read(ref m_isDisposed) != 0)
             {
                 break;
             }
