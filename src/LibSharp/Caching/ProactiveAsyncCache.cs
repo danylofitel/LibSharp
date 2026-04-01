@@ -88,7 +88,9 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
             // Stale reads are allowed: return the stale value immediately while the refresh
             // runs in the background. This ensures readers never block after the initial fetch,
             // even when the factory is slow or temporarily failing.
-            return snapshot.Value;
+            // If the factory completed synchronously (e.g. Task.FromResult), the fetch task
+            // is already done and a fresher value is available — prefer it over the stale one.
+            return fetchTask.IsCompletedSuccessfully ? fetchTask.Result.Value : snapshot.Value;
         }
 
         // Either no value at all (first call) or stale reads are disabled: wait for the fetch.
