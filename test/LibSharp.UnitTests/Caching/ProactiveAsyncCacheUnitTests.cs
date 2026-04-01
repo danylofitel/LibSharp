@@ -228,6 +228,18 @@ public class ProactiveAsyncCacheUnitTests
     }
 
     [TestMethod]
+    public async Task GetValueAsync_FactoryReturningNullTask_ThrowsInvalidOperationException()
+    {
+        // Arrange
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(_ => (Task<int>)null, TimeSpan.FromHours(1), TimeSpan.Zero);
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
+
+        // Act & Assert
+        _ = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
+            () => cache.GetValueAsync(TestContext.CancellationToken)).ConfigureAwait(false);
+    }
+
+    [TestMethod]
     public async Task GetValueAsync_ThrowsWhenDisposed()
     {
         // Arrange
@@ -434,6 +446,40 @@ public class ProactiveAsyncCacheUnitTests
 
         // Assert
         Assert.AreEqual(200, refreshed);
+    }
+
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task GetValueAsync_ReentrantFactory_ReusesPendingFetch()
+    {
+        // Arrange
+        StrongBox<ProactiveAsyncCache<int>> cacheBox = new StrongBox<ProactiveAsyncCache<int>>();
+        TaskCompletionSource cacheReady = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task<int> nestedReadTask = null;
+        int callCount = 0;
+
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            ct =>
+            {
+                _ = Interlocked.Increment(ref callCount);
+                cacheReady.Task.GetAwaiter().GetResult();
+                nestedReadTask = cacheBox.Value.GetValueAsync(TestContext.CancellationToken);
+                return Task.FromResult(42);
+            },
+            TimeSpan.FromHours(1),
+            TimeSpan.Zero);
+        cacheBox.Value = cache;
+        cacheReady.SetResult();
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
+
+        // Act
+        int value = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+
+        // Assert
+        Assert.AreEqual(42, value);
+        Assert.IsNotNull(nestedReadTask, "Expected the factory to issue a nested cache read.");
+        Assert.AreEqual(42, await nestedReadTask.ConfigureAwait(false));
+        Assert.AreEqual(1, callCount);
     }
 
     [TestMethod]
@@ -861,6 +907,60 @@ public class ProactiveAsyncCacheUnitTests
         {
             await cache.DisposeAsync().ConfigureAwait(false);
         }
+    }
+
+    [TestMethod]
+    public async Task BackgroundRefresh_WithVeryLargeRefreshInterval_DoesNotFaultBackgroundTask()
+    {
+        // Arrange
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            _ => Task.FromResult(42),
+            TimeSpan.FromDays(1000),
+            TimeSpan.Zero);
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
+
+        FieldInfo backgroundTaskField = typeof(ProactiveAsyncCache<int>).GetField("m_backgroundTask", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.IsNotNull(backgroundTaskField, "Could not find m_backgroundTask field.");
+
+        // Act
+        int value = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+        await Task.Delay(50, TestContext.CancellationToken).ConfigureAwait(false);
+        Task backgroundTask = (Task)backgroundTaskField.GetValue(cache);
+
+        // Assert
+        Assert.AreEqual(42, value);
+        Assert.IsNotNull(backgroundTask);
+        Assert.IsFalse(backgroundTask.IsFaulted, "Background task should keep running for very large refresh intervals.");
+    }
+
+    [TestMethod]
+    public async Task BackgroundRefresh_InitialFailure_WithVeryLargeRetryWindow_DoesNotFaultBackgroundTask()
+    {
+        // Arrange
+        using SemaphoreSlim fetchSignal = new SemaphoreSlim(0);
+
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            ct =>
+            {
+                _ = fetchSignal.Release();
+                throw new InvalidOperationException("Initial fetch failure");
+            },
+            TimeSpan.FromDays(1000),
+            TimeSpan.Zero);
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
+
+        FieldInfo backgroundTaskField = typeof(ProactiveAsyncCache<int>).GetField("m_backgroundTask", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.IsNotNull(backgroundTaskField, "Could not find m_backgroundTask field.");
+
+        // Act
+        bool initialFailureObserved = await fetchSignal.WaitAsync(TimeSpan.FromSeconds(5), TestContext.CancellationToken).ConfigureAwait(false);
+        await Task.Delay(50, TestContext.CancellationToken).ConfigureAwait(false);
+        Task backgroundTask = (Task)backgroundTaskField.GetValue(cache);
+
+        // Assert
+        Assert.IsTrue(initialFailureObserved, "Expected the initial background fetch to run and fail.");
+        Assert.IsNotNull(backgroundTask);
+        Assert.IsFalse(backgroundTask.IsFaulted, "Background task should remain active after a failed refresh with a very large retry window.");
     }
 
     public TestContext TestContext { get; set; }

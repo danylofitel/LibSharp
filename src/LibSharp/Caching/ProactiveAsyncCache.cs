@@ -42,7 +42,7 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
         m_preFetchOffset = preFetchOffset;
         m_retryDelay = CalculateRetryDelay(refreshInterval, preFetchOffset);
         m_allowStaleReads = allowStaleReads;
-        m_backgroundTask = Task.Run(BackgroundRefresh);
+        m_backgroundTask = Task.Run(BackgroundRefreshAsync);
     }
 
     /// <inheritdoc/>
@@ -70,28 +70,30 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
 
+        // Hot path: snapshot is fresh, no lock needed.
+        // m_snapshot is volatile so the reference read is immediately visible across threads.
+        // CacheSnapshot is an immutable record so a non-null reference is always a fully
+        // constructed, consistent object.
         CacheSnapshot snapshot = m_snapshot;
         if (snapshot is not null && DateTime.UtcNow < snapshot.ExpirationTime)
         {
             return snapshot.Value;
         }
 
+        // Snapshot is absent or expired — get or start a fetch.
         Task<CacheSnapshot> fetchTask = GetOrCreateFetchTask();
 
         if (snapshot is not null && m_allowStaleReads)
         {
-            // Stale but non-null and stale reads are allowed: return the stale value
-            // only while a refresh is still in progress. If another thread already
-            // completed the refresh synchronously, return the fresh value instead.
-            if (fetchTask.IsCompletedSuccessfully)
-            {
-                return fetchTask.Result.Value;
-            }
-
+            // Stale reads are allowed: return the stale value immediately while the refresh
+            // runs in the background. This ensures readers never block after the initial fetch,
+            // even when the factory is slow or temporarily failing.
             return snapshot.Value;
         }
 
-        // Either no value at all (first call) or stale reads are disabled.
+        // Either no value at all (first call) or stale reads are disabled: wait for the fetch.
+        // WaitAsync attaches caller cancellation without cancelling the underlying factory call,
+        // so other callers sharing the same fetch task are unaffected.
         try
         {
             CacheSnapshot result = await fetchTask.WaitAsync(cancellationToken).ConfigureAwait(false);
@@ -99,7 +101,7 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
         }
         catch (OperationCanceledException) when (Volatile.Read(ref m_isDisposed) != 0 && !cancellationToken.IsCancellationRequested)
         {
-            // The fetch was cancelled by disposal, not by the caller. Surface this as
+            // The fetch was cancelled by disposal, not by the caller. Surface as
             // ObjectDisposedException so callers can distinguish the two cases.
             throw new ObjectDisposedException(GetType().Name);
         }
@@ -107,8 +109,8 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
 
     /// <inheritdoc/>
     /// <remarks>
-    /// If the value factory does not honour its <see cref="CancellationToken"/>, this method may block
-    /// indefinitely. Add a timeout inside the factory to bound the wait.
+    /// If the value factory does not honour its <see cref="CancellationToken"/>, this method may
+    /// block indefinitely. Add a timeout inside the factory to bound disposal time.
     /// </remarks>
     public async ValueTask DisposeAsync()
     {
@@ -119,31 +121,35 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
 
         m_cts.Cancel();
 
-        // Read m_pendingFetch under lock: GetValueAsync can create a fetch independently of
-        // the background loop (e.g. when AllowStaleReads is true and the loop is sleeping).
-        // After m_isDisposed = 1 no new fetch can be created (GetOrCreateFetchTask checks
-        // disposal under the lock), so this single read captures the last possible in-flight fetch.
+        // Capture m_pendingFetch under lock. After m_isDisposed = 1, GetOrCreateFetchTask
+        // throws ObjectDisposedException under the lock, so no new fetch can be created.
+        // This single read therefore captures the last possible in-flight fetch.
+        //
+        // m_backgroundTask is always non-null (set in constructor) and does not need to be
+        // read under lock — it is never reassigned after construction.
         Task<CacheSnapshot> pendingFetch;
         lock (m_lock)
         {
             pendingFetch = m_pendingFetch;
         }
 
+        // Wait for the background loop to exit. When the background loop is itself awaiting
+        // a fetch (not sleeping on the refresh timer), this implicitly drains that fetch too.
         try
         {
             await m_backgroundTask.ConfigureAwait(false);
         }
         catch
         {
-            // Intentionally swallowed — the refresh loop is internally defensive and should
-            // not fault, but we must never throw from a disposal method.
+            // Swallow — the loop is internally defensive and should not fault, but we must
+            // never throw from DisposeAsync.
         }
 
+        // Drain any independently-created fetch (e.g. one started by GetValueAsync while
+        // the background loop was sleeping on the refresh timer). After m_backgroundTask
+        // exits, no new fetches can be created, so this is the last possible in-flight one.
         if (pendingFetch is not null && !pendingFetch.IsCompleted)
         {
-            // Wait for any in-flight fetch to drain. The factory may still be running even
-            // after the background loop exits (e.g. the loop was sleeping and the CTS cancel
-            // woke it before the factory completed).
             try
             {
                 _ = await pendingFetch.ConfigureAwait(false);
@@ -157,29 +163,38 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
         m_cts.Dispose();
     }
 
+    // Returns a task representing an in-progress or newly started fetch. Callers should
+    // await the returned task to get the refreshed snapshot.
+    //
+    // forceRefresh = false (GetValueAsync): fresh if now < expirationTime
+    // forceRefresh = true  (background loop): fresh if now < expirationTime - preFetchOffset
+    //   The tighter threshold prevents the background from duplicating a fetch that
+    //   GetValueAsync just performed while the loop was sleeping.
     private Task<CacheSnapshot> GetOrCreateFetchTask(bool forceRefresh = false)
     {
+        TaskCompletionSource<CacheSnapshot> tcs;
+
         lock (m_lock)
         {
-            // Re-check disposal under lock to close the race between the caller's
-            // disposal check and this point.
+            // Re-check disposal under lock — closes the window between the caller's
+            // initial disposal check and acquiring the lock.
             ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
 
+            // Join an existing in-progress fetch.
             if (m_pendingFetch is not null && !m_pendingFetch.IsCompleted)
             {
                 return m_pendingFetch;
             }
 
-            // Observe any completed faulted task to prevent TaskScheduler.UnobservedTaskException.
+            // Observe any completed faulted fetch to suppress UnobservedTaskException.
+            // (The ContinueWith below handles the common case; this covers any gap.)
             if (m_pendingFetch?.IsFaulted == true)
             {
                 _ = m_pendingFetch.Exception;
             }
 
-            // Re-check freshness under lock — another thread may have completed a fetch
-            // between the caller's outer check and acquiring the lock.
-            // The background loop uses a tighter threshold (ExpirationTime - preFetchOffset)
-            // so it can refresh before the value actually expires.
+            // Re-check freshness under lock — a concurrent thread may have completed a
+            // fetch between the caller's outer check and acquiring the lock.
             CacheSnapshot snapshot = m_snapshot;
             TimeSpan freshThreshold = forceRefresh ? m_preFetchOffset : TimeSpan.Zero;
             if (snapshot is not null && DateTime.UtcNow < snapshot.ExpirationTime - freshThreshold)
@@ -187,36 +202,66 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
                 return Task.FromResult(snapshot);
             }
 
-            // FetchAndUpdateAsync runs synchronously until its first await. If the value
-            // factory returns a completed task (e.g. Task.FromResult(x)), the entire fetch
-            // including the snapshot write runs under this lock. This is intentional —
-            // the lock correctly protects invariants — but means concurrent GetValueAsync
-            // callers block for the duration of any synchronous work in the factory.
-            m_pendingFetch = FetchAndUpdateAsync();
+            // Publish a TCS task as m_pendingFetch *before* invoking the factory. This
+            // closes the re-entrancy hole: if the factory's synchronous prologue calls back
+            // into GetValueAsync (and therefore GetOrCreateFetchTask), the lock is reentrant
+            // on the same thread and the reentrant call will find m_pendingFetch already set,
+            // returning this task instead of starting a new recursive fetch.
+            tcs = new TaskCompletionSource<CacheSnapshot>(TaskCreationOptions.RunContinuationsAsynchronously);
+            m_pendingFetch = tcs.Task;
 
-            // Proactively observe any fault so TaskScheduler.UnobservedTaskException never
-            // fires, even when a stale-read caller discards the fetch task reference.
+            // Proactively observe any fault so UnobservedTaskException never fires, even
+            // when a stale-read caller discards the fetch task reference and the factory
+            // later fails.
             _ = m_pendingFetch.ContinueWith(
                 static t => _ = t.Exception,
                 CancellationToken.None,
                 TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
                 TaskScheduler.Default);
+        }
 
-            return m_pendingFetch;
+        // Invoke the factory outside the lock. CompleteAsync catches all exceptions and
+        // routes them into the TCS, so the fire-and-forget task itself never faults.
+        _ = CompleteAsync(tcs);
+
+        return tcs.Task;
+    }
+
+    private async Task CompleteAsync(TaskCompletionSource<CacheSnapshot> tcs)
+    {
+        try
+        {
+            Task<T> fetchTask = m_fetchFunc(m_cts.Token)
+                ?? throw new InvalidOperationException("The value factory returned a null task.");
+            T value = await fetchTask.ConfigureAwait(false);
+
+            // Clamp expiration to DateTime.MaxValue to avoid overflow when refreshInterval
+            // is very large (e.g. TimeSpan.FromDays(1000)).
+            DateTime now = DateTime.UtcNow;
+            DateTime expiration = m_refreshInterval >= DateTime.MaxValue - now
+                ? DateTime.MaxValue
+                : now + m_refreshInterval;
+
+            CacheSnapshot snapshot = new CacheSnapshot(value, expiration);
+            // Volatile write — immediately visible to all threads reading m_snapshot on the hot path.
+            m_snapshot = snapshot;
+            _ = tcs.TrySetResult(snapshot);
+        }
+        catch (OperationCanceledException) when (m_cts.IsCancellationRequested)
+        {
+            _ = tcs.TrySetCanceled(m_cts.Token);
+        }
+        catch (Exception ex)
+        {
+            _ = tcs.TrySetException(ex);
         }
     }
 
-    private async Task<CacheSnapshot> FetchAndUpdateAsync()
+    private async Task BackgroundRefreshAsync()
     {
-        T value = await m_fetchFunc(m_cts.Token).ConfigureAwait(false);
-        CacheSnapshot snapshot = new CacheSnapshot(value, GetExpirationTime(m_refreshInterval));
-        m_snapshot = snapshot;
-        return snapshot;
-    }
-
-    private async Task BackgroundRefresh()
-    {
-        // Phase 1: initial fetch — retry until a value is obtained or the cache is disposed.
+        // Phase 1: initial fetch.
+        // Retry until a value is obtained or the cache is disposed. A valid snapshot is
+        // required before the timed refresh loop can compute meaningful delays.
         while (m_snapshot is null)
         {
             try
@@ -233,10 +278,10 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
             }
             catch
             {
-                // Transient failure; wait before retrying to avoid tight-looping.
+                // Transient factory failure; wait before retrying to avoid tight-looping.
                 try
                 {
-                    await Task.Delay(m_retryDelay, m_cts.Token).ConfigureAwait(false);
+                    await Task.Delay(Clamp(m_retryDelay), m_cts.Token).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)
                 {
@@ -245,23 +290,23 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
             }
         }
 
-        // Phase 2: periodic refresh — pre-fetch before each expiry.
+        // Phase 2: periodic refresh.
+        // Sleep until just before the current snapshot expires, then pre-fetch.
         while (!m_cts.Token.IsCancellationRequested)
         {
             try
             {
+                // Anchor the delay to the snapshot's expiration time rather than using a
+                // fixed interval, so scheduling jitter does not cause cumulative drift.
                 CacheSnapshot snapshot = m_snapshot;
-
-                // Compute delay anchored to the snapshot's expiration time, eliminating
-                // cumulative drift that a fixed-interval delay would introduce.
                 TimeSpan delay = snapshot.ExpirationTime - m_preFetchOffset - DateTime.UtcNow;
                 if (delay > TimeSpan.Zero)
                 {
-                    await Task.Delay(delay, m_cts.Token).ConfigureAwait(false);
+                    await Task.Delay(Clamp(delay), m_cts.Token).ConfigureAwait(false);
                 }
 
-                // After waking up, check if the value is already fresh (e.g. a concurrent
-                // GetValueAsync call may have refreshed it while we were waiting).
+                // Re-read after sleeping: a concurrent GetValueAsync may have refreshed
+                // the value while we were waiting, making our pre-fetch unnecessary.
                 snapshot = m_snapshot;
                 if (snapshot is not null && DateTime.UtcNow < snapshot.ExpirationTime - m_preFetchOffset)
                 {
@@ -280,11 +325,11 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
             }
             catch
             {
-                // Transient failure; wait before retrying to avoid tight-looping
-                // when the snapshot is already expired.
+                // Transient factory failure; wait before retrying to avoid tight-looping
+                // when the snapshot has already expired.
                 try
                 {
-                    await Task.Delay(m_retryDelay, m_cts.Token).ConfigureAwait(false);
+                    await Task.Delay(Clamp(m_retryDelay), m_cts.Token).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)
                 {
@@ -294,21 +339,23 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
         }
     }
 
+    // Half the quiet window between fetches, clamped to at least one tick so retry
+    // delays never collapse to zero when refreshInterval - preFetchOffset = 1 tick.
     private static TimeSpan CalculateRetryDelay(TimeSpan refreshInterval, TimeSpan preFetchOffset)
     {
-        // Half the quiet window between fetches, clamped to at least one tick so retry
-        // delays never collapse to zero on very small refresh windows.
-        TimeSpan delay = (refreshInterval - preFetchOffset) / 2;
-        return delay > TimeSpan.Zero ? delay : TimeSpan.FromTicks(1);
+        TimeSpan half = (refreshInterval - preFetchOffset) / 2;
+        return half > TimeSpan.Zero ? half : TimeSpan.FromTicks(1);
     }
 
-    private static DateTime GetExpirationTime(TimeSpan refreshInterval)
+    private static TimeSpan Clamp(TimeSpan delay)
     {
-        DateTime now = DateTime.UtcNow;
-        return refreshInterval >= DateTime.MaxValue - now
-            ? DateTime.MaxValue
-            : now.Add(refreshInterval);
+        return delay <= s_maxDelay ? delay : s_maxDelay;
     }
+
+    // Task.Delay internally converts TimeSpan to int milliseconds; clamp to avoid overflow
+    // for refresh intervals longer than ~24.8 days. When the delay fires early, the loop
+    // re-reads the snapshot and recomputes — it simply sleeps again and converges correctly.
+    private static readonly TimeSpan s_maxDelay = TimeSpan.FromMilliseconds(int.MaxValue - 1);
 
     private readonly CancellationTokenSource m_cts;
     private readonly object m_lock;
@@ -321,10 +368,12 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
 
     // Volatile: the reference must be immediately visible to all threads because the hot
     // path in GetValueAsync (and HasValue/Expiration) reads it outside any lock. Since
-    // CacheSnapshot is an immutable record, volatile on the reference alone is sufficient
-    // for safe publication — readers always see a fully constructed, consistent snapshot.
+    // CacheSnapshot is an immutable record, volatile on the reference alone is sufficient —
+    // readers always see a fully constructed, consistent object.
     private volatile CacheSnapshot m_snapshot;
-    private Task<CacheSnapshot> m_pendingFetch; // under m_lock
+
+    // Written and read only under m_lock.
+    private Task<CacheSnapshot> m_pendingFetch;
 
     private int m_isDisposed;
 

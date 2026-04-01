@@ -1,4 +1,4 @@
-# Benchmarks
+﻿# Benchmarks
 
 This folder contains a BenchmarkDotNet project and helper scripts for repeatable performance tracking.
 
@@ -7,6 +7,8 @@ This folder contains a BenchmarkDotNet project and helper scripts for repeatable
 - Benchmark project: `benchmarks/LibSharp.Benchmarks/LibSharp.Benchmarks.csproj`
 - Initial benchmark suites:
   - `AsyncLockBenchmarks`
+  - `ProactiveAsyncCacheBenchmarks`
+  - `ProactiveAsyncCacheWarmHitBenchmarks`
   - `ValueCacheBenchmarks`
   - `KeyValueCacheBenchmarks`
   - `PriorityQueueBenchmarks`
