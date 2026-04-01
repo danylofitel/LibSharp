@@ -49,6 +49,13 @@ public class DateTimeExtensionsUnitTests
     }
 
     [TestMethod]
+    public void ToEpochMilliseconds_FractionalMilliseconds_RoundsDown()
+    {
+        Assert.AreEqual(1, DateTime.UnixEpoch.AddTicks(15_000).ToEpochMilliseconds());
+        Assert.AreEqual(-2, DateTime.UnixEpoch.AddTicks(-15_000).ToEpochMilliseconds());
+    }
+
+    [TestMethod]
     public void ToEpochSeconds()
     {
         long fromEpoch = DateTime.UnixEpoch.ToEpochSeconds();
@@ -61,5 +68,24 @@ public class DateTimeExtensionsUnitTests
         currentDate = currentDate.AddMilliseconds(-currentDate.Millisecond);
         long secondsSinceEpoch = Convert.ToInt64(currentDate.Subtract(DateTime.UnixEpoch).TotalSeconds);
         Assert.AreEqual(currentDate.ToEpochSeconds(), secondsSinceEpoch);
+    }
+
+    [TestMethod]
+    public void ToEpochSeconds_FractionalSeconds_RoundsDown()
+    {
+        Assert.AreEqual(1, DateTime.UnixEpoch.AddMilliseconds(1500).ToEpochSeconds());
+        Assert.AreEqual(-2, DateTime.UnixEpoch.AddMilliseconds(-1500).ToEpochSeconds());
+    }
+
+    [TestMethod]
+    public void ToEpochMilliseconds_NonUtc_Throws()
+    {
+        _ = Assert.ThrowsExactly<ArgumentException>(() => new DateTime(2022, 2, 2, 2, 2, 2, DateTimeKind.Local).ToEpochMilliseconds());
+    }
+
+    [TestMethod]
+    public void ToEpochSeconds_NonUtc_Throws()
+    {
+        _ = Assert.ThrowsExactly<ArgumentException>(() => new DateTime(2022, 2, 2, 2, 2, 2, DateTimeKind.Unspecified).ToEpochSeconds());
     }
 }

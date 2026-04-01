@@ -14,6 +14,9 @@
     - Added `Result`
     - Renamed `Box` to `Optional`; null values are now allowed
     - `Optional<T>.GetHashCode` now differentiates between an empty optional and an optional wrapping `null`
+    - Added `StringExtensions.TruncateTextElements` for text-element-aware truncation
+    - `DateTimeExtensions` epoch conversions now use Unix-time floor semantics instead of rounding fractional units
+    - `TypeExtensions.GetDefaultComparer` now supports types implementing non-generic `IComparable`
     - Regex extensions now return a `bool` indicating whether the regex match timed out
     - `FuncExtensions.RunWithTimeout`: timeout must now be strictly greater than zero
     - `XmlSerializationExtensions`: `XmlSerializer` instances are now cached per type to avoid repeated dynamic assembly generation

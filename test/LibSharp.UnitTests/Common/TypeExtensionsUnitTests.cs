@@ -10,6 +10,16 @@ namespace LibSharp.UnitTests.Common;
 [TestClass]
 public class TypeExtensionsUnitTests
 {
+    private sealed class NonGenericComparable : IComparable
+    {
+        public int Value { get; init; }
+
+        public int CompareTo(object obj)
+        {
+            return Value.CompareTo(((NonGenericComparable)obj).Value);
+        }
+    }
+
     [TestMethod]
     public void GetDefaultComparer_NonComparableType_Throws()
     {
@@ -25,5 +35,16 @@ public class TypeExtensionsUnitTests
 
         // Assert
         Assert.AreEqual(Comparer<int>.Default, comparer);
+    }
+
+    [TestMethod]
+    public void GetDefaultComparer_NonGenericComparableType_ReturnsDefaultComparer()
+    {
+        // Act
+        IComparer<NonGenericComparable> comparer = TypeExtensions.GetDefaultComparer<NonGenericComparable>();
+
+        // Assert
+        Assert.AreEqual(Comparer<NonGenericComparable>.Default, comparer);
+        Assert.IsTrue(comparer.Compare(new NonGenericComparable { Value = 1 }, new NonGenericComparable { Value = 2 }) < 0);
     }
 }

@@ -16,7 +16,7 @@ public static class DateTimeExtensions
     /// <returns>A UTC DateTime value.</returns>
     public static DateTime FromEpochMilliseconds(this long epochMilliseconds)
     {
-        return DateTime.UnixEpoch.AddMilliseconds(epochMilliseconds);
+        return DateTime.UnixEpoch.AddTicks(checked(epochMilliseconds * TimeSpan.TicksPerMillisecond));
     }
 
     /// <summary>
@@ -26,7 +26,7 @@ public static class DateTimeExtensions
     /// <returns>A UTC DateTime value.</returns>
     public static DateTime FromEpochSeconds(this long epochSeconds)
     {
-        return DateTime.UnixEpoch.AddSeconds(epochSeconds);
+        return DateTime.UnixEpoch.AddTicks(checked(epochSeconds * TimeSpan.TicksPerSecond));
     }
 
     /// <summary>
@@ -39,8 +39,8 @@ public static class DateTimeExtensions
     {
         Argument.EqualTo(dateTime.Kind, DateTimeKind.Utc, nameof(dateTime));
 
-        TimeSpan epochTimeSpan = dateTime.Subtract(DateTime.UnixEpoch);
-        return Convert.ToInt64(epochTimeSpan.TotalMilliseconds);
+        long epochTicks = dateTime.Ticks - DateTime.UnixEpoch.Ticks;
+        return DivideRoundDown(epochTicks, TimeSpan.TicksPerMillisecond);
     }
 
     /// <summary>
@@ -53,7 +53,20 @@ public static class DateTimeExtensions
     {
         Argument.EqualTo(dateTime.Kind, DateTimeKind.Utc, nameof(dateTime));
 
-        TimeSpan epochTimeSpan = dateTime.Subtract(DateTime.UnixEpoch);
-        return Convert.ToInt64(epochTimeSpan.TotalSeconds);
+        long epochTicks = dateTime.Ticks - DateTime.UnixEpoch.Ticks;
+        return DivideRoundDown(epochTicks, TimeSpan.TicksPerSecond);
+    }
+
+    private static long DivideRoundDown(long dividend, long divisor)
+    {
+        long quotient = dividend / divisor;
+        long remainder = dividend % divisor;
+
+        if (remainder < 0)
+        {
+            --quotient;
+        }
+
+        return quotient;
     }
 }

@@ -96,4 +96,29 @@ public static class StringExtensions
 
         return input[..maxLength];
     }
+
+    /// <summary>
+    /// Truncates the string to the specified maximum number of text elements.
+    /// </summary>
+    /// <param name="input">The input string.</param>
+    /// <param name="maxTextElements">The maximum number of text elements.</param>
+    /// <returns>The string truncated to the maximum number of text elements.</returns>
+    public static string TruncateTextElements(this string input, int maxTextElements)
+    {
+        Argument.NotNull(input, nameof(input));
+        Argument.GreaterThanOrEqualTo(maxTextElements, 0, nameof(maxTextElements));
+
+        if (maxTextElements == 0)
+        {
+            return string.Empty;
+        }
+
+        int[] characterIndexes = StringInfo.ParseCombiningCharacters(input);
+        if (characterIndexes.Length <= maxTextElements)
+        {
+            return input;
+        }
+
+        return input[..characterIndexes[maxTextElements]];
+    }
 }

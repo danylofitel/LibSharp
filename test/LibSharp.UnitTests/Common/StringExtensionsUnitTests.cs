@@ -101,6 +101,21 @@ public class StringExtensionsUnitTests
     }
 
     [TestMethod]
+    public void TruncateTextElements()
+    {
+        const string Accented = "e\u0301b";
+        const string Emoji = "😀b";
+
+        Assert.AreEqual(string.Empty, string.Empty.TruncateTextElements(0));
+        Assert.AreEqual(string.Empty, Accented.TruncateTextElements(0));
+        Assert.AreEqual("e\u0301", Accented.TruncateTextElements(1));
+        Assert.AreEqual(Accented, Accented.TruncateTextElements(2));
+        Assert.AreEqual(Accented, Accented.TruncateTextElements(int.MaxValue));
+        Assert.AreEqual("😀", Emoji.TruncateTextElements(1));
+        Assert.AreEqual(Emoji, Emoji.TruncateTextElements(2));
+    }
+
+    [TestMethod]
     public void TryConvertToEnum_HttpStatusCode()
     {
         // Arrange

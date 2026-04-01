@@ -96,6 +96,7 @@ BenchmarkDotNet setup and benchmark scripts are available in [`benchmarks/`](ben
 
         string reversed = stringParam.Reverse();
         string truncated = stringParam.Truncate(10);
+        string textElementTruncated = stringParam.TruncateTextElements(10);
 
         // Regex extensions — safe wrappers that catch RegexMatchTimeoutException
         Regex regex = new Regex(pattern: "\\s+brown\\s+", options: RegexOptions.None, matchTimeout: TimeSpan.FromSeconds(1));
