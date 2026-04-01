@@ -299,6 +299,15 @@ Notes:
 * `PublicationOnly` implementations may run multiple factories concurrently and publish the first successful result.
 * Async lazy and initializer methods throw `InvalidOperationException` if a factory returns a null `Task`.
 
+Quick selection guide:
+
+* Use `LazyAsyncExecutionAndPublication<T>` when you want to provide the factory in the constructor and allow at most one in-flight async initialization.
+* Use `LazyAsyncPublicationOnly<T>` when duplicate concurrent factory executions are acceptable and you want the first successful result to win.
+* Use `Initializer<T>` / `InitializerAsync*<T>` when the value should still be initialized once, but the factory is only known at call time.
+* Use `ValueCache<T>` / `ValueCacheAsync<T>` when you need one cached value that expires and refreshes over time.
+* Use `KeyValueCache<TKey, TValue>` / `KeyValueCacheAsync<TKey, TValue>` when you need the same expiration/refresh behavior per key, and the set of keys is limited.
+* Use `ProactiveAsyncCache<T>` when refresh should happen in the background before expiry instead of on-demand by the next reader.
+
 #### Lazy
 
 Two different implementations of async lazy values are available — `LazyAsyncPublicationOnly` and `LazyAsyncExecutionAndPublication`. Those are async versions of `System.Lazy` class with `LazyThreadSafetyMode.PublicationOnly` and `LazyThreadSafetyMode.ExecutionAndPublication` modes respectively. The reason that async lazy implementations are separate classes is that `LazyAsyncExecutionAndPublication` implements `IDisposable` due to its usage of an instance of `SemaphoreSlim` whereas `LazyAsyncPublicationOnly` does not need to implement `IDisposable`.
