@@ -17,13 +17,20 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
     /// Initializes a new instance of the <see cref="ProactiveAsyncCache{T}"/> class.
     /// The background refresh loop starts immediately upon construction.
     /// </summary>
-    /// <param name="valueFactory">The value factory.</param>
+    /// <param name="valueFactory">
+    /// The value factory. It must not call or await <see cref="GetValueAsync(System.Threading.CancellationToken)"/>
+    /// on this same cache instance.
+    /// </param>
     /// <param name="refreshInterval">The interval at which the cache should be refreshed.</param>
     /// <param name="preFetchOffset">The offset before the refresh interval to pre-fetch the value.</param>
     /// <param name="allowStaleReads">
     /// When <c>true</c>, readers receive the stale cached value immediately while a background
     /// refresh runs. When <c>false</c> (default), readers block until the refresh completes.
     /// </param>
+    /// <remarks>
+    /// The value factory is expected to be independent of this cache instance. Re-entering this same
+    /// cache from inside the factory is unsupported and may deadlock if the factory awaits the nested read.
+    /// </remarks>
     public ProactiveAsyncCache(
         Func<CancellationToken, Task<T>> valueFactory,
         TimeSpan refreshInterval,
@@ -205,10 +212,12 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
             }
 
             // Publish a TCS task as m_pendingFetch *before* invoking the factory. This
-            // closes the re-entrancy hole: if the factory's synchronous prologue calls back
-            // into GetValueAsync (and therefore GetOrCreateFetchTask), the lock is reentrant
-            // on the same thread and the reentrant call will find m_pendingFetch already set,
-            // returning this task instead of starting a new recursive fetch.
+            // closes the synchronous re-entrancy hole: if the factory's synchronous prologue
+            // calls back into GetValueAsync (and therefore GetOrCreateFetchTask), the lock is
+            // reentrant on the same thread and the reentrant call will find m_pendingFetch
+            // already set, returning this task instead of starting a new recursive fetch.
+            // Awaiting GetValueAsync on this same cache from inside the factory is still
+            // unsupported and may deadlock; that misuse is documented on the constructor.
             tcs = new TaskCompletionSource<CacheSnapshot>(TaskCreationOptions.RunContinuationsAsynchronously);
             m_pendingFetch = tcs.Task;
 
