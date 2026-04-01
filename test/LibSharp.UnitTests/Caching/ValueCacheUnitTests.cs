@@ -1,6 +1,8 @@
-// Copyright (c) LibSharp. All rights reserved.
+﻿// Copyright (c) LibSharp. All rights reserved.
 
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 using LibSharp.Caching;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
@@ -10,6 +12,8 @@ namespace LibSharp.UnitTests.Caching;
 [TestClass]
 public class ValueCacheUnitTests
 {
+    public TestContext TestContext { get; set; }
+
     [TestMethod]
     public void FromValueFactory_WithoutCallsToGetValue_DoesNotExecuteFactory()
     {
@@ -64,6 +68,41 @@ public class ValueCacheUnitTests
         Assert.IsNull(cache.Expiration);
         _ = createFactory.DidNotReceive()();
         _ = updateFactory.DidNotReceive()(Arg.Any<int>());
+    }
+
+    [TestMethod]
+    public async Task GetValue_ConcurrentCallers_ShareSingleInitialization()
+    {
+        // Arrange
+        using ManualResetEventSlim factoryStarted = new ManualResetEventSlim(false);
+        using ManualResetEventSlim factoryGate = new ManualResetEventSlim(false);
+        int callCount = 0;
+
+        ValueCache<int> cache = new ValueCache<int>(
+            () =>
+            {
+                _ = Interlocked.Increment(ref callCount);
+                factoryStarted.Set();
+                factoryGate.Wait(TestContext.CancellationToken);
+                return 42;
+            },
+            TimeSpan.FromHours(1));
+
+        Task<int>[] callers = new Task<int>[8];
+        for (int i = 0; i < callers.Length; i++)
+        {
+            callers[i] = Task.Run(cache.GetValue, TestContext.CancellationToken);
+        }
+
+        factoryStarted.Wait(TestContext.CancellationToken);
+        Assert.AreEqual(1, callCount);
+
+        // Act
+        factoryGate.Set();
+        int[] results = await Task.WhenAll(callers).ConfigureAwait(false);
+
+        // Assert
+        CollectionAssert.AreEqual(new[] { 42, 42, 42, 42, 42, 42, 42, 42 }, results);
     }
 
     [TestMethod]

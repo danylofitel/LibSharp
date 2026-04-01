@@ -52,6 +52,63 @@ public class KeyValueCacheAsyncUnitTests
     }
 
     [TestMethod]
+    public async Task GetValueAsync_ConcurrentCallersForSameKey_ShareSingleCreate()
+    {
+        // Arrange
+        TaskCompletionSource<bool> factoryStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource<int> factoryTcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        int callCount = 0;
+
+        using KeyValueCacheAsync<int, int> cache = new KeyValueCacheAsync<int, int>(
+            (key, cancellationToken) =>
+            {
+                _ = Interlocked.Increment(ref callCount);
+                _ = factoryStarted.TrySetResult(true);
+                return factoryTcs.Task;
+            },
+            TimeSpan.FromHours(1));
+
+        Task<int>[] callers = new Task<int>[8];
+        for (int i = 0; i < callers.Length; i++)
+        {
+            callers[i] = cache.GetValueAsync(1, CancellationToken.None);
+        }
+
+        _ = await factoryStarted.Task.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+        Assert.AreEqual(1, callCount);
+
+        factoryTcs.SetResult(42);
+        int[] results = await Task.WhenAll(callers).ConfigureAwait(false);
+        CollectionAssert.AreEqual(new[] { 42, 42, 42, 42, 42, 42, 42, 42 }, results);
+    }
+
+    [TestMethod]
+    public async Task GetValueAsync_DisposedWhileCreateFactoryIsInFlight_ThrowsObjectDisposedException()
+    {
+        // Arrange
+        TaskCompletionSource<bool> factoryStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource<int> factoryTcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        using KeyValueCacheAsync<int, int> cache = new KeyValueCacheAsync<int, int>(
+            (key, cancellationToken) =>
+            {
+                _ = factoryStarted.TrySetResult(true);
+                return factoryTcs.Task;
+            },
+            TimeSpan.FromHours(1));
+
+        Task<int> getTask = cache.GetValueAsync(1, CancellationToken.None);
+        _ = await factoryStarted.Task.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+
+        // Act
+        cache.Dispose();
+        factoryTcs.SetResult(42);
+
+        // Assert
+        _ = await Assert.ThrowsExactlyAsync<ObjectDisposedException>(() => getTask).ConfigureAwait(false);
+    }
+
+    [TestMethod]
     public async Task KeyValueCacheAsync_TimeToLive_ValueNotExpired()
     {
         // Arrange

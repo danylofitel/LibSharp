@@ -661,6 +661,30 @@ public class ProactiveAsyncCacheUnitTests
     }
 
     [TestMethod]
+    public async Task DisposeAsync_WhileCallerIsAwaitingFetch_WithDefaultToken_ThrowsObjectDisposedException()
+    {
+        // Arrange
+        TaskCompletionSource<int> fetchTcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            ct =>
+            {
+                _ = ct.Register(() => fetchTcs.TrySetCanceled(ct));
+                return fetchTcs.Task;
+            },
+            TimeSpan.FromHours(1),
+            TimeSpan.Zero);
+
+        Task<int> getTask = cache.GetValueAsync();
+
+        // Act
+        await cache.DisposeAsync().ConfigureAwait(false);
+
+        // Assert
+        _ = await Assert.ThrowsExactlyAsync<ObjectDisposedException>(() => getTask).ConfigureAwait(false);
+    }
+
+    [TestMethod]
     public async Task DisposeAsync_WhileInFlightFetchIsRunning_WaitsForFetchToComplete()
     {
         // Verifies the m_pendingFetch drain path in DisposeAsync. The background loop starts

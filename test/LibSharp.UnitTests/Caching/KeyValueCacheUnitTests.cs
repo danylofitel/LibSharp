@@ -1,6 +1,8 @@
 ﻿// Copyright (c) LibSharp. All rights reserved.
 
 using System;
+using System.Threading;
+using System.Threading.Tasks;
 using LibSharp.Caching;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
@@ -10,6 +12,8 @@ namespace LibSharp.UnitTests.Caching;
 [TestClass]
 public class KeyValueCacheUnitTests
 {
+    public TestContext TestContext { get; set; }
+
     [TestMethod]
     public void KeyValueCache_TimeToLive_ValueNotExpired()
     {
@@ -200,7 +204,7 @@ public class KeyValueCacheUnitTests
         Func<int, int, int> updateFactory = Substitute.For<Func<int, int, int>>();
         _ = updateFactory(Arg.Any<int>(), Arg.Any<int>()).Returns(x => ((int)x[1]) * 10);
 
-        KeyValueCache<int, int> cache = new KeyValueCache<int, int>(createFactory, TimeSpan.FromHours(1));
+        KeyValueCache<int, int> cache = new KeyValueCache<int, int>(createFactory, updateFactory, TimeSpan.FromHours(1));
 
         // Assert
         _ = createFactory.Received(0)(Arg.Any<int>());
@@ -241,6 +245,41 @@ public class KeyValueCacheUnitTests
         _ = createFactory.Received(1)(1);
         _ = createFactory.Received(1)(2);
         _ = updateFactory.Received(0)(Arg.Any<int>(), Arg.Any<int>());
+    }
+
+    [TestMethod]
+    public async Task GetValue_ConcurrentCallersForSameKey_ShareSingleInitialization()
+    {
+        // Arrange
+        using ManualResetEventSlim factoryStarted = new ManualResetEventSlim(false);
+        using ManualResetEventSlim factoryGate = new ManualResetEventSlim(false);
+        int callCount = 0;
+
+        KeyValueCache<int, int> cache = new KeyValueCache<int, int>(
+            key =>
+            {
+                _ = Interlocked.Increment(ref callCount);
+                factoryStarted.Set();
+                factoryGate.Wait(TestContext.CancellationToken);
+                return key * 10;
+            },
+            TimeSpan.FromHours(1));
+
+        Task<int>[] callers = new Task<int>[8];
+        for (int i = 0; i < callers.Length; i++)
+        {
+            callers[i] = Task.Run(() => cache.GetValue(1), TestContext.CancellationToken);
+        }
+
+        factoryStarted.Wait(TestContext.CancellationToken);
+        Assert.AreEqual(1, callCount);
+
+        // Act
+        factoryGate.Set();
+        int[] results = await Task.WhenAll(callers).ConfigureAwait(false);
+
+        // Assert
+        CollectionAssert.AreEqual(new[] { 10, 10, 10, 10, 10, 10, 10, 10 }, results);
     }
 
     [TestMethod]

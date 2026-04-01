@@ -49,6 +49,65 @@ public class ValueCacheAsyncUnitTests
     }
 
     [TestMethod]
+    public async Task GetValueAsync_ConcurrentCallers_ShareSingleFetch()
+    {
+        // Arrange
+        TaskCompletionSource<bool> factoryStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource<int> factoryTcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        int callCount = 0;
+
+        using ValueCacheAsync<int> cache = new ValueCacheAsync<int>(
+            cancellationToken =>
+            {
+                _ = Interlocked.Increment(ref callCount);
+                _ = factoryStarted.TrySetResult(true);
+                return factoryTcs.Task;
+            },
+            TimeSpan.FromHours(1));
+
+        Task<int>[] callers = new Task<int>[8];
+        for (int i = 0; i < callers.Length; i++)
+        {
+            callers[i] = cache.GetValueAsync(CancellationToken.None);
+        }
+
+        _ = await factoryStarted.Task.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+
+        // Assert — all callers should be sharing the same in-flight fetch.
+        Assert.AreEqual(1, callCount);
+
+        factoryTcs.SetResult(42);
+        int[] results = await Task.WhenAll(callers).ConfigureAwait(false);
+        CollectionAssert.AreEqual(new[] { 42, 42, 42, 42, 42, 42, 42, 42 }, results);
+    }
+
+    [TestMethod]
+    public async Task GetValueAsync_DisposedWhileFactoryIsInFlight_ThrowsObjectDisposedException()
+    {
+        // Arrange
+        TaskCompletionSource<bool> factoryStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource<int> factoryTcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        using ValueCacheAsync<int> cache = new ValueCacheAsync<int>(
+            cancellationToken =>
+            {
+                _ = factoryStarted.TrySetResult(true);
+                return factoryTcs.Task;
+            },
+            TimeSpan.FromHours(1));
+
+        Task<int> getTask = cache.GetValueAsync(CancellationToken.None);
+        _ = await factoryStarted.Task.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+
+        // Act
+        cache.Dispose();
+        factoryTcs.SetResult(42);
+
+        // Assert
+        _ = await Assert.ThrowsExactlyAsync<ObjectDisposedException>(() => getTask).ConfigureAwait(false);
+    }
+
+    [TestMethod]
     public async Task FromValueFactory_NullTask_ThrowsInvalidOperationException()
     {
         // Arrange

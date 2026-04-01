@@ -113,6 +113,10 @@ public sealed class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
                     await Refresh(cancellationToken).ConfigureAwait(false);
                 }
 
+                // If disposal raced with an in-flight factory while we held the lock,
+                // fail this call instead of returning a value after disposal.
+                ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
+
                 return m_boxed.Value;
             }
         }
