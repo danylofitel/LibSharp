@@ -1,10 +1,10 @@
 ﻿// Copyright (c) LibSharp. All rights reserved.
 
 using System;
-using System.Text;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Collections.Generic;
+using System.Text;
 
 namespace LibSharp.Common;
 
@@ -69,7 +69,7 @@ public static class StringExtensions
     public static bool TryConvertToEnum<T>(this string value, out T result)
         where T : struct, Enum
     {
-        if (Enum.TryParse(value, out result) && Enum.IsDefined(typeof(T), result))
+        if (Enum.TryParse(value, out result) && Enum.IsDefined(result))
         {
             return true;
         }

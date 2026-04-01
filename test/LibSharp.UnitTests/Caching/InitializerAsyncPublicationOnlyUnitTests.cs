@@ -43,4 +43,15 @@ public class InitializerAsyncPublicationOnlyUnitTests
             _ = factory.Received(1)(cancellationToken);
         }
     }
+
+    [TestMethod]
+    public async Task GetValueAsync_FactoryReturningNullTask_ThrowsInvalidOperationException()
+    {
+        // Arrange
+        InitializerAsyncPublicationOnly<int> lazy = new InitializerAsyncPublicationOnly<int>();
+
+        // Act
+        _ = await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () =>
+            await lazy.GetValueAsync(_ => null, CancellationToken.None).ConfigureAwait(false)).ConfigureAwait(false);
+    }
 }

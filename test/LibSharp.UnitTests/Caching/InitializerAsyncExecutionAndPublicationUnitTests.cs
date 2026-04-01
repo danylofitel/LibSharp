@@ -148,4 +148,15 @@ public class InitializerAsyncExecutionAndPublicationUnitTests
         Assert.AreEqual(2, attemptCount);
         Assert.IsTrue(initializer.HasValue);
     }
+
+    [TestMethod]
+    public async Task GetValueAsync_FactoryReturningNullTask_ThrowsInvalidOperationException()
+    {
+        // Arrange
+        using InitializerAsyncExecutionAndPublication<int> initializer = new InitializerAsyncExecutionAndPublication<int>();
+
+        // Act
+        _ = await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () =>
+            await initializer.GetValueAsync(_ => null, CancellationToken.None).ConfigureAwait(false)).ConfigureAwait(false);
+    }
 }

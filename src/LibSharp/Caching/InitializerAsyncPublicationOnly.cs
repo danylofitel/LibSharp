@@ -24,7 +24,9 @@ public sealed class InitializerAsyncPublicationOnly<T> : IInitializerAsync<T>
 
         if (!HasValue)
         {
-            T value = await factory(cancellationToken).ConfigureAwait(false);
+            Task<T> factoryTask = factory(cancellationToken)
+                ?? throw new InvalidOperationException("The value factory returned a null task.");
+            T value = await factoryTask.ConfigureAwait(false);
             _ = Interlocked.CompareExchange(ref m_value, new ValueReference<T>(value), null);
         }
 

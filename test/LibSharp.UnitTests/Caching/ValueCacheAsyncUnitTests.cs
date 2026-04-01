@@ -1,4 +1,4 @@
-// Copyright (c) LibSharp. All rights reserved.
+﻿// Copyright (c) LibSharp. All rights reserved.
 
 using System;
 using System.Threading;
@@ -46,6 +46,33 @@ public class ValueCacheAsyncUnitTests
 
         // Act
         _ = await Assert.ThrowsExactlyAsync<ObjectDisposedException>(async () => await cache.GetValueAsync(CancellationToken.None).ConfigureAwait(false)).ConfigureAwait(false);
+    }
+
+    [TestMethod]
+    public async Task FromValueFactory_NullTask_ThrowsInvalidOperationException()
+    {
+        // Arrange
+        using ValueCacheAsync<int> cache = new ValueCacheAsync<int>(_ => null, TimeSpan.FromMinutes(1));
+
+        // Act
+        _ = await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () =>
+            await cache.GetValueAsync(CancellationToken.None).ConfigureAwait(false)).ConfigureAwait(false);
+    }
+
+    [TestMethod]
+    public async Task FromUpdateFactory_NullTask_ThrowsInvalidOperationException()
+    {
+        // Arrange
+        using ValueCacheAsync<int> cache = new ValueCacheAsync<int>(
+            _ => Task.FromResult(1),
+            (_, _) => null,
+            TimeSpan.Zero);
+
+        Assert.AreEqual(1, await cache.GetValueAsync(CancellationToken.None).ConfigureAwait(false));
+
+        // Act
+        _ = await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () =>
+            await cache.GetValueAsync(CancellationToken.None).ConfigureAwait(false)).ConfigureAwait(false);
     }
 
     [TestMethod]

@@ -95,5 +95,16 @@ public class LazyAsyncPublicationOnlyUnitTests
         }
     }
 
+    [TestMethod]
+    public async Task FromFactory_NullTask_ThrowsInvalidOperationException()
+    {
+        // Arrange
+        LazyAsyncPublicationOnly<int> lazy = new LazyAsyncPublicationOnly<int>(_ => null);
+
+        // Act
+        _ = await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () =>
+            await lazy.GetValueAsync(CancellationToken.None).ConfigureAwait(false)).ConfigureAwait(false);
+    }
+
     public TestContext TestContext { get; set; }
 }

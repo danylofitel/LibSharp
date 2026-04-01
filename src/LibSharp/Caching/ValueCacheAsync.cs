@@ -146,11 +146,15 @@ public sealed class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
         T newValue;
         if (m_updateFactory is null || m_boxed is null)
         {
-            newValue = await m_createFactory(cancellationToken).ConfigureAwait(false);
+            Task<T> createTask = m_createFactory(cancellationToken)
+                ?? throw new InvalidOperationException("The value factory returned a null task.");
+            newValue = await createTask.ConfigureAwait(false);
         }
         else
         {
-            newValue = await m_updateFactory(m_boxed.Value, cancellationToken).ConfigureAwait(false);
+            Task<T> updateTask = m_updateFactory(m_boxed.Value, cancellationToken)
+                ?? throw new InvalidOperationException("The update factory returned a null task.");
+            newValue = await updateTask.ConfigureAwait(false);
         }
 
         DateTime newExpiration = m_expirationFunction(newValue);

@@ -25,6 +25,33 @@ public class KeyValueCacheAsyncUnitTests
     }
 
     [TestMethod]
+    public async Task GetValueAsync_CreateFactoryReturningNullTask_ThrowsInvalidOperationException()
+    {
+        // Arrange
+        using KeyValueCacheAsync<int, int> cache = new KeyValueCacheAsync<int, int>((_, _) => null, TimeSpan.FromMinutes(1));
+
+        // Act
+        _ = await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () =>
+            await cache.GetValueAsync(1, CancellationToken.None).ConfigureAwait(false)).ConfigureAwait(false);
+    }
+
+    [TestMethod]
+    public async Task GetValueAsync_UpdateFactoryReturningNullTask_ThrowsInvalidOperationException()
+    {
+        // Arrange
+        using KeyValueCacheAsync<int, int> cache = new KeyValueCacheAsync<int, int>(
+            (key, _) => Task.FromResult(-key),
+            (_, _, _) => null,
+            TimeSpan.Zero);
+
+        Assert.AreEqual(-1, await cache.GetValueAsync(1, CancellationToken.None).ConfigureAwait(false));
+
+        // Act
+        _ = await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () =>
+            await cache.GetValueAsync(1, CancellationToken.None).ConfigureAwait(false)).ConfigureAwait(false);
+    }
+
+    [TestMethod]
     public async Task KeyValueCacheAsync_TimeToLive_ValueNotExpired()
     {
         // Arrange

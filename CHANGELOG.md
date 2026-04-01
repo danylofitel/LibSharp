@@ -5,6 +5,7 @@
   - Renamed `Box` to `Optional`; null values are now allowed
   - `Optional<T>.GetHashCode` now differentiates between an empty optional and an optional wrapping `null`
   - Hardened async synchronization, debounce/dispose behavior, and proactive cache edge cases for production use
+  - Async cache/lazy/initializer factories now reject null task returns with a deliberate exception instead of failing with `NullReferenceException`
   - `ProactiveAsyncCache<T>` no longer implements `IDisposable`; use `await using` / `DisposeAsync()` instead
   - `ProactiveAsyncCache` no longer supports `refreshTimeout` and `onBackgroundRefreshError` parameters, and now always auto-starts in constructor
   - Regex extensions now return a `bool` indicating whether the regex match timed out

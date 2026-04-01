@@ -42,7 +42,9 @@ public sealed class InitializerAsyncExecutionAndPublication<T> : IInitializerAsy
             {
                 if (!m_hasValue)
                 {
-                    m_value = await factory(cancellationToken).ConfigureAwait(false);
+                    Task<T> factoryTask = factory(cancellationToken)
+                        ?? throw new InvalidOperationException("The value factory returned a null task.");
+                    m_value = await factoryTask.ConfigureAwait(false);
                     m_hasValue = true;
                 }
 
