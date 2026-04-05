@@ -5,7 +5,7 @@ root = true
 [*]
 
 # File header
-file_header_template = Copyright (c) LibSharp. All rights reserved.
+file_header_template = Copyright (c) 2026 Danylo Fitel
 
 #### Core EditorConfig Options ####
 

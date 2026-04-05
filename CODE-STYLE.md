@@ -31,7 +31,7 @@ The general coding style is based on standard C# style and is enforced by .edito
 
 ### Files
 
-* Every C# file must include the standard header line: "Copyright (c) LibSharp. All rights reserved."
+* Every C# file must include the standard copyright header
 * Each file contains only one class
 * The name of the file matches the name of the class it contains
 

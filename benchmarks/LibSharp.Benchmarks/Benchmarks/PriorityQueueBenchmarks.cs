@@ -1,4 +1,4 @@
-﻿// Copyright (c) LibSharp. All rights reserved.
+﻿// Copyright (c) 2026 Danylo Fitel
 
 using System;
 using BenchmarkDotNet.Attributes;
