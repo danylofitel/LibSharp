@@ -1,5 +1,8 @@
 ﻿# Changelog
 
+- 3.0.1
+  - Updated `ProactiveAsyncCache<T>` to never throw exceptions from `DisposeAsync()`.
+
 - 3.0.0
   - `Caching`
     - Async cache/lazy/initializer factories now reject null task returns with a deliberate exception instead of failing with `NullReferenceException`
