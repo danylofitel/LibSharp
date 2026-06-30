@@ -10,7 +10,9 @@
       "Bash(grep -v \"^--$\")",
       "Bash(ls e:/Repos/LibSharp/*.md)",
       "Bash(powershell -Command \":*)",
-      "Bash(powershell.exe -Command \"Get-Process -Name testhost -ErrorAction SilentlyContinue | Stop-Process -Force; Write-Host done\")"
+      "Bash(powershell.exe -Command \"Get-Process -Name testhost -ErrorAction SilentlyContinue | Stop-Process -Force; Write-Host done\")",
+      "PowerShell(dotnet build c:\\\\Repos\\\\LibSharp\\\\src\\\\LibSharp\\\\LibSharp.csproj -c Debug --nologo -v quiet)",
+      "PowerShell(dotnet test c:\\\\Repos\\\\LibSharp\\\\test\\\\LibSharp.UnitTests\\\\LibSharp.UnitTests.csproj --nologo -v quiet --filter \"FullyQualifiedName~ProactiveAsyncCache\")"
     ]
   }
 }

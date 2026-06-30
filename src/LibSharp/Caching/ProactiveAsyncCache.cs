@@ -11,6 +11,12 @@ namespace LibSharp.Caching;
 /// An async cache that proactively refreshes its value in the background before it expires.
 /// </summary>
 /// <typeparam name="T">Value type.</typeparam>
+/// <remarks>
+/// Disposal is mandatory. The background refresh loop keeps the instance rooted for its entire
+/// lifetime, so an instance that is never disposed is never garbage collected and keeps invoking
+/// the value factory forever — both a managed leak and a continuous load on whatever the factory
+/// calls. Always dispose the cache via <see cref="DisposeAsync"/> when it is no longer needed.
+/// </remarks>
 public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposable
 {
     /// <summary>
@@ -26,6 +32,8 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
     /// <param name="allowStaleReads">
     /// When <c>true</c>, readers receive the stale cached value immediately while a background
     /// refresh runs. When <c>false</c> (default), readers block until the refresh completes.
+    /// Either way, the first read blocks until the initial fetch completes, because there is no
+    /// prior value to serve.
     /// </param>
     /// <remarks>
     /// The value factory is expected to be independent of this cache instance. Re-entering this same
@@ -128,7 +136,17 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
             return;
         }
 
-        m_cts.Cancel();
+        // Cancel runs any cancellation callbacks the factory registered on the token it was
+        // handed; a throwing callback is surfaced by Cancel as an AggregateException and must
+        // not prevent disposal from completing.
+        try
+        {
+            m_cts.Cancel();
+        }
+        catch
+        {
+            // Intentionally swallowed — DisposeAsync must never throw.
+        }
 
         // Capture m_pendingFetch under lock. After m_isDisposed = 1, GetOrCreateFetchTask
         // throws ObjectDisposedException under the lock, so no new fetch can be created.

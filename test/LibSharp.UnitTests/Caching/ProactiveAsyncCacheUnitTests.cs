@@ -454,7 +454,7 @@ public class ProactiveAsyncCacheUnitTests
     {
         // Regression test: without the TCS early-publish fix, a factory that called
         // GetValueAsync in its synchronous prologue (before returning its Task) would
-        // find m_pendingFetch unset, start a second FetchAndUpdateAsync, and recurse
+        // find m_pendingFetch unset, start a second CompleteAsync, and recurse
         // until a StackOverflowException.
         //
         // This test only covers the non-awaiting reentrant case: the factory issues the
@@ -760,7 +760,7 @@ public class ProactiveAsyncCacheUnitTests
             Assert.IsTrue(refreshed, "Background refresh did not occur within the expected time.");
 
             // Assert — value should have been refreshed. The factory uses Task.FromResult
-            // (synchronous), so FetchAndUpdateAsync writes m_snapshot before the semaphore
+            // (synchronous), so CompleteAsync writes m_snapshot before the semaphore
             // waiter is scheduled. The snapshot is already updated when WaitAsync returns.
             int second = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
             Assert.AreEqual(2, second);
@@ -952,7 +952,7 @@ public class ProactiveAsyncCacheUnitTests
     public async Task BackgroundRefresh_InitialFetchFails_RetriesUntilSuccess()
     {
         // Arrange — first call fails, second succeeds. Exercises the initial-fetch
-        // retry loop in StartBackgroundRefresh.
+        // retry loop in BackgroundRefreshAsync.
         int callCount = 0;
         TaskCompletionSource firstValueReady = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
