@@ -424,28 +424,37 @@ public class ProactiveAsyncCacheUnitTests
     }
 
     [TestMethod]
-    public async Task GetValueAsync_AllowStaleReads_ReturnsFreshValueWhenRefreshAlreadyCompleted_RealTime()
+    public async Task GetValueAsync_WithFakeTimeProvider_AllowStaleReads_ReturnsFreshValueWhenRefreshAlreadyCompleted()
     {
-        // Arrange
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
         int callCount = 0;
+        TaskCompletionSource secondFetchCompleted = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
-            ct => Task.FromResult(Interlocked.Increment(ref callCount) * 100),
-            TimeSpan.FromMilliseconds(50),
+            (CancellationToken ct) =>
+            {
+                int value = Interlocked.Increment(ref callCount) * 100;
+                if (value == 200)
+                {
+                    _ = secondFetchCompleted.TrySetResult();
+                }
+
+                return Task.FromResult(value);
+            },
+            TimeSpan.FromMinutes(1),
             TimeSpan.Zero,
-            allowStaleReads: true);
+            allowStaleReads: true,
+            timeProvider: timeProvider);
         await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
         Assert.AreEqual(100, first);
 
-        await Task.Delay(80, TestContext.CancellationToken).ConfigureAwait(false);
+        timeProvider.Advance(TimeSpan.FromMinutes(1));
+        await secondFetchCompleted.Task.WaitAsync(TestContext.CancellationToken).ConfigureAwait(false);
 
-        // Act — the synchronous factory lets the refresh complete before GetValueAsync
-        // reaches the stale-read branch.
         int refreshed = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
 
-        // Assert
         Assert.AreEqual(200, refreshed);
     }
 
