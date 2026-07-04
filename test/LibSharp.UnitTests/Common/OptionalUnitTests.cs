@@ -473,10 +473,11 @@ public class OptionalUnitTests
     {
         int seen = 0;
 
-        _ = new Optional<int>(5).Match(v => seen = v, () => seen = -1);
+        // Block-bodied lambdas bind to the Action overload (expression bodies would bind to Match<TResult>).
+        new Optional<int>(5).Match(v => { seen = v; }, () => { seen = -1; });
         Assert.AreEqual(5, seen);
 
-        _ = default(Optional<int>).Match(v => seen = v, () => seen = -1);
+        default(Optional<int>).Match(v => { seen = v; }, () => { seen = -1; });
         Assert.AreEqual(-1, seen);
     }
 

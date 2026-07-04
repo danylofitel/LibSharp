@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Danylo Fitel
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -241,7 +242,27 @@ public class ConcurrentHashSetUnitTests
     {
         ConcurrentHashSet<int> set = new ConcurrentHashSet<int> { 1, 2, 3 };
 
-        List<int> result = new List<int>(set);
+        // foreach uses the public GetEnumerator (List<T>(IEnumerable) would shortcut to CopyTo).
+        List<int> result = new List<int>();
+        foreach (int item in set)
+        {
+            result.Add(item);
+        }
+
+        CollectionAssert.AreEquivalent(s_expected, result);
+    }
+
+    [TestMethod]
+    public void GetEnumerator_NonGeneric_ReturnsAllElements()
+    {
+        ConcurrentHashSet<int> set = new ConcurrentHashSet<int> { 1, 2, 3 };
+
+        List<int> result = new List<int>();
+        IEnumerator enumerator = ((IEnumerable)set).GetEnumerator();
+        while (enumerator.MoveNext())
+        {
+            result.Add((int)enumerator.Current!);
+        }
 
         CollectionAssert.AreEquivalent(s_expected, result);
     }
@@ -485,6 +506,15 @@ public class ConcurrentHashSetUnitTests
     }
 
     [TestMethod]
+    public void IsProperSubsetOf_FewerElementsButNotContained_ReturnsFalse()
+    {
+        // Smaller than other, so the count check passes, but an element is missing from other.
+        ConcurrentHashSet<int> set = new ConcurrentHashSet<int> { 1, 2, 9 };
+
+        Assert.IsFalse(set.IsProperSubsetOf(new[] { 1, 2, 3, 4 }));
+    }
+
+    [TestMethod]
     public void IsProperSupersetOf_NullOther_Throws()
     {
         _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ConcurrentHashSet<int>().IsProperSupersetOf(null!));
@@ -512,6 +542,15 @@ public class ConcurrentHashSetUnitTests
         ConcurrentHashSet<int> set = new ConcurrentHashSet<int> { 1, 2 };
 
         Assert.IsFalse(set.IsProperSupersetOf(new[] { 1, 2, 3 }));
+    }
+
+    [TestMethod]
+    public void IsProperSupersetOf_MoreElementsButNotContaining_ReturnsFalse()
+    {
+        // Larger than other, so the count check passes, but other has an element missing from the set.
+        ConcurrentHashSet<int> set = new ConcurrentHashSet<int> { 1, 2, 3, 9 };
+
+        Assert.IsFalse(set.IsProperSupersetOf(new[] { 1, 2, 5 }));
     }
 
     [TestMethod]

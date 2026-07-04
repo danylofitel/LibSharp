@@ -39,7 +39,12 @@
       "Bash(unzip -l /tmp/libsharp-pack/*.nupkg)",
       "PowerShell(dotnet build c:\\\\Repos\\\\LibSharp\\\\src\\\\LibSharp\\\\LibSharp.csproj -c Debug --nologo -v quiet)",
       "PowerShell(dotnet test c:\\\\Repos\\\\LibSharp\\\\test\\\\LibSharp.UnitTests\\\\LibSharp.UnitTests.csproj --nologo -v quiet --filter \"FullyQualifiedName~ProactiveAsyncCache\")",
-      "Read(//c/Users/danyl/AppData/Local/Temp/claude/c--Repos-LibSharp/d7b79974-2e7d-42af-bc3f-56ea26efb102/scratchpad/**)"
+      "Read(//c/Users/danyl/AppData/Local/Temp/claude/c--Repos-LibSharp/d7b79974-2e7d-42af-bc3f-56ea26efb102/scratchpad/**)",
+      "Bash(rm -rf /tmp/libsharp-pack)",
+      "Bash(rm -rf /tmp/cov)",
+      "Read(//tmp/**)",
+      "Bash(sed -i 's/using System;\\\\nusing System.Collections.Generic;/&/' Collections/ConcurrentHashSetUnitTests.cs)",
+      "Bash(perl -i -pe 's/^using System;\\\\n/using System;\\\\nusing System.Collections;\\\\n/ if $. == 3' Collections/ConcurrentHashSetUnitTests.cs)"
     ],
     "additionalDirectories": [
       "c:\\Repos\\LibSharp\\src\\LibSharp\\Collections"

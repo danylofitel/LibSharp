@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Xml;
 using System.Xml.Serialization;
@@ -11,8 +12,18 @@ namespace LibSharp.Common;
 /// <summary>
 /// XML serialization extensions.
 /// </summary>
+/// <remarks>
+/// These methods rely on <see cref="XmlSerializer"/>, which uses runtime reflection and dynamic
+/// code generation. They are therefore incompatible with assembly trimming and Native AOT.
+/// </remarks>
 public static class XmlSerializationExtensions
 {
+    private const string XmlSerializerRequiresUnreferencedCodeMessage =
+        "XmlSerializer uses reflection over the members of T, which may be removed by trimming.";
+
+    private const string XmlSerializerRequiresDynamicCodeMessage =
+        "XmlSerializer generates serialization code at runtime, which is not supported by Native AOT.";
+
     /// <summary>
     /// Deserializes an XML string to a typed object.
     /// </summary>
@@ -20,6 +31,8 @@ public static class XmlSerializationExtensions
     /// <param name="xmlString">XML string.</param>
     /// <param name="xmlReaderSettings">XML reader settings.</param>
     /// <returns>Deserialized object.</returns>
+    [RequiresUnreferencedCode(XmlSerializerRequiresUnreferencedCodeMessage)]
+    [RequiresDynamicCode(XmlSerializerRequiresDynamicCodeMessage)]
     public static T DeserializeFromXml<T>(this string xmlString, XmlReaderSettings? xmlReaderSettings = null)
     {
         Argument.NotNullOrWhiteSpace(xmlString, nameof(xmlString));
@@ -38,6 +51,8 @@ public static class XmlSerializationExtensions
     /// <typeparam name="T">Object type.</typeparam>
     /// <param name="objectToSerialize">Object to serialize.</param>
     /// <returns>XML string.</returns>
+    [RequiresUnreferencedCode(XmlSerializerRequiresUnreferencedCodeMessage)]
+    [RequiresDynamicCode(XmlSerializerRequiresDynamicCodeMessage)]
     public static string SerializeToXml<T>(this T objectToSerialize)
     {
         ArgumentNullException.ThrowIfNull(objectToSerialize);

@@ -17,7 +17,12 @@ concurrency:
 
 jobs:
   unit-tests:
-    runs-on: ubuntu-latest
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
       - name: Checkout
@@ -36,3 +41,60 @@ jobs:
 
       - name: Test
         run: dotnet test test/LibSharp.UnitTests/LibSharp.UnitTests.csproj -c Release --no-build --verbosity normal
+
+  package:
+    name: Validate package
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Pack (runs package validation and a deterministic CI build)
+        run: dotnet pack src/LibSharp/LibSharp.csproj -c Release
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Test with coverage
+        run: >
+          dotnet test test/LibSharp.UnitTests/LibSharp.UnitTests.csproj
+          -c Release
+          -f net10.0
+          --collect:"XPlat Code Coverage"
+          --results-directory ${{ github.workspace }}/coverage
+
+      - name: Coverage summary
+        if: always()
+        run: |
+          report=$(find "${{ github.workspace }}/coverage" -name coverage.cobertura.xml | head -1)
+          [ -z "$report" ] && exit 0
+          line=$(grep -oE 'line-rate="[0-9.]+"' "$report" | head -1 | grep -oE '[0-9.]+')
+          branch=$(grep -oE 'branch-rate="[0-9.]+"' "$report" | head -1 | grep -oE '[0-9.]+')
+          {
+            echo "### Coverage"
+            awk "BEGIN { printf \"- Line: %.2f%%\n- Branch: %.2f%%\n\", $line * 100, $branch * 100 }"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: ${{ github.workspace }}/coverage/**/coverage.cobertura.xml
+          if-no-files-found: error

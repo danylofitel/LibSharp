@@ -345,10 +345,11 @@ public class ResultUnitTests
     {
         string? seen = null;
 
-        _ = Result<int, string>.Ok(5).Match(v => seen = $"ok:{v}", e => seen = $"err:{e}");
+        // Block-bodied lambdas bind to the Action overload (expression bodies would bind to Match<TResult>).
+        Result<int, string>.Ok(5).Match(v => { seen = $"ok:{v}"; }, e => { seen = $"err:{e}"; });
         Assert.AreEqual("ok:5", seen);
 
-        _ = Result<int, string>.Fail("x").Match(v => seen = $"ok:{v}", e => seen = $"err:{e}");
+        Result<int, string>.Fail("x").Match(v => { seen = $"ok:{v}"; }, e => { seen = $"err:{e}"; });
         Assert.AreEqual("err:x", seen);
     }
 

@@ -169,6 +169,16 @@ public class EnumerableExtensionsTests
     }
 
     [TestMethod]
+    public void Chunk_NegativeItemWeight_Throws()
+    {
+        // Arrange
+        List<double> items = new List<double> { 1.0, -1.0, 2.0 };
+
+        // Act
+        _ = Assert.ThrowsExactly<ArgumentException>(() => items.Chunk(10.0, x => x).ToList());
+    }
+
+    [TestMethod]
     public void FirstIndexOf_NoDuplicates()
     {
         // Arrange
