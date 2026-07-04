@@ -63,7 +63,7 @@ public class ThrottledActionUnitTests
     }
 
     [TestMethod]
-    public async Task Invoke_CallAfterIntervalElapses_ExecutesAgain()
+    public async Task Invoke_CallAfterIntervalElapses_ExecutesAgain_RealTime()
     {
         // Arrange
         int callCount = 0;
@@ -79,7 +79,7 @@ public class ThrottledActionUnitTests
     }
 
     [TestMethod]
-    public async Task Invoke_RapidCallsThenWait_ExecutesTwice()
+    public async Task Invoke_RapidCallsThenWait_ExecutesTwice_RealTime()
     {
         // Arrange
         int callCount = 0;

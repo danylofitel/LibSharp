@@ -340,7 +340,7 @@ public class ProactiveAsyncCacheUnitTests
     }
 
     [TestMethod]
-    public async Task GetValueAsync_AllowStaleReads_Disabled_BlocksOnExpiredValue()
+    public async Task GetValueAsync_AllowStaleReads_Disabled_BlocksOnExpiredValue_RealTime()
     {
         // Arrange — default mode (allowStaleReads: false)
         int callCount = 0;
@@ -379,7 +379,7 @@ public class ProactiveAsyncCacheUnitTests
     }
 
     [TestMethod]
-    public async Task GetValueAsync_ReturnsStaleValueWhileRefreshing()
+    public async Task GetValueAsync_ReturnsStaleValueWhileRefreshing_RealTime()
     {
         // Arrange
         int callCount = 0;
@@ -424,7 +424,7 @@ public class ProactiveAsyncCacheUnitTests
     }
 
     [TestMethod]
-    public async Task GetValueAsync_AllowStaleReads_ReturnsFreshValueWhenRefreshAlreadyCompleted()
+    public async Task GetValueAsync_AllowStaleReads_ReturnsFreshValueWhenRefreshAlreadyCompleted_RealTime()
     {
         // Arrange
         int callCount = 0;
@@ -494,7 +494,7 @@ public class ProactiveAsyncCacheUnitTests
     }
 
     [TestMethod]
-    public async Task GetValueAsync_ReturnsStaleValueWhenFactoryFails()
+    public async Task GetValueAsync_ReturnsStaleValueWhenFactoryFails_RealTime()
     {
         // Arrange
         int callCount = 0;
@@ -532,7 +532,7 @@ public class ProactiveAsyncCacheUnitTests
     }
 
     [TestMethod]
-    public async Task GetValueAsync_SlowFactory_ReadersNeverBlock()
+    public async Task GetValueAsync_SlowFactory_ReadersNeverBlock_RealTime()
     {
         // Simulates refreshInterval=2s, preFetchOffset=1s with a factory that
         // sometimes takes longer than the pre-fetch window.
@@ -686,7 +686,7 @@ public class ProactiveAsyncCacheUnitTests
     }
 
     [TestMethod]
-    public async Task DisposeAsync_WhileInFlightFetchIsRunning_WaitsForFetchToComplete()
+    public async Task DisposeAsync_WhileInFlightFetchIsRunning_WaitsForFetchToComplete_RealTime()
     {
         // Verifies the m_pendingFetch drain path in DisposeAsync. The background loop starts
         // an initial fetch immediately; if the factory ignores cancellation, DisposeAsync
@@ -813,7 +813,7 @@ public class ProactiveAsyncCacheUnitTests
     }
 
     [TestMethod]
-    public async Task BackgroundRefresh_FactoryThrows_CacheKeepsRunning()
+    public async Task BackgroundRefresh_FactoryThrows_CacheKeepsRunning_RealTime()
     {
         // Arrange
         int callCount = 0;
@@ -863,7 +863,7 @@ public class ProactiveAsyncCacheUnitTests
     }
 
     [TestMethod]
-    public async Task BackgroundRefresh_FactoryThrowsObjectDisposedException_CacheKeepsRunning()
+    public async Task BackgroundRefresh_FactoryThrowsObjectDisposedException_CacheKeepsRunning_RealTime()
     {
         // Arrange
         int callCount = 0;
@@ -908,7 +908,7 @@ public class ProactiveAsyncCacheUnitTests
     }
 
     [TestMethod]
-    public async Task BackgroundRefresh_SkipsWhenValueIsFresh()
+    public async Task BackgroundRefresh_SkipsWhenValueIsFresh_RealTime()
     {
         // Arrange
         int callCount = 0;
@@ -1027,7 +1027,7 @@ public class ProactiveAsyncCacheUnitTests
     }
 
     [TestMethod]
-    public async Task BackgroundRefresh_WithVeryLargeRefreshInterval_DoesNotFaultBackgroundTask()
+    public async Task BackgroundRefresh_WithVeryLargeRefreshInterval_DoesNotFaultBackgroundTask_RealTime()
     {
         // Arrange
         ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
@@ -1051,7 +1051,7 @@ public class ProactiveAsyncCacheUnitTests
     }
 
     [TestMethod]
-    public async Task BackgroundRefresh_InitialFailure_WithVeryLargeRetryWindow_DoesNotFaultBackgroundTask()
+    public async Task BackgroundRefresh_InitialFailure_WithVeryLargeRetryWindow_DoesNotFaultBackgroundTask_RealTime()
     {
         // Arrange
         using SemaphoreSlim fetchSignal = new SemaphoreSlim(0);
@@ -1096,6 +1096,37 @@ public class ProactiveAsyncCacheUnitTests
         int value = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
 
         Assert.AreEqual(1, value);
+    }
+
+    [TestMethod]
+    public async Task GetValueAsync_WithFakeTimeProvider_AllowStaleReads_ReturnsStaleValueWhileRefreshing()
+    {
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
+        int calls = 0;
+        TaskCompletionSource<int> refreshGate = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            _ => Interlocked.Increment(ref calls) == 1 ? Task.FromResult(1) : refreshGate.Task, // First fetch is fast; later fetches block.
+            TimeSpan.FromMinutes(1),
+            TimeSpan.FromSeconds(10),
+            allowStaleReads: true,
+            timeProvider);
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
+
+        // Initial fetch completes and serves value 1.
+        int initial = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+        Assert.AreEqual(1, initial);
+
+        // Advance past expiration so the snapshot is stale and the next read triggers a refresh.
+        timeProvider.Advance(TimeSpan.FromMinutes(1));
+
+        // With stale reads enabled the read returns the previous value immediately, without waiting
+        // for the (still-blocked) refresh to complete.
+        int stale = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+        Assert.AreEqual(1, stale);
+
+        // Unblock the refresh so disposal can drain the in-flight fetch cleanly.
+        _ = refreshGate.TrySetResult(2);
     }
 
     public TestContext TestContext { get; set; }

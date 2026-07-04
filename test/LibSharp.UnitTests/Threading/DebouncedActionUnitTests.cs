@@ -34,7 +34,7 @@ public class DebouncedActionUnitTests
     }
 
     [TestMethod]
-    public async Task Invoke_SingleCall_FiresAfterDelay()
+    public async Task Invoke_SingleCall_FiresAfterDelay_RealTime()
     {
         // Arrange
         int callCount = 0;
@@ -49,7 +49,7 @@ public class DebouncedActionUnitTests
     }
 
     [TestMethod]
-    public async Task Invoke_RapidCalls_FiresOnlyOnce()
+    public async Task Invoke_RapidCalls_FiresOnlyOnce_RealTime()
     {
         // Arrange
         int callCount = 0;
@@ -69,7 +69,7 @@ public class DebouncedActionUnitTests
     }
 
     [TestMethod]
-    public async Task Invoke_TwoWavesSeparatedByDelay_FiresTwice()
+    public async Task Invoke_TwoWavesSeparatedByDelay_FiresTwice_RealTime()
     {
         // Arrange
         int callCount = 0;
@@ -107,7 +107,7 @@ public class DebouncedActionUnitTests
     }
 
     [TestMethod]
-    public async Task Dispose_CancelsPendingInvocation()
+    public async Task Dispose_CancelsPendingInvocation_RealTime()
     {
         // Arrange
         int callCount = 0;
@@ -123,7 +123,7 @@ public class DebouncedActionUnitTests
     }
 
     [TestMethod]
-    public async Task Dispose_WhileCallbackIsInFlight_ActionCompletesExactlyOnce()
+    public async Task Dispose_WhileCallbackIsInFlight_ActionCompletesExactlyOnce_RealTime()
     {
         // Arrange — action signals when it starts, then blocks until released
         using SemaphoreSlim actionStarted = new SemaphoreSlim(0, 1);
@@ -171,6 +171,55 @@ public class DebouncedActionUnitTests
 
         timeProvider.Advance(TimeSpan.FromMilliseconds(100)); // 300 ms since the reset: fires.
         Assert.AreEqual(1, count);
+    }
+
+    [TestMethod]
+    public void Invoke_WithFakeTimeProvider_RapidCalls_FiresOnce()
+    {
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
+        int count = 0;
+        using DebouncedAction debounced = new DebouncedAction(() => count++, TimeSpan.FromMilliseconds(100), timeProvider);
+
+        for (int i = 0; i < 5; i++)
+        {
+            debounced.Invoke();
+            timeProvider.Advance(TimeSpan.FromMilliseconds(10)); // Each call resets before the quiet period elapses.
+        }
+
+        Assert.AreEqual(0, count);
+
+        timeProvider.Advance(TimeSpan.FromMilliseconds(100)); // Quiet period after the last call elapses.
+        Assert.AreEqual(1, count);
+    }
+
+    [TestMethod]
+    public void Invoke_WithFakeTimeProvider_TwoWaves_FiresTwice()
+    {
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
+        int count = 0;
+        using DebouncedAction debounced = new DebouncedAction(() => count++, TimeSpan.FromMilliseconds(50), timeProvider);
+
+        debounced.Invoke();
+        timeProvider.Advance(TimeSpan.FromMilliseconds(50)); // First wave fires.
+        Assert.AreEqual(1, count);
+
+        debounced.Invoke();
+        timeProvider.Advance(TimeSpan.FromMilliseconds(50)); // Second wave fires.
+        Assert.AreEqual(2, count);
+    }
+
+    [TestMethod]
+    public void Dispose_WithFakeTimeProvider_CancelsPendingInvocation()
+    {
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
+        int count = 0;
+        DebouncedAction debounced = new DebouncedAction(() => count++, TimeSpan.FromMilliseconds(50), timeProvider);
+
+        debounced.Invoke();
+        debounced.Dispose(); // Cancels the pending timer.
+        timeProvider.Advance(TimeSpan.FromMilliseconds(100)); // Would have fired, but the timer was disposed.
+
+        Assert.AreEqual(0, count);
     }
 
     public TestContext TestContext { get; set; }
