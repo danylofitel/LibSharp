@@ -14,7 +14,7 @@ public sealed class Initializer<T> : IInitializer<T>
     /// <inheritdoc/>
     public T GetValue(Func<T> factory)
     {
-        Argument.NotNull(factory, nameof(factory));
+        Argument.NotNull(factory);
 
         if (!m_hasValue)
         {

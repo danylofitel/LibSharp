@@ -39,9 +39,9 @@ public static class AsyncEnumerableExtensions
         double chunkWeight,
         Func<TSource, double> itemWeight)
     {
-        Argument.NotNull(source, nameof(source));
-        Argument.GreaterThan(chunkWeight, 0.0, nameof(chunkWeight));
-        Argument.NotNull(itemWeight, nameof(itemWeight));
+        Argument.NotNull(source);
+        Argument.GreaterThan(chunkWeight, 0.0);
+        Argument.NotNull(itemWeight);
 
         return ChunkIterator(source, chunkWeight, itemWeight);
     }
@@ -59,8 +59,8 @@ public static class AsyncEnumerableExtensions
         Func<TSource, bool> predicate,
         CancellationToken cancellationToken = default)
     {
-        Argument.NotNull(source, nameof(source));
-        Argument.NotNull(predicate, nameof(predicate));
+        Argument.NotNull(source);
+        Argument.NotNull(predicate);
 
         int index = -1;
 
@@ -90,8 +90,8 @@ public static class AsyncEnumerableExtensions
         Func<TSource, bool> predicate,
         CancellationToken cancellationToken = default)
     {
-        Argument.NotNull(source, nameof(source));
-        Argument.NotNull(predicate, nameof(predicate));
+        Argument.NotNull(source);
+        Argument.NotNull(predicate);
 
         int index = -1;
         int match = -1;

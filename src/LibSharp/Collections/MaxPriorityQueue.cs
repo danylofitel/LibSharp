@@ -108,9 +108,9 @@ public sealed class MaxPriorityQueue<T> : IPriorityQueue<T>, ICollection
     /// <param name="comparer">Value comparer.</param>
     public MaxPriorityQueue(int capacity, IEnumerable<T> collection, IComparer<T> comparer)
     {
-        Argument.GreaterThanOrEqualTo(capacity, 0, nameof(capacity));
-        Argument.NotNull(collection, nameof(collection));
-        Argument.NotNull(comparer, nameof(comparer));
+        Argument.GreaterThanOrEqualTo(capacity, 0);
+        Argument.NotNull(collection);
+        Argument.NotNull(comparer);
 
         m_minPriorityQueue = new MinPriorityQueue<T>(capacity, collection, new ReverseComparer<T>(comparer));
     }

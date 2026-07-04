@@ -34,7 +34,7 @@ public sealed class LazyAsyncExecutionAndPublication<T> : IDisposable
     /// <param name="factory">The value factory.</param>
     public LazyAsyncExecutionAndPublication(Func<CancellationToken, Task<T>> factory)
     {
-        Argument.NotNull(factory, nameof(factory));
+        Argument.NotNull(factory);
 
         m_hasValue = false;
         m_factory = factory;

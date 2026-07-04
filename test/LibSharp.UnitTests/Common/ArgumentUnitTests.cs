@@ -232,6 +232,17 @@ public class ArgumentUnitTests
     }
 
     [TestMethod]
+    public void NotNull_WithoutExplicitName_CapturesArgumentExpression()
+    {
+        // The name is captured from the argument expression when omitted (CallerArgumentExpression).
+        string argumentValue = null!;
+
+        ArgumentNullException exception = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.NotNull(argumentValue));
+
+        Assert.AreEqual(nameof(argumentValue), exception.ParamName);
+    }
+
+    [TestMethod]
     public void NotNullOrEmpty_NotNull_DoesNotThrow()
     {
         // Act

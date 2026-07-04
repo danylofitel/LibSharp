@@ -35,7 +35,7 @@ public static class XmlSerializationExtensions
     [RequiresDynamicCode(XmlSerializerRequiresDynamicCodeMessage)]
     public static T DeserializeFromXml<T>(this string xmlString, XmlReaderSettings? xmlReaderSettings = null)
     {
-        Argument.NotNullOrWhiteSpace(xmlString, nameof(xmlString));
+        Argument.NotNullOrWhiteSpace(xmlString);
 
         using StringReader stringReader = new StringReader(xmlString);
         using XmlReader xmlReader = XmlReader.Create(stringReader, xmlReaderSettings ?? s_xmlReaderSettings);
@@ -55,7 +55,10 @@ public static class XmlSerializationExtensions
     [RequiresDynamicCode(XmlSerializerRequiresDynamicCodeMessage)]
     public static string SerializeToXml<T>(this T objectToSerialize)
     {
-        ArgumentNullException.ThrowIfNull(objectToSerialize);
+        if (objectToSerialize is null)
+        {
+            throw new ArgumentNullException(nameof(objectToSerialize));
+        }
 
         using StringWriter stringWriter = new StringWriter();
         GetSerializer(typeof(T)).Serialize(stringWriter, objectToSerialize);

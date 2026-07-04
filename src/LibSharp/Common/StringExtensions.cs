@@ -21,7 +21,7 @@ public static class StringExtensions
     /// <returns>Original string.</returns>
     public static string Base64Decode(this string input, Encoding? encoding = null)
     {
-        Argument.NotNull(input, nameof(input));
+        Argument.NotNull(input);
 
         byte[] bytes = Convert.FromBase64String(input);
         return (encoding ?? Encoding.UTF8).GetString(bytes);
@@ -35,7 +35,7 @@ public static class StringExtensions
     /// <returns>Base 64 encoded string.</returns>
     public static string Base64Encode(this string input, Encoding? encoding = null)
     {
-        Argument.NotNull(input, nameof(input));
+        Argument.NotNull(input);
 
         byte[] bytes = (encoding ?? Encoding.UTF8).GetBytes(input);
         return Convert.ToBase64String(bytes);
@@ -48,7 +48,7 @@ public static class StringExtensions
     /// <returns>The reversed string.</returns>
     public static string Reverse(this string input)
     {
-        Argument.NotNull(input, nameof(input));
+        Argument.NotNull(input);
 
         int[] characterIndexes = StringInfo.ParseCombiningCharacters(input);
 
@@ -86,8 +86,8 @@ public static class StringExtensions
     /// <returns>The string truncated to the maximum length.</returns>
     public static string Truncate(this string input, int maxLength)
     {
-        Argument.NotNull(input, nameof(input));
-        Argument.GreaterThanOrEqualTo(maxLength, 0, nameof(maxLength));
+        Argument.NotNull(input);
+        Argument.GreaterThanOrEqualTo(maxLength, 0);
 
         if (input.Length <= maxLength)
         {
@@ -105,8 +105,8 @@ public static class StringExtensions
     /// <returns>The string truncated to the maximum number of text elements.</returns>
     public static string TruncateTextElements(this string input, int maxTextElements)
     {
-        Argument.NotNull(input, nameof(input));
-        Argument.GreaterThanOrEqualTo(maxTextElements, 0, nameof(maxTextElements));
+        Argument.NotNull(input);
+        Argument.GreaterThanOrEqualTo(maxTextElements, 0);
 
         if (maxTextElements == 0)
         {

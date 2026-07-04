@@ -37,9 +37,9 @@ public static class EnumerableExtensions
         double chunkWeight,
         Func<TSource, double> itemWeight)
     {
-        Argument.NotNull(source, nameof(source));
-        Argument.GreaterThan(chunkWeight, 0.0, nameof(chunkWeight));
-        Argument.NotNull(itemWeight, nameof(itemWeight));
+        Argument.NotNull(source);
+        Argument.GreaterThan(chunkWeight, 0.0);
+        Argument.NotNull(itemWeight);
 
         return ChunkIterator(source, chunkWeight, itemWeight);
     }
@@ -53,8 +53,8 @@ public static class EnumerableExtensions
     /// <returns>Index of the first element in the sequence that satisfies the condition, -1 otherwise.</returns>
     public static int FirstIndexOf<TSource>(this IEnumerable<TSource> source, Func<TSource, bool> predicate)
     {
-        Argument.NotNull(source, nameof(source));
-        Argument.NotNull(predicate, nameof(predicate));
+        Argument.NotNull(source);
+        Argument.NotNull(predicate);
 
         int index = -1;
 
@@ -80,8 +80,8 @@ public static class EnumerableExtensions
     /// <returns>Index of the last element in the sequence that satisfies the condition, -1 otherwise.</returns>
     public static int LastIndexOf<TSource>(this IEnumerable<TSource> source, Func<TSource, bool> predicate)
     {
-        Argument.NotNull(source, nameof(source));
-        Argument.NotNull(predicate, nameof(predicate));
+        Argument.NotNull(source);
+        Argument.NotNull(predicate);
 
         int index = -1;
         int match = -1;
@@ -108,7 +108,7 @@ public static class EnumerableExtensions
     /// <returns>A randomly shuffled array.</returns>
     public static TSource[] Shuffle<TSource>(this IEnumerable<TSource> source)
     {
-        Argument.NotNull(source, nameof(source));
+        Argument.NotNull(source);
 
         TSource[] elements = source.ToArray();
 

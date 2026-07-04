@@ -108,9 +108,9 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     /// <param name="comparer">Value comparer.</param>
     public MinPriorityQueue(int capacity, IEnumerable<T> collection, IComparer<T> comparer)
     {
-        Argument.GreaterThanOrEqualTo(capacity, 0, nameof(capacity));
-        Argument.NotNull(collection, nameof(collection));
-        Argument.NotNull(comparer, nameof(comparer));
+        Argument.GreaterThanOrEqualTo(capacity, 0);
+        Argument.NotNull(collection);
+        Argument.NotNull(comparer);
 
         int initialCapacity = capacity;
         if (collection is IReadOnlyCollection<T> readOnlyCollection)
@@ -251,9 +251,9 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     /// <inheritdoc/>
     public void CopyTo(T[] array, int arrayIndex)
     {
-        Argument.NotNull(array, nameof(array));
-        Argument.GreaterThanOrEqualTo(arrayIndex, 0, nameof(arrayIndex));
-        Argument.LessThanOrEqualTo(arrayIndex, array.Length, nameof(arrayIndex));
+        Argument.NotNull(array);
+        Argument.GreaterThanOrEqualTo(arrayIndex, 0);
+        Argument.LessThanOrEqualTo(arrayIndex, array.Length);
         Argument.GreaterThanOrEqualTo(array.Length - arrayIndex, Count, "Array offset");
 
         Array.Copy(m_heap, 1, array, arrayIndex, Count);
@@ -290,10 +290,10 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     /// <inheritdoc/>
     public void CopyTo(Array array, int index)
     {
-        Argument.NotNull(array, nameof(array));
+        Argument.NotNull(array);
         Argument.EqualTo(array.Rank, 1, nameof(array.Rank));
-        Argument.GreaterThanOrEqualTo(index, 0, nameof(index));
-        Argument.LessThanOrEqualTo(index, array.Length, nameof(index));
+        Argument.GreaterThanOrEqualTo(index, 0);
+        Argument.LessThanOrEqualTo(index, array.Length);
         Argument.GreaterThanOrEqualTo(array.Length - index, Count, "Array offset");
 
         Array.Copy(m_heap, 1, array, index, Count);

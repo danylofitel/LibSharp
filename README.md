@@ -36,20 +36,21 @@ BenchmarkDotNet setup and benchmark scripts are available in [`benchmarks/`](ben
 
     public static async Task CommonExamples(string stringParam, long longParam, object objectParam, CancellationToken cancellationToken)
     {
-        // Argument validation
-        Argument.EqualTo(stringParam, "Hello world", nameof(stringParam));
-        Argument.NotEqualTo(stringParam, "Hello", nameof(stringParam));
+        // Argument validation — the parameter name is captured automatically (CallerArgumentExpression);
+        // pass it explicitly only when you want a different name.
+        Argument.EqualTo(stringParam, "Hello world");
+        Argument.NotEqualTo(stringParam, "Hello");
 
-        Argument.GreaterThan(longParam, -1L, nameof(longParam));
-        Argument.GreaterThanOrEqualTo(longParam, 0L, nameof(longParam));
-        Argument.LessThan(longParam, 100L, nameof(longParam));
-        Argument.LessThanOrEqualTo(longParam, 99L, nameof(longParam));
+        Argument.GreaterThan(longParam, -1L);
+        Argument.GreaterThanOrEqualTo(longParam, 0L);
+        Argument.LessThan(longParam, 100L);
+        Argument.LessThanOrEqualTo(longParam, 99L);
 
-        Argument.NotNull(stringParam, nameof(stringParam));
-        Argument.NotNullOrEmpty(stringParam, nameof(stringParam));
-        Argument.NotNullOrWhiteSpace(stringParam, nameof(stringParam));
+        Argument.NotNull(stringParam);
+        Argument.NotNullOrEmpty(stringParam);
+        Argument.NotNullOrWhiteSpace(stringParam);
 
-        Argument.OfType(objectParam, typeof(List<string>), nameof(objectParam));
+        Argument.OfType(objectParam, typeof(List<string>));
 
         // Optional<T> — wraps a value that may or may not be present
         Optional<int> empty = default;

@@ -27,12 +27,12 @@ public static class DictionaryExtensions
         TValue addValue,
         Func<TKey, TValue, TValue> updateValueFactory)
     {
-        Argument.NotNull(dictionary, nameof(dictionary));
+        Argument.NotNull(dictionary);
         if (key is null)
         {
             throw new ArgumentNullException(nameof(key));
         }
-        Argument.NotNull(updateValueFactory, nameof(updateValueFactory));
+        Argument.NotNull(updateValueFactory);
 
         return dictionary.AddOrUpdate(
             key,
@@ -56,13 +56,13 @@ public static class DictionaryExtensions
         Func<TKey, TValue> addValueFactory,
         Func<TKey, TValue, TValue> updateValueFactory)
     {
-        Argument.NotNull(dictionary, nameof(dictionary));
+        Argument.NotNull(dictionary);
         if (key is null)
         {
             throw new ArgumentNullException(nameof(key));
         }
-        Argument.NotNull(addValueFactory, nameof(addValueFactory));
-        Argument.NotNull(updateValueFactory, nameof(updateValueFactory));
+        Argument.NotNull(addValueFactory);
+        Argument.NotNull(updateValueFactory);
 
         TValue newValue;
 
@@ -98,13 +98,13 @@ public static class DictionaryExtensions
         Func<TKey, TValue, TArg, TValue> updateValueFactory,
         TArg factoryArgument)
     {
-        Argument.NotNull(dictionary, nameof(dictionary));
+        Argument.NotNull(dictionary);
         if (key is null)
         {
             throw new ArgumentNullException(nameof(key));
         }
-        Argument.NotNull(addValueFactory, nameof(addValueFactory));
-        Argument.NotNull(updateValueFactory, nameof(updateValueFactory));
+        Argument.NotNull(addValueFactory);
+        Argument.NotNull(updateValueFactory);
 
         return dictionary.AddOrUpdate(
             key,
@@ -126,7 +126,7 @@ public static class DictionaryExtensions
         TKey key,
         TValue value)
     {
-        Argument.NotNull(dictionary, nameof(dictionary));
+        Argument.NotNull(dictionary);
         if (key is null)
         {
             throw new ArgumentNullException(nameof(key));
@@ -149,12 +149,12 @@ public static class DictionaryExtensions
         TKey key,
         Func<TKey, TValue> valueFactory)
     {
-        Argument.NotNull(dictionary, nameof(dictionary));
+        Argument.NotNull(dictionary);
         if (key is null)
         {
             throw new ArgumentNullException(nameof(key));
         }
-        Argument.NotNull(valueFactory, nameof(valueFactory));
+        Argument.NotNull(valueFactory);
 
         if (dictionary.TryGetValue(key, out TValue? oldValue))
         {
@@ -185,12 +185,12 @@ public static class DictionaryExtensions
         Func<TKey, TArg, TValue> valueFactory,
         TArg factoryArgument)
     {
-        Argument.NotNull(dictionary, nameof(dictionary));
+        Argument.NotNull(dictionary);
         if (key is null)
         {
             throw new ArgumentNullException(nameof(key));
         }
-        Argument.NotNull(valueFactory, nameof(valueFactory));
+        Argument.NotNull(valueFactory);
 
         return dictionary.GetOrAdd(
             key,
@@ -207,7 +207,7 @@ public static class DictionaryExtensions
     public static IDictionary<TKey, TValue> Copy<TKey, TValue>(this IDictionary<TKey, TValue> source)
         where TKey : notnull
     {
-        Argument.NotNull(source, nameof(source));
+        Argument.NotNull(source);
 
         return source.CopyTo(new Dictionary<TKey, TValue>(source.Count));
     }
@@ -222,8 +222,8 @@ public static class DictionaryExtensions
     /// <returns>Destination dictionary with properties copied from the source dictionary.</returns>
     public static IDictionary<TKey, TValue> CopyTo<TKey, TValue>(this IDictionary<TKey, TValue> source, IDictionary<TKey, TValue> destination)
     {
-        Argument.NotNull(source, nameof(source));
-        Argument.NotNull(destination, nameof(destination));
+        Argument.NotNull(source);
+        Argument.NotNull(destination);
 
         foreach (KeyValuePair<TKey, TValue> pair in source)
         {

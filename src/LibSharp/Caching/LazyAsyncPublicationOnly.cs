@@ -33,7 +33,7 @@ public sealed class LazyAsyncPublicationOnly<T>
     /// <param name="factory">The value factory.</param>
     public LazyAsyncPublicationOnly(Func<CancellationToken, Task<T>> factory)
     {
-        Argument.NotNull(factory, nameof(factory));
+        Argument.NotNull(factory);
 
         m_factory = factory;
     }

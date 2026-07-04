@@ -19,8 +19,8 @@ public static class RegexExtensions
     /// <returns>True if a match was found, false if not or if the regex timed out.</returns>
     public static bool TryIsMatch(this Regex regex, string value, out bool timedOut)
     {
-        Argument.NotNull(regex, nameof(regex));
-        Argument.NotNull(value, nameof(value));
+        Argument.NotNull(regex);
+        Argument.NotNull(value);
 
         try
         {
@@ -44,8 +44,8 @@ public static class RegexExtensions
     /// <returns>A match if it was found, an empty match if not or if the regex timed out.</returns>
     public static Match TryMatch(this Regex regex, string value, out bool timedOut)
     {
-        Argument.NotNull(regex, nameof(regex));
-        Argument.NotNull(value, nameof(value));
+        Argument.NotNull(regex);
+        Argument.NotNull(value);
 
         try
         {
@@ -71,9 +71,9 @@ public static class RegexExtensions
     /// <returns>A string with all occurrences replaced. Returns the original string if the regex times out.</returns>
     public static string TryReplace(this Regex regex, string input, string replacement, out bool timedOut)
     {
-        Argument.NotNull(regex, nameof(regex));
-        Argument.NotNull(input, nameof(input));
-        Argument.NotNull(replacement, nameof(replacement));
+        Argument.NotNull(regex);
+        Argument.NotNull(input);
+        Argument.NotNull(replacement);
 
         try
         {
@@ -99,9 +99,9 @@ public static class RegexExtensions
     /// <returns>A string with all matched substrings replaced. Returns the original string if the regex times out.</returns>
     public static string TryReplace(this Regex regex, string input, MatchEvaluator evaluator, out bool timedOut)
     {
-        Argument.NotNull(regex, nameof(regex));
-        Argument.NotNull(input, nameof(input));
-        Argument.NotNull(evaluator, nameof(evaluator));
+        Argument.NotNull(regex);
+        Argument.NotNull(input);
+        Argument.NotNull(evaluator);
 
         try
         {

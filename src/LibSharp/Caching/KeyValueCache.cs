@@ -28,8 +28,8 @@ public sealed class KeyValueCache<TKey, TValue> : IKeyValueCache<TKey, TValue>
     /// <param name="timeProvider">(Optional) Time provider used for expiration. Defaults to <see cref="TimeProvider.System"/>.</param>
     public KeyValueCache(Func<TKey, TValue> factory, TimeSpan timeToLive, TimeProvider? timeProvider = null)
     {
-        Argument.NotNull(factory, nameof(factory));
-        Argument.GreaterThanOrEqualTo(timeToLive, TimeSpan.Zero, nameof(timeToLive));
+        Argument.NotNull(factory);
+        Argument.GreaterThanOrEqualTo(timeToLive, TimeSpan.Zero);
 
         m_timeProvider = timeProvider ?? TimeProvider.System;
         m_createFactory = factory;
@@ -44,8 +44,8 @@ public sealed class KeyValueCache<TKey, TValue> : IKeyValueCache<TKey, TValue>
     /// <param name="timeProvider">(Optional) Time provider used for expiration. Defaults to <see cref="TimeProvider.System"/>.</param>
     public KeyValueCache(Func<TKey, TValue> factory, Func<TKey, TValue, DateTime> expirationFunction, TimeProvider? timeProvider = null)
     {
-        Argument.NotNull(factory, nameof(factory));
-        Argument.NotNull(expirationFunction, nameof(expirationFunction));
+        Argument.NotNull(factory);
+        Argument.NotNull(expirationFunction);
 
         m_timeProvider = timeProvider ?? TimeProvider.System;
         m_createFactory = factory;
@@ -61,9 +61,9 @@ public sealed class KeyValueCache<TKey, TValue> : IKeyValueCache<TKey, TValue>
     /// <param name="timeProvider">(Optional) Time provider used for expiration. Defaults to <see cref="TimeProvider.System"/>.</param>
     public KeyValueCache(Func<TKey, TValue> createFactory, Func<TKey, TValue, TValue> updateFactory, TimeSpan timeToLive, TimeProvider? timeProvider = null)
     {
-        Argument.NotNull(createFactory, nameof(createFactory));
-        Argument.NotNull(updateFactory, nameof(updateFactory));
-        Argument.GreaterThanOrEqualTo(timeToLive, TimeSpan.Zero, nameof(timeToLive));
+        Argument.NotNull(createFactory);
+        Argument.NotNull(updateFactory);
+        Argument.GreaterThanOrEqualTo(timeToLive, TimeSpan.Zero);
 
         m_timeProvider = timeProvider ?? TimeProvider.System;
         m_createFactory = createFactory;
@@ -80,9 +80,9 @@ public sealed class KeyValueCache<TKey, TValue> : IKeyValueCache<TKey, TValue>
     /// <param name="timeProvider">(Optional) Time provider used for expiration. Defaults to <see cref="TimeProvider.System"/>.</param>
     public KeyValueCache(Func<TKey, TValue> createFactory, Func<TKey, TValue, TValue> updateFactory, Func<TKey, TValue, DateTime> expirationFunction, TimeProvider? timeProvider = null)
     {
-        Argument.NotNull(createFactory, nameof(createFactory));
-        Argument.NotNull(updateFactory, nameof(updateFactory));
-        Argument.NotNull(expirationFunction, nameof(expirationFunction));
+        Argument.NotNull(createFactory);
+        Argument.NotNull(updateFactory);
+        Argument.NotNull(expirationFunction);
 
         m_timeProvider = timeProvider ?? TimeProvider.System;
         m_createFactory = createFactory;

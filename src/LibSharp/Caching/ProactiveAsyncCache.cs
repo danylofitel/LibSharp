@@ -50,10 +50,10 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
         bool allowStaleReads = false,
         TimeProvider? timeProvider = null)
     {
-        Argument.NotNull(valueFactory, nameof(valueFactory));
-        Argument.GreaterThan(refreshInterval, TimeSpan.Zero, nameof(refreshInterval));
-        Argument.GreaterThanOrEqualTo(preFetchOffset, TimeSpan.Zero, nameof(preFetchOffset));
-        Argument.LessThan(preFetchOffset, refreshInterval, nameof(preFetchOffset));
+        Argument.NotNull(valueFactory);
+        Argument.GreaterThan(refreshInterval, TimeSpan.Zero);
+        Argument.GreaterThanOrEqualTo(preFetchOffset, TimeSpan.Zero);
+        Argument.LessThan(preFetchOffset, refreshInterval);
 
         m_cts = new CancellationTokenSource();
         m_lock = new object();

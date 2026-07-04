@@ -18,8 +18,8 @@ public static class CollectionExtensions
     /// <param name="collection">The collection of elements that should be added to the set.</param>
     public static void AddRange<TSource>(this ICollection<TSource> source, IEnumerable<TSource> collection)
     {
-        Argument.NotNull(source, nameof(source));
-        Argument.NotNull(collection, nameof(collection));
+        Argument.NotNull(source);
+        Argument.NotNull(collection);
 
         foreach (TSource item in collection)
         {

@@ -16,6 +16,7 @@
     - Added `Match`, `Map`, and `Bind` to `Optional<T>`
     - Added `Match`, `Map`, `MapError`, and `Bind` to `Result<T, TError>`
     - Removed the `Argument.NotNull(object, string)` overload; calling `NotNull` on a non-nullable value type is now a compile error instead of a silent no-op (the reference-type generic overload is retained)
+    - `Argument` methods now capture the argument name automatically via `[CallerArgumentExpression]`, so the `name` parameter is optional; existing calls that pass it explicitly still compile
     - `XmlSerializationExtensions.SerializeToXml` / `DeserializeFromXml` are now annotated with `[RequiresUnreferencedCode]` / `[RequiresDynamicCode]` to reflect that `XmlSerializer` is incompatible with trimming and Native AOT
   - `Threading`
     - `ThrottledAction` and `DebouncedAction` now accept an optional `TimeProvider` (defaulting to `TimeProvider.System`) so the throttle interval and debounce timer can be driven deterministically in tests

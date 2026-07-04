@@ -17,7 +17,7 @@ public sealed class ReverseComparer<TComparable> : IComparer<TComparable>
     /// <param name="comparer">A comparer.</param>
     public ReverseComparer(IComparer<TComparable> comparer)
     {
-        Argument.NotNull(comparer, nameof(comparer));
+        Argument.NotNull(comparer);
 
         m_comparer = comparer;
     }

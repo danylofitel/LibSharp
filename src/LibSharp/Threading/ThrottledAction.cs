@@ -35,8 +35,8 @@ public sealed class ThrottledAction
     /// </param>
     public ThrottledAction(Action action, TimeSpan interval, TimeProvider? timeProvider = null)
     {
-        Argument.NotNull(action, nameof(action));
-        Argument.GreaterThanOrEqualTo(interval, TimeSpan.Zero, nameof(interval));
+        Argument.NotNull(action);
+        Argument.GreaterThanOrEqualTo(interval, TimeSpan.Zero);
 
         m_action = action;
         m_interval = interval;

@@ -32,7 +32,7 @@ public sealed class InitializerAsyncExecutionAndPublication<T> : IInitializerAsy
     /// <inheritdoc/>
     public async Task<T> GetValueAsync(Func<CancellationToken, Task<T>> factory, CancellationToken cancellationToken = default)
     {
-        Argument.NotNull(factory, nameof(factory));
+        Argument.NotNull(factory);
 
         ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
 

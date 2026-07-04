@@ -81,8 +81,8 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
     /// <returns>The result of the invoked delegate.</returns>
     public TResult Match<TResult>(Func<T, TResult> onValue, Func<TResult> onNone)
     {
-        Argument.NotNull(onValue, nameof(onValue));
-        Argument.NotNull(onNone, nameof(onNone));
+        Argument.NotNull(onValue);
+        Argument.NotNull(onNone);
 
         return HasValue ? onValue(m_value) : onNone();
     }
@@ -95,8 +95,8 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
     /// <param name="onNone">Invoked when the optional is empty.</param>
     public void Match(Action<T> onValue, Action onNone)
     {
-        Argument.NotNull(onValue, nameof(onValue));
-        Argument.NotNull(onNone, nameof(onNone));
+        Argument.NotNull(onValue);
+        Argument.NotNull(onNone);
 
         if (HasValue)
         {
@@ -117,7 +117,7 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
     /// <returns>An optional holding the transformed value, or an empty optional.</returns>
     public Optional<TResult> Map<TResult>(Func<T, TResult> selector)
     {
-        Argument.NotNull(selector, nameof(selector));
+        Argument.NotNull(selector);
 
         return HasValue ? new Optional<TResult>(selector(m_value)) : default;
     }
@@ -131,7 +131,7 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
     /// <returns>The optional produced by <paramref name="selector"/>, or an empty optional.</returns>
     public Optional<TResult> Bind<TResult>(Func<T, Optional<TResult>> selector)
     {
-        Argument.NotNull(selector, nameof(selector));
+        Argument.NotNull(selector);
 
         return HasValue ? selector(m_value) : default;
     }

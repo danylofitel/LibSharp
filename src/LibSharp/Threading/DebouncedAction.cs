@@ -34,8 +34,8 @@ public sealed class DebouncedAction : IDisposable
     /// </param>
     public DebouncedAction(Action action, TimeSpan delay, TimeProvider? timeProvider = null)
     {
-        Argument.NotNull(action, nameof(action));
-        Argument.GreaterThan(delay, TimeSpan.Zero, nameof(delay));
+        Argument.NotNull(action);
+        Argument.GreaterThan(delay, TimeSpan.Zero);
 
         m_action = action;
         m_delay = delay;

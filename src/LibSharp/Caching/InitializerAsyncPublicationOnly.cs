@@ -24,7 +24,7 @@ public sealed class InitializerAsyncPublicationOnly<T> : IInitializerAsync<T>
     /// <inheritdoc/>
     public async Task<T> GetValueAsync(Func<CancellationToken, Task<T>> factory, CancellationToken cancellationToken = default)
     {
-        Argument.NotNull(factory, nameof(factory));
+        Argument.NotNull(factory);
 
         if (!HasValue)
         {
