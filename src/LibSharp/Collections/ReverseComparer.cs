@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 Danylo Fitel
+// Copyright (c) 2026 Danylo Fitel
 
 using System.Collections.Generic;
 using LibSharp.Common;
@@ -17,13 +17,13 @@ public sealed class ReverseComparer<TComparable> : IComparer<TComparable>
     /// <param name="comparer">A comparer.</param>
     public ReverseComparer(IComparer<TComparable> comparer)
     {
-        Argument.NotNull(comparer, nameof(comparer));
+        Argument.NotNull(comparer);
 
         m_comparer = comparer;
     }
 
     /// <inheritdoc/>
-    public int Compare(TComparable x, TComparable y)
+    public int Compare(TComparable? x, TComparable? y)
     {
         return m_comparer.Compare(y, x);
     }

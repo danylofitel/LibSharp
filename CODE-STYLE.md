@@ -1,16 +1,17 @@
-﻿# Code style
+# Code style
 
-Generally speaking, there is no right or wrong when it comes to specific styles. For the most part they are a matter of personal preferences.
-That said, we are going to enforce a specific coding style that we agree upon, and there are at least 2 good reasons for doing that:
+There are at least 2 good reasons for enforcing a consistent code style:
 
 * The team spends zero time arguing about their subjective preferences when IDE makes those decisions
 * Having the style enforced by IDE means that all code is consistently formatted. It makes it easier to read for team members as they are used to it, and it's very easy to change from one style to another
 
-Here are the language specific styles.
-
 ## C\#
 
-The general coding style is based on standard C# style and is enforced by .editorconfig.
+Core style is defined in .editorconfig; additional rules below are conventions unless explicitly enforced.
+
+A few key principles upheld:
+* Prefer explicit intent over syntactic sugar
+* Avoid mixing multiple syntactic approaches
 
 ### Naming Conventions
 
@@ -32,7 +33,7 @@ The general coding style is based on standard C# style and is enforced by .edito
 ### Files
 
 * Every C# file must include the standard copyright header
-* Each file contains only one class
+* Each file contains only one public class
 * The name of the file matches the name of the class it contains
 
 ### Using Statements
@@ -84,5 +85,5 @@ Elements within a class are ordered as follows:
 ### Other
 
 * IDisposable objects must be disposed
-* Constructors and public methods must validate input parameters
-* String operations should specify comparison types, Ordinal or OrdinalIgnoreCase by default
+* Public APIs must validate input parameters
+* Prefer explicit string comparison types (Ordinal/OrdinalIgnoreCase by default)

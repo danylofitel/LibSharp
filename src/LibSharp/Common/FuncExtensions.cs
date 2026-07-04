@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 Danylo Fitel
+// Copyright (c) 2026 Danylo Fitel
 
 using System;
 using System.Threading;
@@ -21,8 +21,8 @@ public static class FuncExtensions
     /// <exception cref="OperationCanceledException">If the task cancellation token is canceled or the timeout is reached.</exception>
     public static async Task RunWithTimeout(this Func<CancellationToken, Task> task, TimeSpan timeout, CancellationToken cancellationToken = default)
     {
-        Argument.NotNull(task, nameof(task));
-        Argument.GreaterThan(timeout, TimeSpan.Zero, nameof(timeout));
+        Argument.NotNull(task);
+        Argument.GreaterThan(timeout, TimeSpan.Zero);
 
         using CancellationTokenSource timeoutCancellationTokenSource = new CancellationTokenSource(timeout);
         using CancellationTokenSource combinedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCancellationTokenSource.Token);
@@ -40,8 +40,8 @@ public static class FuncExtensions
     /// <exception cref="OperationCanceledException">If the task cancellation token is canceled or the timeout is reached.</exception>
     public static async Task<T> RunWithTimeout<T>(this Func<CancellationToken, Task<T>> task, TimeSpan timeout, CancellationToken cancellationToken = default)
     {
-        Argument.NotNull(task, nameof(task));
-        Argument.GreaterThan(timeout, TimeSpan.Zero, nameof(timeout));
+        Argument.NotNull(task);
+        Argument.GreaterThan(timeout, TimeSpan.Zero);
 
         using CancellationTokenSource timeoutCancellationTokenSource = new CancellationTokenSource(timeout);
         using CancellationTokenSource combinedTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCancellationTokenSource.Token);

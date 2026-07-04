@@ -1,8 +1,9 @@
-﻿// Copyright (c) 2026 Danylo Fitel
+// Copyright (c) 2026 Danylo Fitel
 
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using LibSharp.Common;
 
@@ -16,7 +17,7 @@ namespace LibSharp.Collections;
 public sealed class MaxPriorityQueue<T> : IPriorityQueue<T>, ICollection
 {
     /// <summary>
-    /// Initializes a new instance of the <see cref="MaxPriorityQueue{Item}"/> class.
+    /// Initializes a new instance of the <see cref="MaxPriorityQueue{T}"/> class.
     /// </summary>
     public MaxPriorityQueue()
         : this(InitialCapacity, Enumerable.Empty<T>(), TypeExtensions.GetDefaultComparer<T>())
@@ -24,7 +25,7 @@ public sealed class MaxPriorityQueue<T> : IPriorityQueue<T>, ICollection
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="MaxPriorityQueue{Item}"/> class.
+    /// Initializes a new instance of the <see cref="MaxPriorityQueue{T}"/> class.
     /// </summary>
     /// <param name="comparison">Value comparison.</param>
     public MaxPriorityQueue(Comparison<T> comparison)
@@ -33,7 +34,7 @@ public sealed class MaxPriorityQueue<T> : IPriorityQueue<T>, ICollection
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="MaxPriorityQueue{Item}"/> class.
+    /// Initializes a new instance of the <see cref="MaxPriorityQueue{T}"/> class.
     /// </summary>
     /// <param name="comparer">Value comparer.</param>
     public MaxPriorityQueue(IComparer<T> comparer)
@@ -42,7 +43,7 @@ public sealed class MaxPriorityQueue<T> : IPriorityQueue<T>, ICollection
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="MaxPriorityQueue{Item}"/> class.
+    /// Initializes a new instance of the <see cref="MaxPriorityQueue{T}"/> class.
     /// </summary>
     /// <param name="capacity">Initial capacity.</param>
     public MaxPriorityQueue(int capacity)
@@ -51,7 +52,7 @@ public sealed class MaxPriorityQueue<T> : IPriorityQueue<T>, ICollection
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="MaxPriorityQueue{Item}"/> class.
+    /// Initializes a new instance of the <see cref="MaxPriorityQueue{T}"/> class.
     /// </summary>
     /// <param name="capacity">Initial capacity.</param>
     /// <param name="comparison">Value comparison.</param>
@@ -61,7 +62,7 @@ public sealed class MaxPriorityQueue<T> : IPriorityQueue<T>, ICollection
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="MaxPriorityQueue{Item}"/> class.
+    /// Initializes a new instance of the <see cref="MaxPriorityQueue{T}"/> class.
     /// </summary>
     /// <param name="capacity">Initial capacity.</param>
     /// <param name="comparer">Value comparer.</param>
@@ -71,7 +72,7 @@ public sealed class MaxPriorityQueue<T> : IPriorityQueue<T>, ICollection
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="MaxPriorityQueue{Item}"/> class.
+    /// Initializes a new instance of the <see cref="MaxPriorityQueue{T}"/> class.
     /// </summary>
     /// <param name="collection">The collection to add to the queue.</param>
     public MaxPriorityQueue(IEnumerable<T> collection)
@@ -80,7 +81,7 @@ public sealed class MaxPriorityQueue<T> : IPriorityQueue<T>, ICollection
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="MaxPriorityQueue{Item}"/> class.
+    /// Initializes a new instance of the <see cref="MaxPriorityQueue{T}"/> class.
     /// </summary>
     /// <param name="collection">The collection to add to the queue.</param>
     /// <param name="comparison">Value comparer.</param>
@@ -90,7 +91,7 @@ public sealed class MaxPriorityQueue<T> : IPriorityQueue<T>, ICollection
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="MaxPriorityQueue{Item}"/> class.
+    /// Initializes a new instance of the <see cref="MaxPriorityQueue{T}"/> class.
     /// </summary>
     /// <param name="collection">The collection to add to the queue.</param>
     /// <param name="comparer">Value comparer.</param>
@@ -100,16 +101,16 @@ public sealed class MaxPriorityQueue<T> : IPriorityQueue<T>, ICollection
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="MaxPriorityQueue{Item}"/> class.
+    /// Initializes a new instance of the <see cref="MaxPriorityQueue{T}"/> class.
     /// </summary>
     /// <param name="capacity">Initial capacity.</param>
     /// <param name="collection">The collection to add to the queue.</param>
     /// <param name="comparer">Value comparer.</param>
     public MaxPriorityQueue(int capacity, IEnumerable<T> collection, IComparer<T> comparer)
     {
-        Argument.GreaterThanOrEqualTo(capacity, 0, nameof(capacity));
-        Argument.NotNull(collection, nameof(collection));
-        Argument.NotNull(comparer, nameof(comparer));
+        Argument.GreaterThanOrEqualTo(capacity, 0);
+        Argument.NotNull(collection);
+        Argument.NotNull(comparer);
 
         m_minPriorityQueue = new MinPriorityQueue<T>(capacity, collection, new ReverseComparer<T>(comparer));
     }
@@ -143,7 +144,7 @@ public sealed class MaxPriorityQueue<T> : IPriorityQueue<T>, ICollection
     }
 
     /// <inheritdoc/>
-    public bool TryPeek(out T item)
+    public bool TryPeek([MaybeNullWhen(false)] out T item)
     {
         return m_minPriorityQueue.TryPeek(out item);
     }
@@ -164,7 +165,7 @@ public sealed class MaxPriorityQueue<T> : IPriorityQueue<T>, ICollection
     }
 
     /// <inheritdoc/>
-    public bool TryDequeue(out T item)
+    public bool TryDequeue([MaybeNullWhen(false)] out T item)
     {
         return m_minPriorityQueue.TryDequeue(out item);
     }

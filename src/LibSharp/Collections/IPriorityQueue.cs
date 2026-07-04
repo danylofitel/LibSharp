@@ -1,7 +1,7 @@
-﻿// Copyright (c) 2026 Danylo Fitel
+// Copyright (c) 2026 Danylo Fitel
 
-using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 namespace LibSharp.Collections;
 
@@ -23,7 +23,7 @@ public interface IPriorityQueue<T> : ICollection<T>
     /// <param name="item">When this method returns, contains the object at the beginning of the queue,
     /// if the operation succeeded, or the default value of <typeparamref name="T"/> if the queue was empty.</param>
     /// <returns><c>true</c> if the queue was not empty; otherwise <c>false</c>.</returns>
-    bool TryPeek(out T item);
+    bool TryPeek([MaybeNullWhen(false)] out T item);
 
     /// <summary>
     /// Adds an object to the queue.
@@ -43,5 +43,5 @@ public interface IPriorityQueue<T> : ICollection<T>
     /// <param name="item">When this method returns, contains the removed object,
     /// if the operation succeeded, or the default value of <typeparamref name="T"/> if the queue was empty.</param>
     /// <returns><c>true</c> if the queue was not empty; otherwise <c>false</c>.</returns>
-    bool TryDequeue(out T item);
+    bool TryDequeue([MaybeNullWhen(false)] out T item);
 }

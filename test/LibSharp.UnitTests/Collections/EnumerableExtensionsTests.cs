@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 Danylo Fitel
+// Copyright (c) 2026 Danylo Fitel
 
 using System;
 using System.Collections.Generic;
@@ -9,7 +9,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace LibSharp.UnitTests.Collections;
 
 [TestClass]
-public class IEnumerableExtensionsTests
+public class EnumerableExtensionsTests
 {
     [TestMethod]
     public void Chunk_EmptyList_ReturnsZeroChunkes()
@@ -169,6 +169,16 @@ public class IEnumerableExtensionsTests
     }
 
     [TestMethod]
+    public void Chunk_NegativeItemWeight_Throws()
+    {
+        // Arrange
+        List<double> items = new List<double> { 1.0, -1.0, 2.0 };
+
+        // Act
+        _ = Assert.ThrowsExactly<ArgumentException>(() => items.Chunk(10.0, x => x).ToList());
+    }
+
+    [TestMethod]
     public void FirstIndexOf_NoDuplicates()
     {
         // Arrange
@@ -242,7 +252,7 @@ public class IEnumerableExtensionsTests
     public void Shuffle_EmptyEnumerable()
     {
         // Act
-        int[] output = IEnumerableExtensions.Shuffle(Enumerable.Empty<int>());
+        int[] output = EnumerableExtensions.Shuffle(Enumerable.Empty<int>());
 
         // Assert
         Assert.IsEmpty(output);
@@ -255,7 +265,7 @@ public class IEnumerableExtensionsTests
         List<int> input = new List<int> { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 };
 
         // Act
-        int[] output = IEnumerableExtensions.Shuffle(input);
+        int[] output = EnumerableExtensions.Shuffle(input);
 
         // Assert
         CollectionAssert.AreEquivalent(input, output);

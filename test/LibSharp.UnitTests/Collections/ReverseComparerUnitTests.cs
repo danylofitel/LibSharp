@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 Danylo Fitel
+// Copyright (c) 2026 Danylo Fitel
 
 using System;
 using System.Collections.Generic;
@@ -14,7 +14,7 @@ public class ReverseComparerUnitTests
     public void Constructor_NullComparer_Throws()
     {
         // Act
-        _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ReverseComparer<int>(null));
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ReverseComparer<int>(null!));
     }
 
     [TestMethod]

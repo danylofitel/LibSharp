@@ -1,9 +1,10 @@
-﻿// Copyright (c) 2026 Danylo Fitel
+// Copyright (c) 2026 Danylo Fitel
 
 using System;
 using System.Threading;
 using System.Threading.Tasks;
 using LibSharp.Threading;
+using Microsoft.Extensions.Time.Testing;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace LibSharp.UnitTests.Threading;
@@ -15,7 +16,7 @@ public class ThrottledActionUnitTests
     public void Constructor_NullAction_Throws()
     {
         _ = Assert.ThrowsExactly<ArgumentNullException>(() =>
-            _ = new ThrottledAction(null, TimeSpan.FromMilliseconds(50)));
+            _ = new ThrottledAction(null!, TimeSpan.FromMilliseconds(50)));
     }
 
     [TestMethod]
@@ -62,7 +63,7 @@ public class ThrottledActionUnitTests
     }
 
     [TestMethod]
-    public async Task Invoke_CallAfterIntervalElapses_ExecutesAgain()
+    public async Task Invoke_CallAfterIntervalElapses_ExecutesAgain_RealTime()
     {
         // Arrange
         int callCount = 0;
@@ -78,7 +79,7 @@ public class ThrottledActionUnitTests
     }
 
     [TestMethod]
-    public async Task Invoke_RapidCallsThenWait_ExecutesTwice()
+    public async Task Invoke_RapidCallsThenWait_ExecutesTwice_RealTime()
     {
         // Arrange
         int callCount = 0;
@@ -189,6 +190,42 @@ public class ThrottledActionUnitTests
         await second.ConfigureAwait(false);
 
         Assert.AreEqual(2, callCount);
+    }
+
+    [TestMethod]
+    public void Invoke_WithFakeTimeProvider_ThrottlesByInterval()
+    {
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
+        int count = 0;
+        ThrottledAction throttled = new ThrottledAction(() => count++, TimeSpan.FromSeconds(1), timeProvider);
+
+        throttled.Invoke(); // First call always fires.
+        throttled.Invoke(); // Within the interval: dropped.
+        Assert.AreEqual(1, count);
+
+        timeProvider.Advance(TimeSpan.FromMilliseconds(999));
+        throttled.Invoke(); // Still within the interval: dropped.
+        Assert.AreEqual(1, count);
+
+        timeProvider.Advance(TimeSpan.FromMilliseconds(1));
+        throttled.Invoke(); // Interval elapsed: fires.
+        Assert.AreEqual(2, count);
+    }
+
+    [TestMethod]
+    public void Invoke_WithVeryLargeInterval_DoesNotOverflow_AndThrottles()
+    {
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
+        int count = 0;
+
+        // A near-maximum interval must not overflow the double-to-long tick conversion into a
+        // negative value, which would otherwise make every call "past the interval" and defeat throttling.
+        ThrottledAction throttled = new ThrottledAction(() => count++, TimeSpan.MaxValue, timeProvider);
+
+        throttled.Invoke(); // First call fires.
+        throttled.Invoke(); // Dropped — the interval is effectively unreachable.
+
+        Assert.AreEqual(1, count);
     }
 
     public TestContext TestContext { get; set; }

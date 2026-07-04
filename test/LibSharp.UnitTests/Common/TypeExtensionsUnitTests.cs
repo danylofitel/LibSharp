@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 Danylo Fitel
+// Copyright (c) 2026 Danylo Fitel
 
 using System;
 using System.Collections.Generic;
@@ -14,9 +14,9 @@ public class TypeExtensionsUnitTests
     {
         public int Value { get; init; }
 
-        public int CompareTo(object obj)
+        public int CompareTo(object? obj)
         {
-            return Value.CompareTo(((NonGenericComparable)obj).Value);
+            return Value.CompareTo(((NonGenericComparable)obj!).Value);
         }
     }
 

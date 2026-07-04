@@ -1,4 +1,4 @@
-﻿# Benchmarks
+# Benchmarks
 
 This folder contains a BenchmarkDotNet project and helper scripts for repeatable performance tracking.
 

@@ -1,21 +1,30 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
     <IsPackable>true</IsPackable>
     <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
     <AssemblyName>LibSharp</AssemblyName>
     <RootNamespace>LibSharp</RootNamespace>
     <DocumentationFile>bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).xml</DocumentationFile>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <DebugType>embedded</DebugType>
     <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <Deterministic>true</Deterministic>
+    <!-- Normalize source paths for reproducible builds in CI (SourceLink resolves them). -->
+    <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+    <!-- Validate that all target frameworks expose a compatible public API surface.
+         Set PackageValidationBaselineVersion to the last published version after 4.0.0 ships
+         to also guard future releases against unintended breaking changes. -->
+    <EnablePackageValidation>true</EnablePackageValidation>
     <PackageId>LibSharp</PackageId>
     <Title>LibSharp</Title>
-    <Version>3.0.1-dev</Version>
+    <Version>4.0.0</Version>
     <Authors>Danylo Fitel</Authors>
     <Copyright>Copyright (c) Danylo Fitel 2026</Copyright>
     <Description>Extends the standard library with:
@@ -32,7 +41,7 @@
     <PackageTags>LibSharp;AsyncLock;Debounce;Throttle;AsyncLazy;LazyAsync;Cache;AsyncCache;ThreadSafeCache;ConcurrentHashSet;PriorityQueue;Collections;Result;Optional;Extensions;ArgumentValidation</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
-    <PackageProjectUrl>https://www.nuget.org/packages/LibSharp</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/danylofitel/LibSharp</PackageProjectUrl>
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>https://github.com/danylofitel/LibSharp</RepositoryUrl>
   </PropertyGroup>

@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 Danylo Fitel
+// Copyright (c) 2026 Danylo Fitel
 
 using System;
 using System.Collections.Generic;
@@ -12,10 +12,10 @@ namespace LibSharp.Collections;
 /// <summary>
 /// Extension methods for IAsyncEnumerable.
 /// </summary>
-public static class IAsyncEnumerableExtensions
+public static class AsyncEnumerableExtensions
 {
     /// <summary>
-    /// Splits an async sequence into chunks.
+    /// Splits an async sequence into chunks bounded by a total weight per chunk.
     /// </summary>
     /// <typeparam name="TSource">Type of the elements in the sequence.</typeparam>
     /// <param name="source">The async sequence of elements to split.</param>
@@ -23,19 +23,25 @@ public static class IAsyncEnumerableExtensions
     /// <param name="itemWeight">The item weight selector.</param>
     /// <returns>A sequence of chunks.</returns>
     /// <remarks>
+    /// This is a weight-based variant, distinct from a fixed-element-count chunking such as the
+    /// standard-library <c>AsyncEnumerable.Chunk(source, size)</c> (available on .NET 10+). Use a
+    /// fixed-count chunk for a fixed number of elements per chunk, and this one when each element
+    /// contributes a variable weight.
+    /// <para>
     /// Weights are compared using <c>double</c> arithmetic. Accumulated floating-point
     /// rounding errors may cause items whose combined weights are exactly equal to
     /// <paramref name="chunkWeight"/> to occasionally spill into a new chunk.
     /// Use weights with sufficient margin if exact budget boundaries are required.
+    /// </para>
     /// </remarks>
     public static IAsyncEnumerable<List<TSource>> Chunk<TSource>(
         this IAsyncEnumerable<TSource> source,
         double chunkWeight,
         Func<TSource, double> itemWeight)
     {
-        Argument.NotNull(source, nameof(source));
-        Argument.GreaterThan(chunkWeight, 0.0, nameof(chunkWeight));
-        Argument.NotNull(itemWeight, nameof(itemWeight));
+        Argument.NotNull(source);
+        Argument.GreaterThan(chunkWeight, 0.0);
+        Argument.NotNull(itemWeight);
 
         return ChunkIterator(source, chunkWeight, itemWeight);
     }
@@ -53,8 +59,8 @@ public static class IAsyncEnumerableExtensions
         Func<TSource, bool> predicate,
         CancellationToken cancellationToken = default)
     {
-        Argument.NotNull(source, nameof(source));
-        Argument.NotNull(predicate, nameof(predicate));
+        Argument.NotNull(source);
+        Argument.NotNull(predicate);
 
         int index = -1;
 
@@ -84,8 +90,8 @@ public static class IAsyncEnumerableExtensions
         Func<TSource, bool> predicate,
         CancellationToken cancellationToken = default)
     {
-        Argument.NotNull(source, nameof(source));
-        Argument.NotNull(predicate, nameof(predicate));
+        Argument.NotNull(source);
+        Argument.NotNull(predicate);
 
         int index = -1;
         int match = -1;

@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 Danylo Fitel
+// Copyright (c) 2026 Danylo Fitel
 
 using System;
 using System.Threading;
@@ -24,7 +24,7 @@ public sealed class InitializerAsyncPublicationOnly<T> : IInitializerAsync<T>
     /// <inheritdoc/>
     public async Task<T> GetValueAsync(Func<CancellationToken, Task<T>> factory, CancellationToken cancellationToken = default)
     {
-        Argument.NotNull(factory, nameof(factory));
+        Argument.NotNull(factory);
 
         if (!HasValue)
         {
@@ -34,8 +34,9 @@ public sealed class InitializerAsyncPublicationOnly<T> : IInitializerAsync<T>
             _ = Interlocked.CompareExchange(ref m_value, new ValueReference<T>(value), null);
         }
 
-        return m_value.Value;
+        // m_value is non-null here: either HasValue was already true, or the block above published it.
+        return m_value!.Value;
     }
 
-    private volatile ValueReference<T> m_value;
+    private volatile ValueReference<T>? m_value;
 }

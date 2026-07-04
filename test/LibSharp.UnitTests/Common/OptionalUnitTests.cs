@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 Danylo Fitel
+// Copyright (c) 2026 Danylo Fitel
 
 using System;
 using LibSharp.Common;
@@ -91,7 +91,7 @@ public class OptionalUnitTests
     public void ReferenceType_FromNullValue_HasValue_ReturnsTrue()
     {
         // Arrange
-        Optional<string> optional = new Optional<string>(null);
+        Optional<string> optional = new Optional<string>(null!);
 
         // Assert
         Assert.IsTrue(optional.HasValue);
@@ -156,7 +156,7 @@ public class OptionalUnitTests
     public void GetValueOrDefault_NullValue_ReturnsNull()
     {
         // Assert
-        Assert.IsNull(new Optional<string>(null).GetValueOrDefault());
+        Assert.IsNull(new Optional<string>(null!).GetValueOrDefault());
     }
 
     [TestMethod]
@@ -179,7 +179,7 @@ public class OptionalUnitTests
     public void GetValueOrDefault_WithFallback_NullValue_ReturnsNull()
     {
         // A present null value is returned as-is; the fallback is only used when there is no value.
-        Assert.IsNull(new Optional<string>(null).GetValueOrDefault("fallback"));
+        Assert.IsNull(new Optional<string>(null!).GetValueOrDefault("fallback"));
     }
 
     [TestMethod]
@@ -194,7 +194,7 @@ public class OptionalUnitTests
     public void TryGetValue_HasValue_ReturnsTrueAndSetsValue()
     {
         // Act
-        bool result = new Optional<string>("hello").TryGetValue(out string value);
+        bool result = new Optional<string>("hello").TryGetValue(out string? value);
 
         // Assert
         Assert.IsTrue(result);
@@ -205,7 +205,7 @@ public class OptionalUnitTests
     public void TryGetValue_NullValue_ReturnsTrueAndSetsNull()
     {
         // Act
-        bool result = new Optional<string>(null).TryGetValue(out string value);
+        bool result = new Optional<string>(null!).TryGetValue(out string? value);
 
         // Assert
         Assert.IsTrue(result);
@@ -232,43 +232,31 @@ public class OptionalUnitTests
     public void ToString_NullValue_ReturnsEmpty()
     {
         // Assert
-        Assert.AreEqual(string.Empty, new Optional<string>(null).ToString());
+        Assert.AreEqual(string.Empty, new Optional<string>(null!).ToString());
     }
 
     [TestMethod]
-    public void Equals_ValueType_NoValue()
+    public void Equals_BareValue_ComparesViaImplicitConversion()
     {
-        // Arrange
-        Optional<string> optionalValue = default;
+        // A bare T is implicitly converted to a present optional before Equals, so it compares
+        // equal only when this optional is also present and holds an equal value.
+        Assert.IsTrue(new Optional<string>("boxed").Equals("boxed"));
+        Assert.IsFalse(new Optional<string>("boxed").Equals("not boxed"));
 
-        // Assert
-        Assert.IsFalse(optionalValue.Equals(null));
-        Assert.IsFalse(optionalValue.Equals("not boxed"));
-        Assert.IsFalse(optionalValue.Equals("boxed"));
+        // An empty optional is never equal to a (present) converted bare value.
+        Assert.IsFalse(default(Optional<string>).Equals("boxed"));
+
+        // A present-null optional is not equal to a present non-null value.
+        Assert.IsFalse(new Optional<string>(null!).Equals("boxed"));
     }
 
     [TestMethod]
-    public void Equals_ValueType_HasValue()
+    public void Equals_BareValue_TypedAsObject_NeverEqual()
     {
-        // Arrange
-        Optional<string> optionalValue = new Optional<string>("boxed");
-
-        // Assert
-        Assert.IsFalse(optionalValue.Equals(null));
-        Assert.IsFalse(optionalValue.Equals("not boxed"));
-
-        Assert.IsTrue(optionalValue.Equals("boxed"));
-    }
-
-    [TestMethod]
-    public void Equals_ValueType_NullValue()
-    {
-        // Arrange
-        Optional<string> optionalValue = new Optional<string>(null);
-
-        // Assert
-        Assert.IsTrue(optionalValue.Equals(null));
-        Assert.IsFalse(optionalValue.Equals("boxed"));
+        // Once boxed to object, no implicit conversion applies, so equality falls through to
+        // Equals(object), which only matches another Optional<T>.
+        Assert.IsFalse(new Optional<string>("boxed").Equals((object)"boxed"));
+        Assert.IsFalse(new Optional<string>(null!).Equals((object?)null));
     }
 
     [TestMethod]
@@ -280,7 +268,7 @@ public class OptionalUnitTests
         // Assert
         Assert.IsFalse(optional.Equals(new Optional<string>(string.Empty)));
         Assert.IsFalse(optional.Equals(new Optional<string>("not boxed")));
-        Assert.IsFalse(optional.Equals(new Optional<string>(null)));
+        Assert.IsFalse(optional.Equals(new Optional<string>(null!)));
 
         Assert.IsTrue(optional.Equals(optional));
         Assert.IsTrue(optional.Equals(default(Optional<string>)));
@@ -295,7 +283,7 @@ public class OptionalUnitTests
         // Assert
         Assert.IsFalse(optional.Equals(new Optional<string>(string.Empty)));
         Assert.IsFalse(optional.Equals(new Optional<string>("not boxed")));
-        Assert.IsFalse(optional.Equals(new Optional<string>(null)));
+        Assert.IsFalse(optional.Equals(new Optional<string>(null!)));
 
         Assert.IsTrue(optional.Equals(optional));
         Assert.IsTrue(optional.Equals(new Optional<string>("boxed")));
@@ -305,14 +293,14 @@ public class OptionalUnitTests
     public void Equals_OptionalType_NullValue()
     {
         // Arrange
-        Optional<string> optional = new Optional<string>(null);
+        Optional<string> optional = new Optional<string>(null!);
 
         // Assert
         Assert.IsFalse(optional.Equals(default(Optional<string>)));
         Assert.IsFalse(optional.Equals(new Optional<string>("boxed")));
 
         Assert.IsTrue(optional.Equals(optional));
-        Assert.IsTrue(optional.Equals(new Optional<string>(null)));
+        Assert.IsTrue(optional.Equals(new Optional<string>(null!)));
     }
 
     [TestMethod]
@@ -322,7 +310,7 @@ public class OptionalUnitTests
         Optional<string> optional = default;
 
         // Assert
-        Assert.IsFalse(optional.Equals((object)null));
+        Assert.IsFalse(optional.Equals((object?)null));
         Assert.IsFalse(optional.Equals(1));
         Assert.IsFalse(optional.Equals(DateTime.UnixEpoch));
         Assert.IsFalse(optional.Equals(new Optional<object>(new object())));
@@ -341,14 +329,14 @@ public class OptionalUnitTests
         Optional<string> optional = new Optional<string>("boxed");
 
         // Assert
-        Assert.IsFalse(optional.Equals((object)null));
+        Assert.IsFalse(optional.Equals((object?)null));
         Assert.IsFalse(optional.Equals(1));
         Assert.IsFalse(optional.Equals(DateTime.UnixEpoch));
         Assert.IsFalse(optional.Equals(new Optional<object>(new object())));
         Assert.IsFalse(optional.Equals(new Optional<object>("boxed")));
 
         Assert.IsTrue(optional.Equals((object)optional));
-        Assert.IsTrue(optional.Equals((object)"boxed"));
+        Assert.IsFalse(optional.Equals((object)"boxed"));
         Assert.IsTrue(optional.Equals((object)new Optional<string>("boxed")));
     }
 
@@ -356,11 +344,11 @@ public class OptionalUnitTests
     public void Equals_Object_NullValue()
     {
         // Arrange
-        Optional<string> optional = new Optional<string>(null);
+        Optional<string> optional = new Optional<string>(null!);
 
         // Assert
-        Assert.IsTrue(optional.Equals((object)null));
-        Assert.IsTrue(optional.Equals((object)new Optional<string>(null)));
+        Assert.IsFalse(optional.Equals((object?)null));
+        Assert.IsTrue(optional.Equals((object)new Optional<string>(null!)));
 
         Assert.IsFalse(optional.Equals((object)default(Optional<string>)));
         Assert.IsFalse(optional.Equals((object)"boxed"));
@@ -380,8 +368,8 @@ public class OptionalUnitTests
     {
         // Optional(null) has a value (null); default Optional has no value.
         // They are not equal, so their hash codes should differ to avoid predictable collisions.
-        Assert.AreNotEqual(default(Optional<string>).GetHashCode(), new Optional<string>(null).GetHashCode());
-        Assert.AreNotEqual(default(Optional<object>).GetHashCode(), new Optional<object>(null).GetHashCode());
+        Assert.AreNotEqual(default(Optional<string>).GetHashCode(), new Optional<string>(null!).GetHashCode());
+        Assert.AreNotEqual(default(Optional<object>).GetHashCode(), new Optional<object>(null!).GetHashCode());
     }
 
     [TestMethod]
@@ -407,17 +395,17 @@ public class OptionalUnitTests
         Assert.IsFalse(new Optional<object>(new object()) == default);
         Assert.IsFalse(new Optional<int>(5) == default);
         Assert.IsFalse(new Optional<string>("value") == default);
-        Assert.IsFalse(new Optional<string>(null) == default);
+        Assert.IsFalse(new Optional<string>(null!) == default);
 
         Assert.IsTrue(new Optional<object>(testObject) == new Optional<object>(testObject));
         Assert.IsTrue(new Optional<int>(5) == new Optional<int>(5));
         Assert.IsTrue(new Optional<string>("value") == new Optional<string>("value"));
-        Assert.IsTrue(new Optional<string>(null) == new Optional<string>(null));
+        Assert.IsTrue(new Optional<string>(null!) == new Optional<string>(null!));
 
         Assert.IsFalse(new Optional<object>(new object()) == new Optional<object>(new object()));
         Assert.IsFalse(new Optional<int>(5) == new Optional<int>(7));
         Assert.IsFalse(new Optional<string>("value") == new Optional<string>("other"));
-        Assert.IsFalse(new Optional<string>(null) == new Optional<string>("value"));
+        Assert.IsFalse(new Optional<string>(null!) == new Optional<string>("value"));
     }
 
     [TestMethod]
@@ -434,17 +422,113 @@ public class OptionalUnitTests
         Assert.IsTrue(new Optional<object>(new object()) != default);
         Assert.IsTrue(new Optional<int>(5) != default);
         Assert.IsTrue(new Optional<string>("value") != default);
-        Assert.IsTrue(new Optional<string>(null) != default);
+        Assert.IsTrue(new Optional<string>(null!) != default);
 
         Assert.IsFalse(new Optional<object>(testObject) != new Optional<object>(testObject));
         Assert.IsFalse(new Optional<int>(5) != new Optional<int>(5));
         Assert.IsFalse(new Optional<string>("value") != new Optional<string>("value"));
-        Assert.IsFalse(new Optional<string>(null) != new Optional<string>(null));
+        Assert.IsFalse(new Optional<string>(null!) != new Optional<string>(null!));
 
         Assert.IsTrue(new Optional<object>(new object()) != new Optional<object>(new object()));
         Assert.IsTrue(new Optional<int>(5) != new Optional<int>(7));
         Assert.IsTrue(new Optional<string>("value") != new Optional<string>("other"));
-        Assert.IsTrue(new Optional<string>(null) != new Optional<string>("value"));
+        Assert.IsTrue(new Optional<string>(null!) != new Optional<string>("value"));
+    }
+
+    [TestMethod]
+    public void ImplicitConversion_FromValue_HasValue()
+    {
+        Optional<int> optional = 42;
+        Assert.IsTrue(optional.HasValue);
+        Assert.AreEqual(42, optional.Value);
+    }
+
+    [TestMethod]
+    public void ImplicitConversion_FromNull_HasPresentNull()
+    {
+        // The implicit conversion always produces a present value, even for null.
+        Optional<string> optional = (string)null!;
+        Assert.IsTrue(optional.HasValue);
+        Assert.IsNull(optional.Value);
+    }
+
+    [TestMethod]
+    public void Match_HasValue_InvokesOnValue()
+    {
+        Optional<int> optional = 10;
+        int result = optional.Match(v => v * 2, () => -1);
+        Assert.AreEqual(20, result);
+    }
+
+    [TestMethod]
+    public void Match_NoValue_InvokesOnNone()
+    {
+        Optional<int> optional = default;
+        int result = optional.Match(v => v * 2, () => -1);
+        Assert.AreEqual(-1, result);
+    }
+
+    [TestMethod]
+    public void Match_Action_DispatchesOnState()
+    {
+        int seen = 0;
+
+        // Block-bodied lambdas bind to the Action overload (expression bodies would bind to Match<TResult>).
+        new Optional<int>(5).Match(v => { seen = v; }, () => { seen = -1; });
+        Assert.AreEqual(5, seen);
+
+        default(Optional<int>).Match(v => { seen = v; }, () => { seen = -1; });
+        Assert.AreEqual(-1, seen);
+    }
+
+    [TestMethod]
+    public void Match_NullDelegate_Throws()
+    {
+        Optional<int> optional = 1;
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => optional.Match<int>(null!, () => 0));
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => optional.Match(v => v, null!));
+    }
+
+    [TestMethod]
+    public void Map_HasValue_Transforms()
+    {
+        Optional<int> optional = 21;
+        Optional<string> mapped = optional.Map(v => (v * 2).ToString());
+        Assert.IsTrue(mapped.HasValue);
+        Assert.AreEqual("42", mapped.Value);
+    }
+
+    [TestMethod]
+    public void Map_NoValue_StaysEmpty()
+    {
+        Optional<int> optional = default;
+        Optional<string> mapped = optional.Map(v => v.ToString());
+        Assert.IsFalse(mapped.HasValue);
+    }
+
+    [TestMethod]
+    public void Bind_HasValue_ChainsOptional()
+    {
+        Optional<int> optional = 4;
+        Optional<int> bound = optional.Bind(v => v > 0 ? new Optional<int>(v + 1) : default);
+        Assert.IsTrue(bound.HasValue);
+        Assert.AreEqual(5, bound.Value);
+    }
+
+    [TestMethod]
+    public void Bind_HasValue_CanProduceEmpty()
+    {
+        Optional<int> optional = -1;
+        Optional<int> bound = optional.Bind(v => v > 0 ? new Optional<int>(v + 1) : default);
+        Assert.IsFalse(bound.HasValue);
+    }
+
+    [TestMethod]
+    public void Bind_NoValue_StaysEmpty()
+    {
+        Optional<int> optional = default;
+        Optional<int> bound = optional.Bind(v => new Optional<int>(v));
+        Assert.IsFalse(bound.HasValue);
     }
 
     private static Optional<T> CopyOptional<T>(Optional<T> original)

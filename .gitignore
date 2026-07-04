@@ -1,4 +1,4 @@
-﻿# Visual Studio
+# Visual Studio
 .vs/
 bin/
 obj/
@@ -7,3 +7,4 @@ coveragereport/
 *.user
 benchmarks/results/
 BenchmarkDotNet.Artifacts/
+.claude/settings.local.json

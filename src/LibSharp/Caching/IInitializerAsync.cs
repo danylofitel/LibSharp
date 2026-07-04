@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 Danylo Fitel
+// Copyright (c) 2026 Danylo Fitel
 
 using System;
 using System.Threading;
@@ -10,6 +10,15 @@ namespace LibSharp.Caching;
 /// Thread-safe lazy value initializer.
 /// </summary>
 /// <typeparam name="T">Value type.</typeparam>
+/// <remarks>
+/// This is deliberately distinct from <see cref="IValueCacheAsync{T}"/>, which captures the value
+/// factory once at construction. An initializer instead accepts the factory at
+/// <see cref="GetValueAsync(System.Func{System.Threading.CancellationToken, System.Threading.Tasks.Task{T}}, System.Threading.CancellationToken)"/>
+/// call time, for scenarios where the factory is not known until the value is first needed. The
+/// factory is supplied per call, so different callers may pass different factories; only the first
+/// successfully published value is retained. Prefer <see cref="IValueCacheAsync{T}"/> when the
+/// factory is fixed and known up front.
+/// </remarks>
 public interface IInitializerAsync<T>
 {
     /// <summary>

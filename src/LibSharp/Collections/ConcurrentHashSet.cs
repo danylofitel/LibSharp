@@ -18,6 +18,7 @@ namespace LibSharp.Collections;
 /// </remarks>
 /// <typeparam name="T">Element type.</typeparam>
 public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
+    where T : notnull
 {
     /// <summary>
     /// Initializes a new empty instance of <see cref="ConcurrentHashSet{T}"/> using the default equality comparer.
@@ -34,7 +35,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// <param name="comparer">The equality comparer to use when comparing elements.</param>
     public ConcurrentHashSet(IEqualityComparer<T> comparer)
     {
-        Argument.NotNull(comparer, nameof(comparer));
+        Argument.NotNull(comparer);
 
         m_comparer = comparer;
         m_dictionary = new ConcurrentDictionary<T, byte>(comparer);
@@ -47,7 +48,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// <param name="collection">The collection whose elements are copied into the set.</param>
     public ConcurrentHashSet(IEnumerable<T> collection)
     {
-        Argument.NotNull(collection, nameof(collection));
+        Argument.NotNull(collection);
 
         m_comparer = EqualityComparer<T>.Default;
         m_dictionary = new ConcurrentDictionary<T, byte>(m_comparer);
@@ -65,8 +66,8 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// <param name="comparer">The equality comparer to use when comparing elements.</param>
     public ConcurrentHashSet(IEnumerable<T> collection, IEqualityComparer<T> comparer)
     {
-        Argument.NotNull(collection, nameof(collection));
-        Argument.NotNull(comparer, nameof(comparer));
+        Argument.NotNull(collection);
+        Argument.NotNull(comparer);
 
         m_comparer = comparer;
         m_dictionary = new ConcurrentDictionary<T, byte>(comparer);
@@ -127,8 +128,8 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// <inheritdoc/>
     public void CopyTo(T[] array, int arrayIndex)
     {
-        Argument.NotNull(array, nameof(array));
-        Argument.GreaterThanOrEqualTo(arrayIndex, 0, nameof(arrayIndex));
+        Argument.NotNull(array);
+        Argument.GreaterThanOrEqualTo(arrayIndex, 0);
 
         ((ICollection<T>)m_dictionary.Keys).CopyTo(array, arrayIndex);
     }
@@ -139,7 +140,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// <param name="other">The collection of elements to add to the set.</param>
     public void UnionWith(IEnumerable<T> other)
     {
-        Argument.NotNull(other, nameof(other));
+        Argument.NotNull(other);
 
         foreach (T item in other)
         {
@@ -153,7 +154,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// <param name="other">The collection that defines which elements to retain.</param>
     public void IntersectWith(IEnumerable<T> other)
     {
-        Argument.NotNull(other, nameof(other));
+        Argument.NotNull(other);
 
         HashSet<T> otherSet = new HashSet<T>(other, m_comparer);
         foreach (T key in m_dictionary.Keys)
@@ -171,7 +172,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// <param name="other">The collection of elements to remove from the set.</param>
     public void ExceptWith(IEnumerable<T> other)
     {
-        Argument.NotNull(other, nameof(other));
+        Argument.NotNull(other);
 
         foreach (T item in other)
         {
@@ -187,7 +188,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// <param name="other">The collection to compare with the current set.</param>
     public void SymmetricExceptWith(IEnumerable<T> other)
     {
-        Argument.NotNull(other, nameof(other));
+        Argument.NotNull(other);
 
         // Deduplicate other first so that each element is toggled exactly once.
         HashSet<T> otherSet = new HashSet<T>(other, m_comparer);
@@ -208,7 +209,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// <returns><c>true</c> if the set is a subset of <paramref name="other"/>; otherwise <c>false</c>.</returns>
     public bool IsSubsetOf(IEnumerable<T> other)
     {
-        Argument.NotNull(other, nameof(other));
+        Argument.NotNull(other);
 
         if (Count == 0)
         {
@@ -235,7 +236,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// <returns><c>true</c> if the set is a superset of <paramref name="other"/>; otherwise <c>false</c>.</returns>
     public bool IsSupersetOf(IEnumerable<T> other)
     {
-        Argument.NotNull(other, nameof(other));
+        Argument.NotNull(other);
 
         foreach (T item in other)
         {
@@ -256,7 +257,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// <returns><c>true</c> if the set is a proper subset of <paramref name="other"/>; otherwise <c>false</c>.</returns>
     public bool IsProperSubsetOf(IEnumerable<T> other)
     {
-        Argument.NotNull(other, nameof(other));
+        Argument.NotNull(other);
 
         HashSet<T> otherSet = new HashSet<T>(other, m_comparer);
         if (Count >= otherSet.Count)
@@ -283,7 +284,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// <returns><c>true</c> if the set is a proper superset of <paramref name="other"/>; otherwise <c>false</c>.</returns>
     public bool IsProperSupersetOf(IEnumerable<T> other)
     {
-        Argument.NotNull(other, nameof(other));
+        Argument.NotNull(other);
 
         HashSet<T> otherSet = new HashSet<T>(other, m_comparer);
         if (Count <= otherSet.Count)
@@ -309,7 +310,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// <returns><c>true</c> if the set and <paramref name="other"/> share at least one element; otherwise <c>false</c>.</returns>
     public bool Overlaps(IEnumerable<T> other)
     {
-        Argument.NotNull(other, nameof(other));
+        Argument.NotNull(other);
 
         foreach (T item in other)
         {
@@ -329,7 +330,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// <returns><c>true</c> if the set equals <paramref name="other"/>; otherwise <c>false</c>.</returns>
     public bool SetEquals(IEnumerable<T> other)
     {
-        Argument.NotNull(other, nameof(other));
+        Argument.NotNull(other);
 
         HashSet<T> otherSet = new HashSet<T>(other, m_comparer);
         if (Count != otherSet.Count)

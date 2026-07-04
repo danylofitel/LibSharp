@@ -1,11 +1,19 @@
-﻿# LibSharp
+# LibSharp
 
 ## Introduction
 
 A library of C# core components that enhance the standard library. Supports .NET 8.0, .NET 9.0, .NET 10.0.
 
+The public API ships nullable reference type annotations. The library is trim- and Native AOT-friendly, with the exception of the XML serialization helpers, which depend on `XmlSerializer` and are annotated with `[RequiresUnreferencedCode]` / `[RequiresDynamicCode]`.
+
 * Source code: <https://github.com/danylofitel/LibSharp>.
 * NuGet package: <https://www.nuget.org/packages/LibSharp>.
+
+## Installation
+
+```bash
+dotnet add package LibSharp
+```
 
 LibSharp consists of the following namespaces:
 
@@ -16,7 +24,7 @@ LibSharp consists of the following namespaces:
 
 ## Performance Benchmarks
 
-BenchmarkDotNet setup and benchmark scripts are available in [`benchmarks/`](benchmarks/README.md).
+BenchmarkDotNet setup and benchmark scripts are available in <https://github.com/danylofitel/LibSharp/blob/main/benchmarks/README.md>.
 
 ## Components and Usage
 
@@ -34,20 +42,21 @@ BenchmarkDotNet setup and benchmark scripts are available in [`benchmarks/`](ben
 
     public static async Task CommonExamples(string stringParam, long longParam, object objectParam, CancellationToken cancellationToken)
     {
-        // Argument validation
-        Argument.EqualTo(stringParam, "Hello world", nameof(stringParam));
-        Argument.NotEqualTo(stringParam, "Hello", nameof(stringParam));
+        // Argument validation — the parameter name is captured automatically (CallerArgumentExpression);
+        // pass it explicitly only when you want a different name.
+        Argument.EqualTo(stringParam, "Hello world");
+        Argument.NotEqualTo(stringParam, "Hello");
 
-        Argument.GreaterThan(longParam, -1L, nameof(longParam));
-        Argument.GreaterThanOrEqualTo(longParam, 0L, nameof(longParam));
-        Argument.LessThan(longParam, 100L, nameof(longParam));
-        Argument.LessThanOrEqualTo(longParam, 99L, nameof(longParam));
+        Argument.GreaterThan(longParam, -1L);
+        Argument.GreaterThanOrEqualTo(longParam, 0L);
+        Argument.LessThan(longParam, 100L);
+        Argument.LessThanOrEqualTo(longParam, 99L);
 
-        Argument.NotNull(stringParam, nameof(stringParam));
-        Argument.NotNullOrEmpty(stringParam, nameof(stringParam));
-        Argument.NotNullOrWhiteSpace(stringParam, nameof(stringParam));
+        Argument.NotNull(stringParam);
+        Argument.NotNullOrEmpty(stringParam);
+        Argument.NotNullOrWhiteSpace(stringParam);
 
-        Argument.OfType(objectParam, typeof(List<string>), nameof(objectParam));
+        Argument.OfType(objectParam, typeof(List<string>));
 
         // Optional<T> — wraps a value that may or may not be present
         Optional<int> empty = default;
@@ -59,6 +68,12 @@ BenchmarkDotNet setup and benchmark scripts are available in [`benchmarks/`](ben
         int optValue = present.Value;               // 42
         bool got = present.TryGetValue(out int v);  // true, v == 42
 
+        Optional<int> implicitlyWrapped = 7;                        // implicit conversion from T
+        string label = present.Match(x => $"has {x}", () => "none");// project both cases -> "has 42"
+        Optional<string> mapped = present.Map(x => x.ToString());   // Optional<string> "42"
+        Optional<int> bound = present.Bind(                         // chain another Optional
+            x => x > 0 ? new Optional<int>(x * 2) : default);       // Optional<int> 84
+
         // Result<T, TError> — discriminated union for success/error outcomes
         Result<int, string> success = Result<int, string>.Ok(42);
         bool isSuccess = success.IsSuccess;                     // true
@@ -68,6 +83,13 @@ BenchmarkDotNet setup and benchmark scripts are available in [`benchmarks/`](ben
         bool isError = failure.IsError;                         // true
         string errorMessage = failure.Error;                    // "not found"
         int valueOrDefault = failure.GetValueOrDefault(-1);     // -1
+
+        string outcome = success.Match(x => $"ok: {x}", e => $"error: {e}"); // "ok: 42"
+        Result<string, string> okMapped = success.Map(x => x.ToString());    // Ok("42")
+        Result<int, int> errMapped = failure.MapError(e => e.Length);        // Fail(9)
+        Result<int, string> chained = success.Bind(x => x >= 0               // chain another Result
+            ? Result<int, string>.Ok(x + 1)
+            : Result<int, string>.Fail("negative"));                         // Ok(43)
 
         // DateTime extensions
         DateTime fromEpochMilliseconds = longParam.FromEpochMilliseconds();
@@ -109,6 +131,7 @@ BenchmarkDotNet setup and benchmark scripts are available in [`benchmarks/`](ben
         IComparer<int> intComparer = TypeExtensions.GetDefaultComparer<int>();
 
         // XML serialization extensions
+        // Note: these rely on XmlSerializer and are not compatible with trimming or Native AOT.
         string serializedToXml = objectParam.SerializeToXml();
         List<string> deserializedFromXml = serializedToXml.DeserializeFromXml<List<string>>();
     }
@@ -249,7 +272,7 @@ BenchmarkDotNet setup and benchmark scripts are available in [`benchmarks/`](ben
 
 ### Threading
 
-`Threading` namespace contains an async-compatible mutual exclusion lock and utilities for controlling how frequently an action can fire.
+`Threading` namespace contains an async-compatible mutual exclusion lock and utilities for controlling how frequently an action can fire. `ThrottledAction` and `DebouncedAction` accept an optional `TimeProvider` (defaulting to `TimeProvider.System`), so their timing can be driven deterministically with a `FakeTimeProvider` in tests.
 
 ```csharp
     using LibSharp.Threading;
@@ -293,6 +316,7 @@ BenchmarkDotNet setup and benchmark scripts are available in [`benchmarks/`](ben
 
 Notes:
 
+* All caches accept an optional `TimeProvider` (defaulting to `TimeProvider.System`). Pass a `FakeTimeProvider` in tests to drive expiration and background refresh deterministically, without real delays.
 * Some of the classes implement `IDisposable` interface and should be correctly disposed.
 * Be cautious when caching types that implement `IDisposable` interface as the values will not be automatically disposed by the caches.
 * Be cautious when using classes with `LazyThreadSafetyMode.PublicationOnly` behavior together with `IDisposable` types as discarded instances will not be disposed.

@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 Danylo Fitel
+// Copyright (c) 2026 Danylo Fitel
 
 using System;
 using System.Collections;
@@ -793,7 +793,7 @@ public class MinPriorityQueueUnitTests
     public void GetEnumerator_NonEmptyQueue_IteratesThroughAllElements()
     {
         // Arrange
-        List<int> collection = IEnumerableExtensions.Shuffle(Enumerable.Range(0, 100)).ToList();
+        List<int> collection = EnumerableExtensions.Shuffle(Enumerable.Range(0, 100)).ToList();
         MinPriorityQueue<int> queue = new MinPriorityQueue<int>(collection);
 
         // Act
@@ -807,7 +807,7 @@ public class MinPriorityQueueUnitTests
     public void GetWeakEnumerator_NonEmptyQueue_IteratesThroughAllElements()
     {
         // Arrange
-        List<int> collection = IEnumerableExtensions.Shuffle(Enumerable.Range(0, 100)).ToList();
+        List<int> collection = EnumerableExtensions.Shuffle(Enumerable.Range(0, 100)).ToList();
         IEnumerable queue = new MinPriorityQueue<int>(collection);
 
         // Act
@@ -825,7 +825,7 @@ public class MinPriorityQueueUnitTests
     public void GetEnumerator_AfterEnumeratingAllElements_Current_Throws()
     {
         // Arrange
-        MinPriorityQueue<int> queue = new MinPriorityQueue<int>(IEnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
+        MinPriorityQueue<int> queue = new MinPriorityQueue<int>(EnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
 
         using (IEnumerator<int> enumerator = queue.GetEnumerator())
         {
@@ -845,7 +845,7 @@ public class MinPriorityQueueUnitTests
     public void GetEnumerator_AfterEnumeratingAllElements_MoveNext_ReturnsFalse()
     {
         // Arrange
-        MinPriorityQueue<int> queue = new MinPriorityQueue<int>(IEnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
+        MinPriorityQueue<int> queue = new MinPriorityQueue<int>(EnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
 
         using (IEnumerator<int> enumerator = queue.GetEnumerator())
         {
@@ -866,7 +866,7 @@ public class MinPriorityQueueUnitTests
     public void GetEnumerator_AfterEnumeratingAllElements_Reset_ResetsEnumerator()
     {
         // Arrange
-        MinPriorityQueue<int> queue = new MinPriorityQueue<int>(IEnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
+        MinPriorityQueue<int> queue = new MinPriorityQueue<int>(EnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
 
         using (IEnumerator<int> enumerator = queue.GetEnumerator())
         {
@@ -894,7 +894,7 @@ public class MinPriorityQueueUnitTests
     public void GetEnumerator_QueueModifiedDuringEnumeration_Current_Throws()
     {
         // Arrange
-        MinPriorityQueue<int> queue = new MinPriorityQueue<int>(IEnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
+        MinPriorityQueue<int> queue = new MinPriorityQueue<int>(EnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
 
         using (IEnumerator<int> enumerator = queue.GetEnumerator())
         {
@@ -913,7 +913,7 @@ public class MinPriorityQueueUnitTests
     public void GetEnumerator_QueueModifiedDuringEnumeration_MoveNext_Throws()
     {
         // Arrange
-        MinPriorityQueue<int> queue = new MinPriorityQueue<int>(IEnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
+        MinPriorityQueue<int> queue = new MinPriorityQueue<int>(EnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
 
         using (IEnumerator<int> enumerator = queue.GetEnumerator())
         {
@@ -932,7 +932,7 @@ public class MinPriorityQueueUnitTests
     public void GetEnumerator_QueueModifiedDuringEnumeration_Reset_Throws()
     {
         // Arrange
-        MinPriorityQueue<int> queue = new MinPriorityQueue<int>(IEnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
+        MinPriorityQueue<int> queue = new MinPriorityQueue<int>(EnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
 
         using (IEnumerator<int> enumerator = queue.GetEnumerator())
         {
@@ -951,7 +951,7 @@ public class MinPriorityQueueUnitTests
     public void GetEnumerator_AfterDisposing_Current_Throws()
     {
         // Arrange
-        MinPriorityQueue<int> queue = new MinPriorityQueue<int>(IEnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
+        MinPriorityQueue<int> queue = new MinPriorityQueue<int>(EnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
 
         IEnumerator<int> enumerator;
         using (enumerator = queue.GetEnumerator())
@@ -970,7 +970,7 @@ public class MinPriorityQueueUnitTests
     public void GetEnumerator_AfterDisposing_MoveNext_Throws()
     {
         // Arrange
-        MinPriorityQueue<int> queue = new MinPriorityQueue<int>(IEnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
+        MinPriorityQueue<int> queue = new MinPriorityQueue<int>(EnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
 
         IEnumerator<int> enumerator;
         using (enumerator = queue.GetEnumerator())
@@ -989,7 +989,7 @@ public class MinPriorityQueueUnitTests
     public void GetEnumerator_AfterDisposing_Reset_Throws()
     {
         // Arrange
-        MinPriorityQueue<int> queue = new MinPriorityQueue<int>(IEnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
+        MinPriorityQueue<int> queue = new MinPriorityQueue<int>(EnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
 
         IEnumerator<int> enumerator;
         using (enumerator = queue.GetEnumerator())
@@ -1005,44 +1005,99 @@ public class MinPriorityQueueUnitTests
     }
 
     [TestMethod]
-    public void Contains_UsesComparer_NotObjectEquals()
+    public void Contains_UsesObjectEquality_NotComparer()
     {
-        // A queue with a comparison that considers two items equal when their absolute values are equal.
-        // Before Fix #3, Contains used item.Equals(), which would miss items that compare equal
-        // under the custom comparer but are not reference- or value-equal.
+        // A queue whose ordering comparer treats items as equal when their absolute values match.
+        // Contains must honour the ICollection<T> contract and use element equality, NOT the
+        // ordering comparer, so items that merely share a sort key are not reported as present.
         MinPriorityQueue<int> queue = new MinPriorityQueue<int>((a, b) => Math.Abs(a).CompareTo(Math.Abs(b)));
         queue.Enqueue(1);
         queue.Enqueue(-2);
         queue.Enqueue(3);
 
-        // |1| == |-1| per the comparer, so Contains(-1) must return true.
-        Assert.IsTrue(queue.Contains(-1));
-        // |-2| == |2| per the comparer, so Contains(2) must return true.
-        Assert.IsTrue(queue.Contains(2));
-        // |4| has no match, so Contains(4) must return false.
+        // Actual elements are found.
+        Assert.IsTrue(queue.Contains(1));
+        Assert.IsTrue(queue.Contains(-2));
+        Assert.IsTrue(queue.Contains(3));
+
+        // |-1| == |1| and |2| == |-2| per the comparer, but neither value is actually present.
+        Assert.IsFalse(queue.Contains(-1));
+        Assert.IsFalse(queue.Contains(2));
         Assert.IsFalse(queue.Contains(4));
     }
 
     [TestMethod]
-    public void Remove_UsesComparer_NotObjectEquals()
+    public void Remove_UsesObjectEquality_NotComparer()
     {
-        // Same comparer as Contains_UsesComparer_NotObjectEquals.
+        // Same ordering comparer as Contains_UsesObjectEquality_NotComparer.
         MinPriorityQueue<int> queue = new MinPriorityQueue<int>((a, b) => Math.Abs(a).CompareTo(Math.Abs(b)));
         queue.Enqueue(1);
         queue.Enqueue(-2);
         queue.Enqueue(3);
 
-        // Remove(-1) should remove the item whose |value| == 1, i.e. the enqueued 1.
-        Assert.IsTrue(queue.Remove(-1));
+        // Remove(-1) shares a sort key with 1 but equals no element: no removal.
+        Assert.IsFalse(queue.Remove(-1));
+        Assert.AreEqual(3, queue.Count);
+
+        // Remove(1) removes the actual element 1.
+        Assert.IsTrue(queue.Remove(1));
         Assert.AreEqual(2, queue.Count);
 
-        // Remove(2) should remove the item whose |value| == 2, i.e. the enqueued -2.
-        Assert.IsTrue(queue.Remove(2));
+        // Remove(-2) removes the actual element -2.
+        Assert.IsTrue(queue.Remove(-2));
         Assert.AreEqual(1, queue.Count);
 
         // Remove(99) has no match.
         Assert.IsFalse(queue.Remove(99));
         Assert.AreEqual(1, queue.Count);
+    }
+
+    [TestMethod]
+    public void Remove_DistinctValuesWithSameOrder_RemovesOnlyTheEqualOne()
+    {
+        // 1 and -1 compare equal by order (|1| == |-1|) but are distinct values, and both are present.
+        MinPriorityQueue<int> queue = new MinPriorityQueue<int>((a, b) => Math.Abs(a).CompareTo(Math.Abs(b)));
+        queue.Enqueue(1);
+        queue.Enqueue(-1);
+        queue.Enqueue(5);
+
+        Assert.IsTrue(queue.Contains(1));
+        Assert.IsTrue(queue.Contains(-1));
+
+        // Removing 1 targets that exact value and leaves its same-order sibling -1 intact.
+        Assert.IsTrue(queue.Remove(1));
+        Assert.AreEqual(2, queue.Count);
+        Assert.IsFalse(queue.Contains(1));
+        Assert.IsTrue(queue.Contains(-1));
+
+        // The heap is still well-formed: -1 (order 1) dequeues before 5 (order 5).
+        Assert.AreEqual(-1, queue.Dequeue());
+        Assert.AreEqual(5, queue.Dequeue());
+    }
+
+    [TestMethod]
+    public void Remove_ReferenceTypesWithSamePriority_RemovesTheSpecifiedInstance()
+    {
+        // Two distinct instances that compare equal by priority (Value) but are reference-distinct.
+        // Default equality for a reference type without an Equals override is reference equality.
+        WrapperClass first = new WrapperClass { Value = 5 };
+        WrapperClass second = new WrapperClass { Value = 5 };
+        WrapperClass smallest = new WrapperClass { Value = 1 };
+
+        MinPriorityQueue<WrapperClass> queue = new MinPriorityQueue<WrapperClass>(new WrapperClassComparer());
+        queue.Enqueue(first);
+        queue.Enqueue(second);
+        queue.Enqueue(smallest);
+
+        // Removing the specific instance leaves the equal-priority sibling in place.
+        Assert.IsTrue(queue.Remove(first));
+        Assert.AreEqual(2, queue.Count);
+        Assert.IsFalse(queue.Contains(first));
+        Assert.IsTrue(queue.Contains(second));
+
+        // Dequeues by priority: smallest (1) then the surviving Value == 5 instance.
+        Assert.AreSame(smallest, queue.Dequeue());
+        Assert.AreSame(second, queue.Dequeue());
     }
 
     private class WrapperClass
@@ -1052,9 +1107,9 @@ public class MinPriorityQueueUnitTests
 
     private class WrapperClassComparer : IComparer<WrapperClass>
     {
-        public int Compare(WrapperClass x, WrapperClass y)
+        public int Compare(WrapperClass? x, WrapperClass? y)
         {
-            return x.Value.CompareTo(y.Value);
+            return x!.Value.CompareTo(y!.Value);
         }
     }
 
@@ -1067,7 +1122,7 @@ public class MinPriorityQueueUnitTests
     {
         public int Compare(WrapperStruct x, WrapperStruct y)
         {
-            return x.Value.CompareTo(y.Value);
+            return x!.Value.CompareTo(y!.Value);
         }
     }
 }

@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 Danylo Fitel
+// Copyright (c) 2026 Danylo Fitel
 
 using System;
 using System.Threading;
@@ -32,7 +32,7 @@ public sealed class InitializerAsyncExecutionAndPublication<T> : IInitializerAsy
     /// <inheritdoc/>
     public async Task<T> GetValueAsync(Func<CancellationToken, Task<T>> factory, CancellationToken cancellationToken = default)
     {
-        Argument.NotNull(factory, nameof(factory));
+        Argument.NotNull(factory);
 
         ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
 
@@ -70,6 +70,8 @@ public sealed class InitializerAsyncExecutionAndPublication<T> : IInitializerAsy
 
     private readonly AsyncLock m_lock = new AsyncLock();
     private volatile bool m_hasValue;
-    private T m_value;
+
+    // Assigned before m_hasValue is set to true; only ever read after observing m_hasValue == true.
+    private T m_value = default!;
     private int m_isDisposed;
 }

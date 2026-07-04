@@ -21,10 +21,11 @@ on:
   push:
     branches:
       - main
+      - '*.*.*'
     paths:
       - src/**
       - benchmarks/**
-      - LibSharp.sln
+      - LibSharp.slnx
       - .github/workflows/benchmarks.yml
   schedule:
     - cron: '0 4 * * 1'
@@ -67,7 +68,7 @@ jobs:
           echo "filter=$FILTER" >> "$GITHUB_OUTPUT"
 
       - name: Restore dependencies
-        run: dotnet restore LibSharp.sln
+        run: dotnet restore LibSharp.slnx
 
       - name: Run benchmarks (current commit)
         shell: pwsh

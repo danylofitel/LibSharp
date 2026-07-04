@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 Danylo Fitel
+// Copyright (c) 2026 Danylo Fitel
 
 using System;
 using System.Threading;
@@ -35,6 +35,10 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
     /// Either way, the first read blocks until the initial fetch completes, because there is no
     /// prior value to serve.
     /// </param>
+    /// <param name="timeProvider">
+    /// (Optional) Time provider used to measure expiration and schedule background refreshes.
+    /// Defaults to <see cref="TimeProvider.System"/>.
+    /// </param>
     /// <remarks>
     /// The value factory is expected to be independent of this cache instance. Re-entering this same
     /// cache from inside the factory is unsupported and may deadlock if the factory awaits the nested read.
@@ -43,15 +47,17 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
         Func<CancellationToken, Task<T>> valueFactory,
         TimeSpan refreshInterval,
         TimeSpan preFetchOffset,
-        bool allowStaleReads = false)
+        bool allowStaleReads = false,
+        TimeProvider? timeProvider = null)
     {
-        Argument.NotNull(valueFactory, nameof(valueFactory));
-        Argument.GreaterThan(refreshInterval, TimeSpan.Zero, nameof(refreshInterval));
-        Argument.GreaterThanOrEqualTo(preFetchOffset, TimeSpan.Zero, nameof(preFetchOffset));
-        Argument.LessThan(preFetchOffset, refreshInterval, nameof(preFetchOffset));
+        Argument.NotNull(valueFactory);
+        Argument.GreaterThan(refreshInterval, TimeSpan.Zero);
+        Argument.GreaterThanOrEqualTo(preFetchOffset, TimeSpan.Zero);
+        Argument.LessThan(preFetchOffset, refreshInterval);
 
         m_cts = new CancellationTokenSource();
         m_lock = new object();
+        m_timeProvider = timeProvider ?? TimeProvider.System;
         m_fetchFunc = valueFactory;
         m_refreshInterval = refreshInterval;
         m_preFetchOffset = preFetchOffset;
@@ -89,8 +95,8 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
         // m_snapshot is volatile so the reference read is immediately visible across threads.
         // CacheSnapshot is an immutable record so a non-null reference is always a fully
         // constructed, consistent object.
-        CacheSnapshot snapshot = m_snapshot;
-        if (snapshot is not null && DateTime.UtcNow < snapshot.ExpirationTime)
+        CacheSnapshot? snapshot = m_snapshot;
+        if (snapshot is not null && UtcNow < snapshot.ExpirationTime)
         {
             return snapshot.Value;
         }
@@ -154,7 +160,7 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
         //
         // m_backgroundTask is always non-null (set in constructor) and does not need to be
         // read under lock — it is never reassigned after construction.
-        Task<CacheSnapshot> pendingFetch;
+        Task<CacheSnapshot>? pendingFetch;
         lock (m_lock)
         {
             pendingFetch = m_pendingFetch;
@@ -217,14 +223,14 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
             // (The ContinueWith below handles the common case; this covers any gap.)
             if (m_pendingFetch?.IsFaulted == true)
             {
-                _ = m_pendingFetch.Exception;
+                _ = m_pendingFetch!.Exception;
             }
 
             // Re-check freshness under lock — a concurrent thread may have completed a
             // fetch between the caller's outer check and acquiring the lock.
-            CacheSnapshot snapshot = m_snapshot;
+            CacheSnapshot? snapshot = m_snapshot;
             TimeSpan freshThreshold = forceRefresh ? m_preFetchOffset : TimeSpan.Zero;
-            if (snapshot is not null && DateTime.UtcNow < snapshot.ExpirationTime - freshThreshold)
+            if (snapshot is not null && UtcNow < snapshot.ExpirationTime - freshThreshold)
             {
                 return Task.FromResult(snapshot);
             }
@@ -266,7 +272,7 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
 
             // Clamp expiration to DateTime.MaxValue to avoid overflow when refreshInterval
             // is very large (e.g. TimeSpan.FromDays(1000)).
-            DateTime now = DateTime.UtcNow;
+            DateTime now = UtcNow;
             DateTime expiration = m_refreshInterval >= DateTime.MaxValue - now
                 ? DateTime.MaxValue
                 : now + m_refreshInterval;
@@ -310,7 +316,7 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
                 // Transient factory failure; wait before retrying to avoid tight-looping.
                 try
                 {
-                    await Task.Delay(Clamp(m_retryDelay), m_cts.Token).ConfigureAwait(false);
+                    await Task.Delay(Clamp(m_retryDelay), m_timeProvider, m_cts.Token).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)
                 {
@@ -327,17 +333,22 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
             {
                 // Anchor the delay to the snapshot's expiration time rather than using a
                 // fixed interval, so scheduling jitter does not cause cumulative drift.
-                CacheSnapshot snapshot = m_snapshot;
-                TimeSpan delay = snapshot.ExpirationTime - m_preFetchOffset - DateTime.UtcNow;
-                if (delay > TimeSpan.Zero)
+                // Phase 1 guarantees a snapshot exists on entry; the null guard is defensive
+                // (a null snapshot simply falls through to an immediate refresh).
+                CacheSnapshot? snapshot = m_snapshot;
+                if (snapshot is not null)
                 {
-                    await Task.Delay(Clamp(delay), m_cts.Token).ConfigureAwait(false);
+                    TimeSpan delay = snapshot.ExpirationTime - m_preFetchOffset - UtcNow;
+                    if (delay > TimeSpan.Zero)
+                    {
+                        await Task.Delay(Clamp(delay), m_timeProvider, m_cts.Token).ConfigureAwait(false);
+                    }
                 }
 
                 // Re-read after sleeping: a concurrent GetValueAsync may have refreshed
                 // the value while we were waiting, making our pre-fetch unnecessary.
                 snapshot = m_snapshot;
-                if (snapshot is not null && DateTime.UtcNow < snapshot.ExpirationTime - m_preFetchOffset)
+                if (snapshot is not null && UtcNow < snapshot.ExpirationTime - m_preFetchOffset)
                 {
                     continue;
                 }
@@ -358,7 +369,7 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
                 // when the snapshot has already expired.
                 try
                 {
-                    await Task.Delay(Clamp(m_retryDelay), m_cts.Token).ConfigureAwait(false);
+                    await Task.Delay(Clamp(m_retryDelay), m_timeProvider, m_cts.Token).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)
                 {
@@ -381,6 +392,8 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
         return delay <= s_maxDelay ? delay : s_maxDelay;
     }
 
+    private DateTime UtcNow => m_timeProvider.GetUtcNow().UtcDateTime;
+
     // Task.Delay internally converts TimeSpan to int milliseconds; clamp to avoid overflow
     // for refresh intervals longer than ~24.8 days. When the delay fires early, the loop
     // re-reads the snapshot and recomputes — it simply sleeps again and converges correctly.
@@ -388,6 +401,7 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
 
     private readonly CancellationTokenSource m_cts;
     private readonly object m_lock;
+    private readonly TimeProvider m_timeProvider;
     private readonly Func<CancellationToken, Task<T>> m_fetchFunc;
     private readonly TimeSpan m_refreshInterval;
     private readonly TimeSpan m_preFetchOffset;
@@ -399,10 +413,10 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
     // path in GetValueAsync (and HasValue/Expiration) reads it outside any lock. Since
     // CacheSnapshot is an immutable record, volatile on the reference alone is sufficient —
     // readers always see a fully constructed, consistent object.
-    private volatile CacheSnapshot m_snapshot;
+    private volatile CacheSnapshot? m_snapshot;
 
     // Written and read only under m_lock.
-    private Task<CacheSnapshot> m_pendingFetch;
+    private Task<CacheSnapshot>? m_pendingFetch;
 
     private int m_isDisposed;
 

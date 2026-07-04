@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 Danylo Fitel
+// Copyright (c) 2026 Danylo Fitel
 
 using System.Collections.Generic;
 using LibSharp.Common;
@@ -8,7 +8,7 @@ namespace LibSharp.Collections;
 /// <summary>
 /// Extension methods for ICollection.
 /// </summary>
-public static class ICollectionExtensions
+public static class CollectionExtensions
 {
     /// <summary>
     /// Adds a collection of elements to the set.
@@ -18,8 +18,8 @@ public static class ICollectionExtensions
     /// <param name="collection">The collection of elements that should be added to the set.</param>
     public static void AddRange<TSource>(this ICollection<TSource> source, IEnumerable<TSource> collection)
     {
-        Argument.NotNull(source, nameof(source));
-        Argument.NotNull(collection, nameof(collection));
+        Argument.NotNull(source);
+        Argument.NotNull(collection);
 
         foreach (TSource item in collection)
         {

@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 Danylo Fitel
+// Copyright (c) 2026 Danylo Fitel
 
 using System;
 using System.Threading;
@@ -29,14 +29,17 @@ public sealed class DebouncedAction : IDisposable
     /// </summary>
     /// <param name="action">The action to debounce.</param>
     /// <param name="delay">The quiet period that must elapse before the action fires.</param>
-    public DebouncedAction(Action action, TimeSpan delay)
+    /// <param name="timeProvider">
+    /// (Optional) Time provider used to schedule the quiet-period timer. Defaults to <see cref="TimeProvider.System"/>.
+    /// </param>
+    public DebouncedAction(Action action, TimeSpan delay, TimeProvider? timeProvider = null)
     {
-        Argument.NotNull(action, nameof(action));
-        Argument.GreaterThan(delay, TimeSpan.Zero, nameof(delay));
+        Argument.NotNull(action);
+        Argument.GreaterThan(delay, TimeSpan.Zero);
 
         m_action = action;
         m_delay = delay;
-        m_timer = new Timer(OnTimer, null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+        m_timer = (timeProvider ?? TimeProvider.System).CreateTimer(OnTimer, null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
     }
 
     /// <summary>
@@ -78,7 +81,7 @@ public sealed class DebouncedAction : IDisposable
         m_callbackRunning.Dispose();
     }
 
-    private void OnTimer(object state)
+    private void OnTimer(object? state)
     {
         bool acquired;
 
@@ -112,7 +115,7 @@ public sealed class DebouncedAction : IDisposable
 
     private readonly Action m_action;
     private readonly TimeSpan m_delay;
-    private readonly Timer m_timer;
+    private readonly ITimer m_timer;
     private readonly object m_lock = new object();
     private readonly SemaphoreSlim m_callbackRunning = new SemaphoreSlim(1, 1);
 

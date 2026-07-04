@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 Danylo Fitel
+// Copyright (c) 2026 Danylo Fitel
 
 using System;
 using System.Threading;
@@ -20,11 +20,13 @@ public sealed class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
     /// </summary>
     /// <param name="factory">The value factory.</param>
     /// <param name="timeToLive">Cache time-to-live.</param>
-    public ValueCacheAsync(Func<CancellationToken, Task<T>> factory, TimeSpan timeToLive)
+    /// <param name="timeProvider">(Optional) Time provider used for expiration. Defaults to <see cref="TimeProvider.System"/>.</param>
+    public ValueCacheAsync(Func<CancellationToken, Task<T>> factory, TimeSpan timeToLive, TimeProvider? timeProvider = null)
     {
-        Argument.NotNull(factory, nameof(factory));
-        Argument.GreaterThanOrEqualTo(timeToLive, TimeSpan.Zero, nameof(timeToLive));
+        Argument.NotNull(factory);
+        Argument.GreaterThanOrEqualTo(timeToLive, TimeSpan.Zero);
 
+        m_timeProvider = timeProvider ?? TimeProvider.System;
         m_createFactory = factory;
         m_expirationFunction = _ => GetExpiration(timeToLive);
     }
@@ -34,11 +36,13 @@ public sealed class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
     /// </summary>
     /// <param name="factory">The value factory.</param>
     /// <param name="expirationFunction">Function to calculate expiration of a value.</param>
-    public ValueCacheAsync(Func<CancellationToken, Task<T>> factory, Func<T, DateTime> expirationFunction)
+    /// <param name="timeProvider">(Optional) Time provider used for expiration. Defaults to <see cref="TimeProvider.System"/>.</param>
+    public ValueCacheAsync(Func<CancellationToken, Task<T>> factory, Func<T, DateTime> expirationFunction, TimeProvider? timeProvider = null)
     {
-        Argument.NotNull(factory, nameof(factory));
-        Argument.NotNull(expirationFunction, nameof(expirationFunction));
+        Argument.NotNull(factory);
+        Argument.NotNull(expirationFunction);
 
+        m_timeProvider = timeProvider ?? TimeProvider.System;
         m_createFactory = factory;
         m_expirationFunction = expirationFunction;
     }
@@ -49,12 +53,14 @@ public sealed class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
     /// <param name="createFactory">The creation factory.</param>
     /// <param name="updateFactory">The update factory.</param>
     /// <param name="timeToLive">Cache time-to-live.</param>
-    public ValueCacheAsync(Func<CancellationToken, Task<T>> createFactory, Func<T, CancellationToken, Task<T>> updateFactory, TimeSpan timeToLive)
+    /// <param name="timeProvider">(Optional) Time provider used for expiration. Defaults to <see cref="TimeProvider.System"/>.</param>
+    public ValueCacheAsync(Func<CancellationToken, Task<T>> createFactory, Func<T, CancellationToken, Task<T>> updateFactory, TimeSpan timeToLive, TimeProvider? timeProvider = null)
     {
-        Argument.NotNull(createFactory, nameof(createFactory));
-        Argument.NotNull(updateFactory, nameof(updateFactory));
-        Argument.GreaterThanOrEqualTo(timeToLive, TimeSpan.Zero, nameof(timeToLive));
+        Argument.NotNull(createFactory);
+        Argument.NotNull(updateFactory);
+        Argument.GreaterThanOrEqualTo(timeToLive, TimeSpan.Zero);
 
+        m_timeProvider = timeProvider ?? TimeProvider.System;
         m_createFactory = createFactory;
         m_updateFactory = updateFactory;
         m_expirationFunction = _ => GetExpiration(timeToLive);
@@ -66,12 +72,14 @@ public sealed class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
     /// <param name="createFactory">The creation factory.</param>
     /// <param name="updateFactory">The update factory.</param>
     /// <param name="expirationFunction">Function to calculate expiration of a value.</param>
-    public ValueCacheAsync(Func<CancellationToken, Task<T>> createFactory, Func<T, CancellationToken, Task<T>> updateFactory, Func<T, DateTime> expirationFunction)
+    /// <param name="timeProvider">(Optional) Time provider used for expiration. Defaults to <see cref="TimeProvider.System"/>.</param>
+    public ValueCacheAsync(Func<CancellationToken, Task<T>> createFactory, Func<T, CancellationToken, Task<T>> updateFactory, Func<T, DateTime> expirationFunction, TimeProvider? timeProvider = null)
     {
-        Argument.NotNull(createFactory, nameof(createFactory));
-        Argument.NotNull(updateFactory, nameof(updateFactory));
-        Argument.NotNull(expirationFunction, nameof(expirationFunction));
+        Argument.NotNull(createFactory);
+        Argument.NotNull(updateFactory);
+        Argument.NotNull(expirationFunction);
 
+        m_timeProvider = timeProvider ?? TimeProvider.System;
         m_createFactory = createFactory;
         m_updateFactory = updateFactory;
         m_expirationFunction = expirationFunction;
@@ -104,11 +112,11 @@ public sealed class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
 
-        if (m_boxed is null || DateTime.UtcNow >= m_boxed.Expiration)
+        if (m_boxed is null || UtcNow >= m_boxed.Expiration)
         {
             using (await m_lock.AcquireAsync(cancellationToken).ConfigureAwait(false))
             {
-                if (m_boxed is null || DateTime.UtcNow >= m_boxed.Expiration)
+                if (m_boxed is null || UtcNow >= m_boxed.Expiration)
                 {
                     await Refresh(cancellationToken).ConfigureAwait(false);
                 }
@@ -117,7 +125,8 @@ public sealed class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
                 // fail this call instead of returning a value after disposal.
                 ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
 
-                return m_boxed.Value;
+                // Refresh guarantees m_boxed is non-null on return.
+                return m_boxed!.Value;
             }
         }
 
@@ -137,9 +146,11 @@ public sealed class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
         m_lock.Dispose();
     }
 
-    private static DateTime GetExpiration(TimeSpan timeToLive)
+    private DateTime UtcNow => m_timeProvider.GetUtcNow().UtcDateTime;
+
+    private DateTime GetExpiration(TimeSpan timeToLive)
     {
-        DateTime now = DateTime.UtcNow;
+        DateTime now = UtcNow;
         return timeToLive >= DateTime.MaxValue - now
             ? DateTime.MaxValue
             : now.Add(timeToLive);
@@ -167,11 +178,12 @@ public sealed class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
     }
 
     private readonly AsyncLock m_lock = new AsyncLock();
+    private readonly TimeProvider m_timeProvider;
     private readonly Func<CancellationToken, Task<T>> m_createFactory;
-    private readonly Func<T, CancellationToken, Task<T>> m_updateFactory;
+    private readonly Func<T, CancellationToken, Task<T>>? m_updateFactory;
     private readonly Func<T, DateTime> m_expirationFunction;
 
-    private volatile ValueReference<T> m_boxed;
+    private volatile ValueReference<T>? m_boxed;
 
     private int m_isDisposed;
 }

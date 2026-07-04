@@ -1,4 +1,4 @@
-﻿# Remove the line below if you want to inherit .editorconfig settings from higher directories
+# Remove the line below if you want to inherit .editorconfig settings from higher directories
 root = true
 
 # All files
@@ -9,7 +9,7 @@ file_header_template = Copyright (c) 2026 Danylo Fitel
 
 #### Core EditorConfig Options ####
 
-charset = utf-8-bom
+charset = utf-8
 
 # Indentation and spacing
 indent_style = space
@@ -18,7 +18,7 @@ tab_width = 4
 trim_trailing_whitespace = true
 
 # New line preferences
-end_of_line = crlf
+end_of_line = lf
 insert_final_newline = true
 
 # Style

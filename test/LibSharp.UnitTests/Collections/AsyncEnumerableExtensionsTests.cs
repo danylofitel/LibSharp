@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 Danylo Fitel
+// Copyright (c) 2026 Danylo Fitel
 
 using System;
 using System.Collections.Generic;
@@ -11,7 +11,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace LibSharp.UnitTests.Collections;
 
 [TestClass]
-public class IAsyncEnumerableExtensionsTests
+public class AsyncEnumerableExtensionsTests
 {
     // ── Chunk ─────────────────────────────────────────────────────────────
 
@@ -19,7 +19,7 @@ public class IAsyncEnumerableExtensionsTests
     public async Task Chunk_NullSource_Throws()
     {
         _ = await Assert.ThrowsExactlyAsync<ArgumentNullException>(
-            () => CollectAsync(((IAsyncEnumerable<int>)null).Chunk(1.0, _ => 1.0), TestContext.CancellationToken)).ConfigureAwait(false);
+            () => CollectAsync(((IAsyncEnumerable<int>)null!).Chunk(1.0, _ => 1.0), TestContext.CancellationToken)).ConfigureAwait(false);
     }
 
     [TestMethod]
@@ -33,7 +33,7 @@ public class IAsyncEnumerableExtensionsTests
     public async Task Chunk_NullItemWeight_Throws()
     {
         _ = await Assert.ThrowsExactlyAsync<ArgumentNullException>(
-            () => CollectAsync(AsyncRange(0, 1, TestContext.CancellationToken).Chunk(1.0, null), TestContext.CancellationToken)).ConfigureAwait(false);
+            () => CollectAsync(AsyncRange(0, 1, TestContext.CancellationToken).Chunk(1.0, null!), TestContext.CancellationToken)).ConfigureAwait(false);
     }
 
     [TestMethod]
@@ -164,14 +164,14 @@ public class IAsyncEnumerableExtensionsTests
     public async Task FirstIndexOfAsync_NullSource_Throws()
     {
         _ = await Assert.ThrowsExactlyAsync<ArgumentNullException>(
-            () => ((IAsyncEnumerable<int>)null).FirstIndexOfAsync(_ => true, TestContext.CancellationToken)).ConfigureAwait(false);
+            () => ((IAsyncEnumerable<int>)null!).FirstIndexOfAsync(_ => true, TestContext.CancellationToken)).ConfigureAwait(false);
     }
 
     [TestMethod]
     public async Task FirstIndexOfAsync_NullPredicate_Throws()
     {
         _ = await Assert.ThrowsExactlyAsync<ArgumentNullException>(
-            () => AsyncRange(0, 5, TestContext.CancellationToken).FirstIndexOfAsync(null, TestContext.CancellationToken)).ConfigureAwait(false);
+            () => AsyncRange(0, 5, TestContext.CancellationToken).FirstIndexOfAsync(null!, TestContext.CancellationToken)).ConfigureAwait(false);
     }
 
     [TestMethod]
@@ -250,14 +250,14 @@ public class IAsyncEnumerableExtensionsTests
     public async Task LastIndexOfAsync_NullSource_Throws()
     {
         _ = await Assert.ThrowsExactlyAsync<ArgumentNullException>(
-            () => ((IAsyncEnumerable<int>)null).LastIndexOfAsync(_ => true, TestContext.CancellationToken)).ConfigureAwait(false);
+            () => ((IAsyncEnumerable<int>)null!).LastIndexOfAsync(_ => true, TestContext.CancellationToken)).ConfigureAwait(false);
     }
 
     [TestMethod]
     public async Task LastIndexOfAsync_NullPredicate_Throws()
     {
         _ = await Assert.ThrowsExactlyAsync<ArgumentNullException>(
-            () => AsyncRange(0, 5, TestContext.CancellationToken).LastIndexOfAsync(null, TestContext.CancellationToken)).ConfigureAwait(false);
+            () => AsyncRange(0, 5, TestContext.CancellationToken).LastIndexOfAsync(null!, TestContext.CancellationToken)).ConfigureAwait(false);
     }
 
     [TestMethod]

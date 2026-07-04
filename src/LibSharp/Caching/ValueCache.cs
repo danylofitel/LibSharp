@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 Danylo Fitel
+// Copyright (c) 2026 Danylo Fitel
 
 using System;
 using LibSharp.Common;
@@ -17,11 +17,13 @@ public sealed class ValueCache<T> : IValueCache<T>
     /// </summary>
     /// <param name="factory">The value factory.</param>
     /// <param name="timeToLive">Cache time-to-live.</param>
-    public ValueCache(Func<T> factory, TimeSpan timeToLive)
+    /// <param name="timeProvider">(Optional) Time provider used for expiration. Defaults to <see cref="TimeProvider.System"/>.</param>
+    public ValueCache(Func<T> factory, TimeSpan timeToLive, TimeProvider? timeProvider = null)
     {
-        Argument.NotNull(factory, nameof(factory));
-        Argument.GreaterThanOrEqualTo(timeToLive, TimeSpan.Zero, nameof(timeToLive));
+        Argument.NotNull(factory);
+        Argument.GreaterThanOrEqualTo(timeToLive, TimeSpan.Zero);
 
+        m_timeProvider = timeProvider ?? TimeProvider.System;
         m_createFactory = factory;
         m_expirationFunction = _ => GetExpiration(timeToLive);
     }
@@ -31,11 +33,13 @@ public sealed class ValueCache<T> : IValueCache<T>
     /// </summary>
     /// <param name="factory">The value factory.</param>
     /// <param name="expirationFunction">Function to calculate expiration of a value.</param>
-    public ValueCache(Func<T> factory, Func<T, DateTime> expirationFunction)
+    /// <param name="timeProvider">(Optional) Time provider used for expiration. Defaults to <see cref="TimeProvider.System"/>.</param>
+    public ValueCache(Func<T> factory, Func<T, DateTime> expirationFunction, TimeProvider? timeProvider = null)
     {
-        Argument.NotNull(factory, nameof(factory));
-        Argument.NotNull(expirationFunction, nameof(expirationFunction));
+        Argument.NotNull(factory);
+        Argument.NotNull(expirationFunction);
 
+        m_timeProvider = timeProvider ?? TimeProvider.System;
         m_createFactory = factory;
         m_expirationFunction = expirationFunction;
     }
@@ -46,12 +50,14 @@ public sealed class ValueCache<T> : IValueCache<T>
     /// <param name="createFactory">The creation factory.</param>
     /// <param name="updateFactory">The update factory.</param>
     /// <param name="timeToLive">Cache time-to-live.</param>
-    public ValueCache(Func<T> createFactory, Func<T, T> updateFactory, TimeSpan timeToLive)
+    /// <param name="timeProvider">(Optional) Time provider used for expiration. Defaults to <see cref="TimeProvider.System"/>.</param>
+    public ValueCache(Func<T> createFactory, Func<T, T> updateFactory, TimeSpan timeToLive, TimeProvider? timeProvider = null)
     {
-        Argument.NotNull(createFactory, nameof(createFactory));
-        Argument.NotNull(updateFactory, nameof(updateFactory));
-        Argument.GreaterThanOrEqualTo(timeToLive, TimeSpan.Zero, nameof(timeToLive));
+        Argument.NotNull(createFactory);
+        Argument.NotNull(updateFactory);
+        Argument.GreaterThanOrEqualTo(timeToLive, TimeSpan.Zero);
 
+        m_timeProvider = timeProvider ?? TimeProvider.System;
         m_createFactory = createFactory;
         m_updateFactory = updateFactory;
         m_expirationFunction = _ => GetExpiration(timeToLive);
@@ -63,12 +69,14 @@ public sealed class ValueCache<T> : IValueCache<T>
     /// <param name="createFactory">The creation factory.</param>
     /// <param name="updateFactory">The update factory.</param>
     /// <param name="expirationFunction">Function to calculate expiration of a value.</param>
-    public ValueCache(Func<T> createFactory, Func<T, T> updateFactory, Func<T, DateTime> expirationFunction)
+    /// <param name="timeProvider">(Optional) Time provider used for expiration. Defaults to <see cref="TimeProvider.System"/>.</param>
+    public ValueCache(Func<T> createFactory, Func<T, T> updateFactory, Func<T, DateTime> expirationFunction, TimeProvider? timeProvider = null)
     {
-        Argument.NotNull(createFactory, nameof(createFactory));
-        Argument.NotNull(updateFactory, nameof(updateFactory));
-        Argument.NotNull(expirationFunction, nameof(expirationFunction));
+        Argument.NotNull(createFactory);
+        Argument.NotNull(updateFactory);
+        Argument.NotNull(expirationFunction);
 
+        m_timeProvider = timeProvider ?? TimeProvider.System;
         m_createFactory = createFactory;
         m_updateFactory = updateFactory;
         m_expirationFunction = expirationFunction;
@@ -83,25 +91,28 @@ public sealed class ValueCache<T> : IValueCache<T>
     /// <inheritdoc/>
     public T GetValue()
     {
-        if (m_boxed is null || DateTime.UtcNow >= m_boxed.Expiration)
+        if (m_boxed is null || UtcNow >= m_boxed.Expiration)
         {
             lock (m_lock)
             {
-                if (m_boxed is null || DateTime.UtcNow >= m_boxed.Expiration)
+                if (m_boxed is null || UtcNow >= m_boxed.Expiration)
                 {
                     Refresh();
                 }
 
-                return m_boxed.Value;
+                // Refresh guarantees m_boxed is non-null on return.
+                return m_boxed!.Value;
             }
         }
 
         return m_boxed.Value;
     }
 
-    private static DateTime GetExpiration(TimeSpan timeToLive)
+    private DateTime UtcNow => m_timeProvider.GetUtcNow().UtcDateTime;
+
+    private DateTime GetExpiration(TimeSpan timeToLive)
     {
-        DateTime now = DateTime.UtcNow;
+        DateTime now = UtcNow;
         return timeToLive >= DateTime.MaxValue - now
             ? DateTime.MaxValue
             : now.Add(timeToLive);
@@ -125,10 +136,11 @@ public sealed class ValueCache<T> : IValueCache<T>
     }
 
     private readonly object m_lock = new object();
+    private readonly TimeProvider m_timeProvider;
 
     private readonly Func<T> m_createFactory;
-    private readonly Func<T, T> m_updateFactory;
+    private readonly Func<T, T>? m_updateFactory;
     private readonly Func<T, DateTime> m_expirationFunction;
 
-    private volatile ValueReference<T> m_boxed;
+    private volatile ValueReference<T>? m_boxed;
 }

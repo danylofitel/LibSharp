@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 Danylo Fitel
+// Copyright (c) 2026 Danylo Fitel
 
 using System;
 using System.Threading;
@@ -53,7 +53,7 @@ public class LazyAsyncExecutionAndPublicationUnitTests
     {
         // Arrange — null is a legitimate value to cache; HasValue reflects whether the
         // lazy has been initialised, not whether the contained value is non-null.
-        using (LazyAsyncExecutionAndPublication<string> lazy = new LazyAsyncExecutionAndPublication<string>((string)null))
+        using (LazyAsyncExecutionAndPublication<string> lazy = new LazyAsyncExecutionAndPublication<string>((string)null!))
         {
             // Assert
             Assert.IsTrue(lazy.HasValue);
@@ -65,7 +65,7 @@ public class LazyAsyncExecutionAndPublicationUnitTests
     public async Task FromFactory_NullResult_HasValueIsTrue_ReturnsNull()
     {
         // Arrange
-        using (LazyAsyncExecutionAndPublication<string> lazy = new LazyAsyncExecutionAndPublication<string>(_ => Task.FromResult<string>(null)))
+        using (LazyAsyncExecutionAndPublication<string> lazy = new LazyAsyncExecutionAndPublication<string>(_ => Task.FromResult<string>(null!)))
         {
             // Assert
             Assert.IsFalse(lazy.HasValue);
@@ -206,7 +206,7 @@ public class LazyAsyncExecutionAndPublicationUnitTests
     public async Task FromFactory_NullTask_ThrowsInvalidOperationException()
     {
         // Arrange
-        using LazyAsyncExecutionAndPublication<int> lazy = new LazyAsyncExecutionAndPublication<int>(_ => null);
+        using LazyAsyncExecutionAndPublication<int> lazy = new LazyAsyncExecutionAndPublication<int>(_ => null!);
 
         // Act
         _ = await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () =>

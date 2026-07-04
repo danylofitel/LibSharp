@@ -1,7 +1,26 @@
-﻿# Changelog
+# Changelog
 
-- 3.0.1
-  - Updated `ProactiveAsyncCache<T>` to never throw exceptions from `DisposeAsync()`.
+- 4.0.0
+  - Enabled nullable reference type annotations across the entire public API; `TryGet*` methods and out parameters are now annotated (e.g. `[MaybeNullWhen(false)]`), and nullable inputs such as optional `Encoding`/`XmlReaderSettings` arguments are marked accordingly
+  - `Caching`
+    - Updated `ProactiveAsyncCache<T>` to never throw exceptions from `DisposeAsync()`
+    - `ValueCache<T>`, `ValueCacheAsync<T>`, `KeyValueCache<TKey, TValue>`, `KeyValueCacheAsync<TKey, TValue>`, and `ProactiveAsyncCache<T>` now accept an optional `TimeProvider` (defaulting to `TimeProvider.System`) so expiration and background refresh can be driven deterministically in tests
+  - `Collections`
+    - Renamed extension classes to drop the `I` prefix: `IEnumerableExtensions` → `EnumerableExtensions`, `ICollectionExtensions` → `CollectionExtensions`, `IDictionaryExtensions` → `DictionaryExtensions`, `IAsyncEnumerableExtensions` → `AsyncEnumerableExtensions` (extension methods called via instance syntax are unaffected; static-style calls must use the new names)
+    - `MinPriorityQueue<T>` and `MaxPriorityQueue<T>`: `Contains` and `Remove` now use element equality (`EqualityComparer<T>.Default`) instead of the ordering comparer, so they honour the `ICollection<T>` contract (reverses the 3.0.0 change; ordering still uses the comparer)
+    - `ConcurrentHashSet<T>` now constrains `T` to `notnull` (it is backed by `ConcurrentDictionary`, which never permitted null elements); `IDictionaryExtensions.Copy` likewise constrains its key to `notnull`
+    - `DictionaryExtensions` and the key-value caches now validate keys without boxing value-type keys
+  - `Common`
+    - `Optional<T>` no longer implements `IEquatable<T>`; it now implements only `IEquatable<Optional<T>>`, so equality is defined between two optionals. A bare value still compares equal via the new implicit conversion, but a value typed as `object` never does
+    - Added an implicit conversion from `T` to `Optional<T>` (always produces a present optional, even for `null`)
+    - Added `Match`, `Map`, and `Bind` to `Optional<T>`
+    - Added `Match`, `Map`, `MapError`, and `Bind` to `Result<T, TError>`
+    - Removed the `Argument.NotNull(object, string)` overload; calling `NotNull` on a non-nullable value type is now a compile error instead of a silent no-op (the reference-type generic overload is retained)
+    - `Argument` methods now capture the argument name automatically via `[CallerArgumentExpression]`, so the `name` parameter is optional; existing calls that pass it explicitly still compile
+    - `XmlSerializationExtensions.SerializeToXml` / `DeserializeFromXml` are now annotated with `[RequiresUnreferencedCode]` / `[RequiresDynamicCode]` to reflect that `XmlSerializer` is incompatible with trimming and Native AOT
+  - `Threading`
+    - `ThrottledAction` and `DebouncedAction` now accept an optional `TimeProvider` (defaulting to `TimeProvider.System`) so the throttle interval and debounce timer can be driven deterministically in tests
+    - `ThrottledAction` now clamps its interval-to-ticks conversion so an extreme interval near `TimeSpan.MaxValue` cannot overflow into a negative value and defeat throttling
 
 - 3.0.0
   - `Caching`

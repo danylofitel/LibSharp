@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 Danylo Fitel
+// Copyright (c) 2026 Danylo Fitel
 
 using System;
 using System.Threading;
@@ -28,7 +28,7 @@ public class KeyValueCacheAsyncUnitTests
     public async Task GetValueAsync_CreateFactoryReturningNullTask_ThrowsInvalidOperationException()
     {
         // Arrange
-        using KeyValueCacheAsync<int, int> cache = new KeyValueCacheAsync<int, int>((_, _) => null, TimeSpan.FromMinutes(1));
+        using KeyValueCacheAsync<int, int> cache = new KeyValueCacheAsync<int, int>((_, _) => null!, TimeSpan.FromMinutes(1));
 
         // Act
         _ = await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () =>
@@ -41,7 +41,7 @@ public class KeyValueCacheAsyncUnitTests
         // Arrange
         using KeyValueCacheAsync<int, int> cache = new KeyValueCacheAsync<int, int>(
             (key, _) => Task.FromResult(-key),
-            (_, _, _) => null,
+            (_, _, _) => null!,
             TimeSpan.Zero);
 
         Assert.AreEqual(-1, await cache.GetValueAsync(1, CancellationToken.None).ConfigureAwait(false));

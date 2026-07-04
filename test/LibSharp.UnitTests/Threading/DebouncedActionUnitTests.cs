@@ -1,9 +1,10 @@
-﻿// Copyright (c) 2026 Danylo Fitel
+// Copyright (c) 2026 Danylo Fitel
 
 using System;
 using System.Threading;
 using System.Threading.Tasks;
 using LibSharp.Threading;
+using Microsoft.Extensions.Time.Testing;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace LibSharp.UnitTests.Threading;
@@ -15,7 +16,7 @@ public class DebouncedActionUnitTests
     public void Constructor_NullAction_Throws()
     {
         _ = Assert.ThrowsExactly<ArgumentNullException>(() =>
-            _ = new DebouncedAction(null, TimeSpan.FromMilliseconds(50)));
+            _ = new DebouncedAction(null!, TimeSpan.FromMilliseconds(50)));
     }
 
     [TestMethod]
@@ -33,56 +34,49 @@ public class DebouncedActionUnitTests
     }
 
     [TestMethod]
-    public async Task Invoke_SingleCall_FiresAfterDelay()
+    public void Invoke_SingleCall_FiresAfterDelay()
     {
-        // Arrange
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
         int callCount = 0;
-        using DebouncedAction debounced = new DebouncedAction(() => Interlocked.Increment(ref callCount), TimeSpan.FromMilliseconds(20));
+        using DebouncedAction debounced = new DebouncedAction(() => Interlocked.Increment(ref callCount), TimeSpan.FromMilliseconds(20), timeProvider);
 
-        // Act
         debounced.Invoke();
-        await Task.Delay(80, TestContext.CancellationToken).ConfigureAwait(false);
+        timeProvider.Advance(TimeSpan.FromMilliseconds(20));
 
-        // Assert
         Assert.AreEqual(1, callCount);
     }
 
     [TestMethod]
-    public async Task Invoke_RapidCalls_FiresOnlyOnce()
+    public void Invoke_RapidCalls_FiresOnlyOnce()
     {
-        // Arrange
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
         int callCount = 0;
-        using DebouncedAction debounced = new DebouncedAction(() => Interlocked.Increment(ref callCount), TimeSpan.FromMilliseconds(100));
+        using DebouncedAction debounced = new DebouncedAction(() => Interlocked.Increment(ref callCount), TimeSpan.FromMilliseconds(100), timeProvider);
 
-        // Act — 5 rapid calls, only the last should trigger
         for (int i = 0; i < 5; i++)
         {
             debounced.Invoke();
-            await Task.Delay(10, TestContext.CancellationToken).ConfigureAwait(false);
+            timeProvider.Advance(TimeSpan.FromMilliseconds(10));
         }
 
-        await Task.Delay(150, TestContext.CancellationToken).ConfigureAwait(false);
+        timeProvider.Advance(TimeSpan.FromMilliseconds(100));
 
-        // Assert
         Assert.AreEqual(1, callCount);
     }
 
     [TestMethod]
-    public async Task Invoke_TwoWavesSeparatedByDelay_FiresTwice()
+    public void Invoke_TwoWavesSeparatedByDelay_FiresTwice()
     {
-        // Arrange
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
         int callCount = 0;
-        using DebouncedAction debounced = new DebouncedAction(() => Interlocked.Increment(ref callCount), TimeSpan.FromMilliseconds(20));
+        using DebouncedAction debounced = new DebouncedAction(() => Interlocked.Increment(ref callCount), TimeSpan.FromMilliseconds(20), timeProvider);
 
-        // Act — first wave
         debounced.Invoke();
-        await Task.Delay(80, TestContext.CancellationToken).ConfigureAwait(false);
+        timeProvider.Advance(TimeSpan.FromMilliseconds(20));
 
-        // Second wave
         debounced.Invoke();
-        await Task.Delay(80, TestContext.CancellationToken).ConfigureAwait(false);
+        timeProvider.Advance(TimeSpan.FromMilliseconds(20));
 
-        // Assert
         Assert.AreEqual(2, callCount);
     }
 
@@ -106,25 +100,23 @@ public class DebouncedActionUnitTests
     }
 
     [TestMethod]
-    public async Task Dispose_CancelsPendingInvocation()
+    public void Dispose_CancelsPendingInvocation()
     {
-        // Arrange
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
         int callCount = 0;
-        DebouncedAction debounced = new DebouncedAction(() => Interlocked.Increment(ref callCount), TimeSpan.FromMilliseconds(30));
+        DebouncedAction debounced = new DebouncedAction(() => Interlocked.Increment(ref callCount), TimeSpan.FromMilliseconds(30), timeProvider);
 
-        // Act
         debounced.Invoke();
         debounced.Dispose();
-        await Task.Delay(80, TestContext.CancellationToken).ConfigureAwait(false);
+        timeProvider.Advance(TimeSpan.FromMilliseconds(80));
 
-        // Assert — the timer was cancelled so the action should not have fired
         Assert.AreEqual(0, callCount);
     }
 
     [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
     public async Task Dispose_WhileCallbackIsInFlight_ActionCompletesExactlyOnce()
     {
-        // Arrange — action signals when it starts, then blocks until released
         using SemaphoreSlim actionStarted = new SemaphoreSlim(0, 1);
         using SemaphoreSlim actionGate = new SemaphoreSlim(0, 1);
         int callCount = 0;
@@ -138,18 +130,15 @@ public class DebouncedActionUnitTests
             },
             TimeSpan.FromMilliseconds(10));
 
-        // Let the timer fire and wait until the action is holding the lock
         debounced.Invoke();
-        await actionStarted.WaitAsync(TestContext.CancellationToken).ConfigureAwait(false);
+        bool started = await actionStarted.WaitAsync(TimeSpan.FromSeconds(5), TestContext.CancellationToken).ConfigureAwait(false);
+        Assert.IsTrue(started, "Expected the debounced callback to start after the quiet period elapsed.");
 
-        // Dispose while the action is still running — must block until action completes
         Task disposeTask = Task.Run(debounced.Dispose, TestContext.CancellationToken);
 
-        // Unblock the action
         _ = actionGate.Release();
         await disposeTask.ConfigureAwait(false);
 
-        // Assert — action ran exactly once; no post-dispose invocation
         Assert.AreEqual(1, callCount);
     }
 

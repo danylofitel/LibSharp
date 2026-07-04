@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 Danylo Fitel
+// Copyright (c) 2026 Danylo Fitel
 
 using System;
 using System.Collections.Generic;
@@ -10,10 +10,10 @@ namespace LibSharp.Collections;
 /// <summary>
 /// Extension methods for IEnumerable.
 /// </summary>
-public static class IEnumerableExtensions
+public static class EnumerableExtensions
 {
     /// <summary>
-    /// Splits a sequence into chunks.
+    /// Splits a sequence into chunks bounded by a total weight per chunk.
     /// </summary>
     /// <typeparam name="TSource">Type of the elements in the sequence.</typeparam>
     /// <param name="source">The sequence of elements to split.</param>
@@ -21,19 +21,25 @@ public static class IEnumerableExtensions
     /// <param name="itemWeight">The item weight selector.</param>
     /// <returns>A sequence of chunks.</returns>
     /// <remarks>
+    /// This is a weight-based variant, distinct from the standard-library
+    /// <see cref="System.Linq.Enumerable.Chunk{TSource}(System.Collections.Generic.IEnumerable{TSource}, int)"/>,
+    /// which splits by a fixed element count. Use the standard-library overload for a fixed number of
+    /// elements per chunk, and this one when each element contributes a variable weight.
+    /// <para>
     /// Weights are compared using <c>double</c> arithmetic. Accumulated floating-point
     /// rounding errors may cause items whose combined weights are exactly equal to
     /// <paramref name="chunkWeight"/> to occasionally spill into a new chunk.
     /// Use weights with sufficient margin if exact budget boundaries are required.
+    /// </para>
     /// </remarks>
     public static IEnumerable<List<TSource>> Chunk<TSource>(
         this IEnumerable<TSource> source,
         double chunkWeight,
         Func<TSource, double> itemWeight)
     {
-        Argument.NotNull(source, nameof(source));
-        Argument.GreaterThan(chunkWeight, 0.0, nameof(chunkWeight));
-        Argument.NotNull(itemWeight, nameof(itemWeight));
+        Argument.NotNull(source);
+        Argument.GreaterThan(chunkWeight, 0.0);
+        Argument.NotNull(itemWeight);
 
         return ChunkIterator(source, chunkWeight, itemWeight);
     }
@@ -47,8 +53,8 @@ public static class IEnumerableExtensions
     /// <returns>Index of the first element in the sequence that satisfies the condition, -1 otherwise.</returns>
     public static int FirstIndexOf<TSource>(this IEnumerable<TSource> source, Func<TSource, bool> predicate)
     {
-        Argument.NotNull(source, nameof(source));
-        Argument.NotNull(predicate, nameof(predicate));
+        Argument.NotNull(source);
+        Argument.NotNull(predicate);
 
         int index = -1;
 
@@ -74,8 +80,8 @@ public static class IEnumerableExtensions
     /// <returns>Index of the last element in the sequence that satisfies the condition, -1 otherwise.</returns>
     public static int LastIndexOf<TSource>(this IEnumerable<TSource> source, Func<TSource, bool> predicate)
     {
-        Argument.NotNull(source, nameof(source));
-        Argument.NotNull(predicate, nameof(predicate));
+        Argument.NotNull(source);
+        Argument.NotNull(predicate);
 
         int index = -1;
         int match = -1;
@@ -102,7 +108,7 @@ public static class IEnumerableExtensions
     /// <returns>A randomly shuffled array.</returns>
     public static TSource[] Shuffle<TSource>(this IEnumerable<TSource> source)
     {
-        Argument.NotNull(source, nameof(source));
+        Argument.NotNull(source);
 
         TSource[] elements = source.ToArray();
 

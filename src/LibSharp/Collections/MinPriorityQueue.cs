@@ -1,8 +1,9 @@
-﻿// Copyright (c) 2026 Danylo Fitel
+// Copyright (c) 2026 Danylo Fitel
 
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using LibSharp.Common;
 
@@ -16,7 +17,7 @@ namespace LibSharp.Collections;
 public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
 {
     /// <summary>
-    /// Initializes a new instance of the <see cref="MinPriorityQueue{Item}"/> class.
+    /// Initializes a new instance of the <see cref="MinPriorityQueue{T}"/> class.
     /// </summary>
     public MinPriorityQueue()
         : this(InitialCapacity, Enumerable.Empty<T>(), TypeExtensions.GetDefaultComparer<T>())
@@ -24,7 +25,7 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="MinPriorityQueue{Item}"/> class.
+    /// Initializes a new instance of the <see cref="MinPriorityQueue{T}"/> class.
     /// </summary>
     /// <param name="comparison">Value comparison.</param>
     public MinPriorityQueue(Comparison<T> comparison)
@@ -33,7 +34,7 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="MinPriorityQueue{Item}"/> class.
+    /// Initializes a new instance of the <see cref="MinPriorityQueue{T}"/> class.
     /// </summary>
     /// <param name="comparer">Value comparer.</param>
     public MinPriorityQueue(IComparer<T> comparer)
@@ -42,7 +43,7 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="MinPriorityQueue{Item}"/> class.
+    /// Initializes a new instance of the <see cref="MinPriorityQueue{T}"/> class.
     /// </summary>
     /// <param name="capacity">Initial capacity.</param>
     public MinPriorityQueue(int capacity)
@@ -51,7 +52,7 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="MinPriorityQueue{Item}"/> class.
+    /// Initializes a new instance of the <see cref="MinPriorityQueue{T}"/> class.
     /// </summary>
     /// <param name="capacity">Initial capacity.</param>
     /// <param name="comparison">Value comparison.</param>
@@ -61,7 +62,7 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="MinPriorityQueue{Item}"/> class.
+    /// Initializes a new instance of the <see cref="MinPriorityQueue{T}"/> class.
     /// </summary>
     /// <param name="capacity">Initial capacity.</param>
     /// <param name="comparer">Value comparer.</param>
@@ -71,7 +72,7 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="MinPriorityQueue{Item}"/> class.
+    /// Initializes a new instance of the <see cref="MinPriorityQueue{T}"/> class.
     /// </summary>
     /// <param name="collection">The collection to add to the queue.</param>
     public MinPriorityQueue(IEnumerable<T> collection)
@@ -80,7 +81,7 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="MinPriorityQueue{Item}"/> class.
+    /// Initializes a new instance of the <see cref="MinPriorityQueue{T}"/> class.
     /// </summary>
     /// <param name="collection">The collection to add to the queue.</param>
     /// <param name="comparison">Value comparer.</param>
@@ -90,7 +91,7 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="MinPriorityQueue{Item}"/> class.
+    /// Initializes a new instance of the <see cref="MinPriorityQueue{T}"/> class.
     /// </summary>
     /// <param name="collection">The collection to add to the queue.</param>
     /// <param name="comparer">Value comparer.</param>
@@ -100,16 +101,16 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="MinPriorityQueue{Item}"/> class.
+    /// Initializes a new instance of the <see cref="MinPriorityQueue{T}"/> class.
     /// </summary>
     /// <param name="capacity">Initial capacity.</param>
     /// <param name="collection">The collection to add to the queue.</param>
     /// <param name="comparer">Value comparer.</param>
     public MinPriorityQueue(int capacity, IEnumerable<T> collection, IComparer<T> comparer)
     {
-        Argument.GreaterThanOrEqualTo(capacity, 0, nameof(capacity));
-        Argument.NotNull(collection, nameof(collection));
-        Argument.NotNull(comparer, nameof(comparer));
+        Argument.GreaterThanOrEqualTo(capacity, 0);
+        Argument.NotNull(collection);
+        Argument.NotNull(comparer);
 
         int initialCapacity = capacity;
         if (collection is IReadOnlyCollection<T> readOnlyCollection)
@@ -163,11 +164,11 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     }
 
     /// <inheritdoc/>
-    public bool TryPeek(out T item)
+    public bool TryPeek([MaybeNullWhen(false)] out T item)
     {
         if (Count == 0)
         {
-            item = default;
+            item = default!;
             return false;
         }
 
@@ -204,18 +205,18 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
         Exchange(1, Count--);
         Sink(1);
 
-        m_heap[Count + 1] = default;
+        m_heap[Count + 1] = default!;
         Shrink();
 
         return min;
     }
 
     /// <inheritdoc/>
-    public bool TryDequeue(out T item)
+    public bool TryDequeue([MaybeNullWhen(false)] out T item)
     {
         if (Count == 0)
         {
-            item = default;
+            item = default!;
             return false;
         }
 
@@ -250,9 +251,9 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     /// <inheritdoc/>
     public void CopyTo(T[] array, int arrayIndex)
     {
-        Argument.NotNull(array, nameof(array));
-        Argument.GreaterThanOrEqualTo(arrayIndex, 0, nameof(arrayIndex));
-        Argument.LessThanOrEqualTo(arrayIndex, array.Length, nameof(arrayIndex));
+        Argument.NotNull(array);
+        Argument.GreaterThanOrEqualTo(arrayIndex, 0);
+        Argument.LessThanOrEqualTo(arrayIndex, array.Length);
         Argument.GreaterThanOrEqualTo(array.Length - arrayIndex, Count, "Array offset");
 
         Array.Copy(m_heap, 1, array, arrayIndex, Count);
@@ -271,7 +272,7 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
             Sink(firstIndex);
             Swim(firstIndex);
 
-            m_heap[Count + 1] = default;
+            m_heap[Count + 1] = default!;
             Shrink();
 
             return true;
@@ -289,10 +290,10 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     /// <inheritdoc/>
     public void CopyTo(Array array, int index)
     {
-        Argument.NotNull(array, nameof(array));
+        Argument.NotNull(array);
         Argument.EqualTo(array.Rank, 1, nameof(array.Rank));
-        Argument.GreaterThanOrEqualTo(index, 0, nameof(index));
-        Argument.LessThanOrEqualTo(index, array.Length, nameof(index));
+        Argument.GreaterThanOrEqualTo(index, 0);
+        Argument.LessThanOrEqualTo(index, array.Length);
         Argument.GreaterThanOrEqualTo(array.Length - index, Count, "Array offset");
 
         Array.Copy(m_heap, 1, array, index, Count);
@@ -306,8 +307,9 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
 
     /// <summary>
     /// Gets the index of the first occurrence of the item in the heap.
-    /// Uses the queue's comparer so that <see cref="Contains"/> and <see cref="Remove"/>
-    /// are consistent with the ordering relation.
+    /// Uses <see cref="EqualityComparer{T}.Default"/> so that <see cref="Contains"/> and
+    /// <see cref="Remove"/> honour the <see cref="ICollection{T}"/> contract (element equality),
+    /// independently of the ordering relation used to arrange the heap.
     /// </summary>
     /// <param name="item">The item to find.</param>
     /// <returns>Index of the item in the heap, or -1 if it was not found.</returns>
@@ -315,7 +317,7 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     {
         for (int i = 1; i <= Count; ++i)
         {
-            if (m_comparer.Compare(item, m_heap[i]) == 0)
+            if (s_equalityComparer.Equals(item, m_heap[i]))
             {
                 return i;
             }
@@ -414,6 +416,11 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     private const int InitialCapacity = 1;
 
     /// <summary>
+    /// Equality comparer used by <see cref="Contains"/> and <see cref="Remove"/> to locate items.
+    /// </summary>
+    private static readonly EqualityComparer<T> s_equalityComparer = EqualityComparer<T>.Default;
+
+    /// <summary>
     /// The value comparer.
     /// </summary>
     private readonly IComparer<T> m_comparer;
@@ -450,33 +457,33 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
         {
             get
             {
-                Validate();
+                MinPriorityQueue<TItem> queue = Validate();
 
-                if (m_index >= m_queue.Count)
+                if (m_index >= queue.Count)
                 {
                     throw new InvalidOperationException("Enumerator has enumerated all items and needs to be reset.");
                 }
 
-                return m_queue.m_heap[m_index + 1];
+                return queue.m_heap[m_index + 1];
             }
         }
 
         /// <inheritdoc/>
-        readonly object IEnumerator.Current => Current;
+        readonly object? IEnumerator.Current => Current;
 
         /// <inheritdoc/>
         public bool MoveNext()
         {
-            Validate();
+            MinPriorityQueue<TItem> queue = Validate();
 
             ++m_index;
-            return m_index < m_queue.Count;
+            return m_index < queue.Count;
         }
 
         /// <inheritdoc/>
         public void Reset()
         {
-            Validate();
+            _ = Validate();
 
             m_index = -1;
         }
@@ -490,7 +497,8 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
         /// <summary>
         /// Ensures that the enumerator is in a valid state, e.g. it has not been disposed, and the collection has not been modified.
         /// </summary>
-        private readonly void Validate()
+        /// <returns>The non-null queue being enumerated.</returns>
+        private readonly MinPriorityQueue<TItem> Validate()
         {
             if (m_queue is null)
             {
@@ -500,6 +508,8 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
             {
                 throw new InvalidOperationException("Collection was modified; enumeration operation may not execute.");
             }
+
+            return m_queue;
         }
 
         /// <summary>
@@ -510,7 +520,7 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
         /// <summary>
         /// Reference to the queue being enumerated.
         /// </summary>
-        private MinPriorityQueue<TItem> m_queue;
+        private MinPriorityQueue<TItem>? m_queue;
 
         /// <summary>
         /// Current of the enumerator.

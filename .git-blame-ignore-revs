@@ -1,0 +1,6 @@
+# Revisions listed here are skipped by `git blame` (bulk/mechanical changes).
+# Enable locally with:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# Normalize encoding to UTF-8 (no BOM) and line endings to LF across the repository.
+e3cfe2f5b53918364a9cca06cbd191712711897f
