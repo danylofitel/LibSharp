@@ -28,7 +28,10 @@ public static class DictionaryExtensions
         Func<TKey, TValue, TValue> updateValueFactory)
     {
         Argument.NotNull(dictionary, nameof(dictionary));
-        ArgumentNullException.ThrowIfNull(key);
+        if (key is null)
+        {
+            throw new ArgumentNullException(nameof(key));
+        }
         Argument.NotNull(updateValueFactory, nameof(updateValueFactory));
 
         return dictionary.AddOrUpdate(
@@ -54,7 +57,10 @@ public static class DictionaryExtensions
         Func<TKey, TValue, TValue> updateValueFactory)
     {
         Argument.NotNull(dictionary, nameof(dictionary));
-        ArgumentNullException.ThrowIfNull(key);
+        if (key is null)
+        {
+            throw new ArgumentNullException(nameof(key));
+        }
         Argument.NotNull(addValueFactory, nameof(addValueFactory));
         Argument.NotNull(updateValueFactory, nameof(updateValueFactory));
 
@@ -93,7 +99,10 @@ public static class DictionaryExtensions
         TArg factoryArgument)
     {
         Argument.NotNull(dictionary, nameof(dictionary));
-        ArgumentNullException.ThrowIfNull(key);
+        if (key is null)
+        {
+            throw new ArgumentNullException(nameof(key));
+        }
         Argument.NotNull(addValueFactory, nameof(addValueFactory));
         Argument.NotNull(updateValueFactory, nameof(updateValueFactory));
 
@@ -118,7 +127,10 @@ public static class DictionaryExtensions
         TValue value)
     {
         Argument.NotNull(dictionary, nameof(dictionary));
-        ArgumentNullException.ThrowIfNull(key);
+        if (key is null)
+        {
+            throw new ArgumentNullException(nameof(key));
+        }
 
         return dictionary.GetOrAdd(key, keyValue => value);
     }
@@ -138,7 +150,10 @@ public static class DictionaryExtensions
         Func<TKey, TValue> valueFactory)
     {
         Argument.NotNull(dictionary, nameof(dictionary));
-        ArgumentNullException.ThrowIfNull(key);
+        if (key is null)
+        {
+            throw new ArgumentNullException(nameof(key));
+        }
         Argument.NotNull(valueFactory, nameof(valueFactory));
 
         if (dictionary.TryGetValue(key, out TValue? oldValue))
@@ -171,7 +186,10 @@ public static class DictionaryExtensions
         TArg factoryArgument)
     {
         Argument.NotNull(dictionary, nameof(dictionary));
-        ArgumentNullException.ThrowIfNull(key);
+        if (key is null)
+        {
+            throw new ArgumentNullException(nameof(key));
+        }
         Argument.NotNull(valueFactory, nameof(valueFactory));
 
         return dictionary.GetOrAdd(

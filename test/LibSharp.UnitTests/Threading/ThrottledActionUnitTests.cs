@@ -212,5 +212,21 @@ public class ThrottledActionUnitTests
         Assert.AreEqual(2, count);
     }
 
+    [TestMethod]
+    public void Invoke_WithVeryLargeInterval_DoesNotOverflow_AndThrottles()
+    {
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
+        int count = 0;
+
+        // A near-maximum interval must not overflow the double-to-long tick conversion into a
+        // negative value, which would otherwise make every call "past the interval" and defeat throttling.
+        ThrottledAction throttled = new ThrottledAction(() => count++, TimeSpan.MaxValue, timeProvider);
+
+        throttled.Invoke(); // First call fires.
+        throttled.Invoke(); // Dropped — the interval is effectively unreachable.
+
+        Assert.AreEqual(1, count);
+    }
+
     public TestContext TestContext { get; set; }
 }

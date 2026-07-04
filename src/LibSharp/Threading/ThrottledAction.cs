@@ -41,7 +41,12 @@ public sealed class ThrottledAction
         m_action = action;
         m_interval = interval;
         m_timeProvider = timeProvider ?? TimeProvider.System;
-        m_intervalTicks = (long)Math.Round(interval.TotalSeconds * m_timeProvider.TimestampFrequency);
+
+        // Clamp to long.MaxValue so an astronomically large interval (near TimeSpan.MaxValue) does not
+        // overflow the double-to-long conversion — which would otherwise yield an undefined value and
+        // break the throttle. long.MaxValue ticks simply means "effectively never fires again".
+        double intervalTicks = Math.Round(interval.TotalSeconds * m_timeProvider.TimestampFrequency);
+        m_intervalTicks = intervalTicks < long.MaxValue ? (long)intervalTicks : long.MaxValue;
     }
 
     /// <summary>

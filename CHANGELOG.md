@@ -9,6 +9,7 @@
     - Renamed extension classes to drop the `I` prefix: `IEnumerableExtensions` → `EnumerableExtensions`, `ICollectionExtensions` → `CollectionExtensions`, `IDictionaryExtensions` → `DictionaryExtensions`, `IAsyncEnumerableExtensions` → `AsyncEnumerableExtensions` (extension methods called via instance syntax are unaffected; static-style calls must use the new names)
     - `MinPriorityQueue<T>` and `MaxPriorityQueue<T>`: `Contains` and `Remove` now use element equality (`EqualityComparer<T>.Default`) instead of the ordering comparer, so they honour the `ICollection<T>` contract (reverses the 3.0.0 change; ordering still uses the comparer)
     - `ConcurrentHashSet<T>` now constrains `T` to `notnull` (it is backed by `ConcurrentDictionary`, which never permitted null elements); `IDictionaryExtensions.Copy` likewise constrains its key to `notnull`
+    - `DictionaryExtensions` and the key-value caches now validate keys without boxing value-type keys
   - `Common`
     - `Optional<T>` no longer implements `IEquatable<T>`; it now implements only `IEquatable<Optional<T>>`, so equality is defined between two optionals. A bare value still compares equal via the new implicit conversion, but a value typed as `object` never does
     - Added an implicit conversion from `T` to `Optional<T>` (always produces a present optional, even for `null`)
@@ -18,6 +19,7 @@
     - `XmlSerializationExtensions.SerializeToXml` / `DeserializeFromXml` are now annotated with `[RequiresUnreferencedCode]` / `[RequiresDynamicCode]` to reflect that `XmlSerializer` is incompatible with trimming and Native AOT
   - `Threading`
     - `ThrottledAction` and `DebouncedAction` now accept an optional `TimeProvider` (defaulting to `TimeProvider.System`) so the throttle interval and debounce timer can be driven deterministically in tests
+    - `ThrottledAction` now clamps its interval-to-ticks conversion so an extreme interval near `TimeSpan.MaxValue` cannot overflow into a negative value and defeat throttling
 
 - 3.0.0
   - `Caching`
