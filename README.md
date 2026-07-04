@@ -9,6 +9,12 @@ The public API ships nullable reference type annotations. The library is trim- a
 * Source code: <https://github.com/danylofitel/LibSharp>.
 * NuGet package: <https://www.nuget.org/packages/LibSharp>.
 
+## Installation
+
+```bash
+dotnet add package LibSharp
+```
+
 LibSharp consists of the following namespaces:
 
 * Common - contains extension methods for standard .NET types, as well as commonly used utilities and value types.
@@ -18,7 +24,7 @@ LibSharp consists of the following namespaces:
 
 ## Performance Benchmarks
 
-BenchmarkDotNet setup and benchmark scripts are available in [`benchmarks/`](benchmarks/README.md).
+BenchmarkDotNet setup and benchmark scripts are available in <https://github.com/danylofitel/LibSharp/blob/main/benchmarks/README.md>.
 
 ## Components and Usage
 
