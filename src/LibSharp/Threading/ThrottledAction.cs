@@ -1,7 +1,6 @@
 // Copyright (c) 2026 Danylo Fitel
 
 using System;
-using System.Diagnostics;
 using System.Threading;
 using LibSharp.Common;
 
@@ -31,14 +30,18 @@ public sealed class ThrottledAction
     /// The minimum time between executions, or <see cref="TimeSpan.Zero"/> for
     /// at-most-one-concurrent-execution behavior.
     /// </param>
-    public ThrottledAction(Action action, TimeSpan interval)
+    /// <param name="timeProvider">
+    /// (Optional) Time provider used to measure the interval. Defaults to <see cref="TimeProvider.System"/>.
+    /// </param>
+    public ThrottledAction(Action action, TimeSpan interval, TimeProvider? timeProvider = null)
     {
         Argument.NotNull(action, nameof(action));
         Argument.GreaterThanOrEqualTo(interval, TimeSpan.Zero, nameof(interval));
 
         m_action = action;
         m_interval = interval;
-        m_intervalTicks = (long)Math.Round(interval.TotalSeconds * Stopwatch.Frequency);
+        m_timeProvider = timeProvider ?? TimeProvider.System;
+        m_intervalTicks = (long)Math.Round(interval.TotalSeconds * m_timeProvider.TimestampFrequency);
     }
 
     /// <summary>
@@ -80,11 +83,15 @@ public sealed class ThrottledAction
 
         lock (m_lock)
         {
-            long now = Stopwatch.GetTimestamp();
-            shouldInvoke = now - m_lastInvocationTimestamp >= m_intervalTicks;
+            long now = m_timeProvider.GetTimestamp();
+
+            // The first invocation always fires; the timestamp origin is provider-defined and
+            // must not be assumed to be far from zero (e.g. FakeTimeProvider starts near zero).
+            shouldInvoke = !m_hasInvoked || now - m_lastInvocationTimestamp >= m_intervalTicks;
             if (shouldInvoke)
             {
                 m_lastInvocationTimestamp = now;
+                m_hasInvoked = true;
             }
         }
 
@@ -96,9 +103,11 @@ public sealed class ThrottledAction
 
     private readonly Action m_action;
     private readonly TimeSpan m_interval;
+    private readonly TimeProvider m_timeProvider;
     private readonly long m_intervalTicks;
     private readonly object m_lock = new object();
 
     private long m_lastInvocationTimestamp;
+    private bool m_hasInvoked;
     private int m_isRunning;
 }

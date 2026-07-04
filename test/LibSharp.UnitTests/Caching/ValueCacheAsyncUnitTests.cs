@@ -4,6 +4,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using LibSharp.Caching;
+using Microsoft.Extensions.Time.Testing;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
@@ -512,5 +513,25 @@ public class ValueCacheAsyncUnitTests
                 _ = await Assert.ThrowsExactlyAsync<TaskCanceledException>(async () => await cache.GetValueAsync(cancellationTokenSource.Token).ConfigureAwait(false)).ConfigureAwait(false);
             }
         }
+    }
+
+    [TestMethod]
+    public async Task GetValueAsync_WithFakeTimeProvider_ExpiresDeterministically()
+    {
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
+        int calls = 0;
+        using ValueCacheAsync<int> cache = new ValueCacheAsync<int>(_ => Task.FromResult(++calls), TimeSpan.FromMinutes(1), timeProvider);
+
+        Assert.AreEqual(1, await cache.GetValueAsync(CancellationToken.None).ConfigureAwait(false));
+        Assert.AreEqual(1, await cache.GetValueAsync(CancellationToken.None).ConfigureAwait(false));
+        Assert.AreEqual(1, calls);
+
+        timeProvider.Advance(TimeSpan.FromSeconds(59));
+        Assert.AreEqual(1, await cache.GetValueAsync(CancellationToken.None).ConfigureAwait(false));
+        Assert.AreEqual(1, calls);
+
+        timeProvider.Advance(TimeSpan.FromSeconds(1));
+        Assert.AreEqual(2, await cache.GetValueAsync(CancellationToken.None).ConfigureAwait(false));
+        Assert.AreEqual(2, calls);
     }
 }

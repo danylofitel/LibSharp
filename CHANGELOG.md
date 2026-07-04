@@ -4,6 +4,7 @@
   - Enabled nullable reference type annotations across the entire public API; `TryGet*` methods and out parameters are now annotated (e.g. `[MaybeNullWhen(false)]`), and nullable inputs such as optional `Encoding`/`XmlReaderSettings` arguments are marked accordingly
   - `Caching`
     - Updated `ProactiveAsyncCache<T>` to never throw exceptions from `DisposeAsync()`
+    - `ValueCache<T>`, `ValueCacheAsync<T>`, `KeyValueCache<TKey, TValue>`, `KeyValueCacheAsync<TKey, TValue>`, and `ProactiveAsyncCache<T>` now accept an optional `TimeProvider` (defaulting to `TimeProvider.System`) so expiration and background refresh can be driven deterministically in tests
   - `Collections`
     - Renamed extension classes to drop the `I` prefix: `IEnumerableExtensions` → `EnumerableExtensions`, `ICollectionExtensions` → `CollectionExtensions`, `IDictionaryExtensions` → `DictionaryExtensions`, `IAsyncEnumerableExtensions` → `AsyncEnumerableExtensions` (extension methods called via instance syntax are unaffected; static-style calls must use the new names)
     - `MinPriorityQueue<T>` and `MaxPriorityQueue<T>`: `Contains` and `Remove` now use element equality (`EqualityComparer<T>.Default`) instead of the ordering comparer, so they honour the `ICollection<T>` contract (reverses the 3.0.0 change; ordering still uses the comparer)
@@ -14,6 +15,9 @@
     - Added `Match`, `Map`, and `Bind` to `Optional<T>`
     - Added `Match`, `Map`, `MapError`, and `Bind` to `Result<T, TError>`
     - Removed the `Argument.NotNull(object, string)` overload; calling `NotNull` on a non-nullable value type is now a compile error instead of a silent no-op (the reference-type generic overload is retained)
+    - `XmlSerializationExtensions.SerializeToXml` / `DeserializeFromXml` are now annotated with `[RequiresUnreferencedCode]` / `[RequiresDynamicCode]` to reflect that `XmlSerializer` is incompatible with trimming and Native AOT
+  - `Threading`
+    - `ThrottledAction` and `DebouncedAction` now accept an optional `TimeProvider` (defaulting to `TimeProvider.System`) so the throttle interval and debounce timer can be driven deterministically in tests
 
 - 3.0.0
   - `Caching`

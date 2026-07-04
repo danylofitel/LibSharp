@@ -4,6 +4,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using LibSharp.Caching;
+using Microsoft.Extensions.Time.Testing;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
@@ -404,5 +405,25 @@ public class ValueCacheUnitTests
         Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
         _ = createFactory.Received(1)();
         _ = updateFactory.DidNotReceive()(Arg.Any<int>());
+    }
+
+    [TestMethod]
+    public void GetValue_WithFakeTimeProvider_ExpiresDeterministically()
+    {
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
+        int calls = 0;
+        ValueCache<int> cache = new ValueCache<int>(() => ++calls, TimeSpan.FromMinutes(1), timeProvider);
+
+        Assert.AreEqual(1, cache.GetValue()); // Factory invoked.
+        Assert.AreEqual(1, cache.GetValue()); // Cached.
+        Assert.AreEqual(1, calls);
+
+        timeProvider.Advance(TimeSpan.FromSeconds(59));
+        Assert.AreEqual(1, cache.GetValue()); // Still fresh.
+        Assert.AreEqual(1, calls);
+
+        timeProvider.Advance(TimeSpan.FromSeconds(1));
+        Assert.AreEqual(2, cache.GetValue()); // Expired: factory invoked again.
+        Assert.AreEqual(2, calls);
     }
 }

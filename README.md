@@ -265,7 +265,7 @@ BenchmarkDotNet setup and benchmark scripts are available in [`benchmarks/`](ben
 
 ### Threading
 
-`Threading` namespace contains an async-compatible mutual exclusion lock and utilities for controlling how frequently an action can fire.
+`Threading` namespace contains an async-compatible mutual exclusion lock and utilities for controlling how frequently an action can fire. `ThrottledAction` and `DebouncedAction` accept an optional `TimeProvider` (defaulting to `TimeProvider.System`), so their timing can be driven deterministically with a `FakeTimeProvider` in tests.
 
 ```csharp
     using LibSharp.Threading;
@@ -309,6 +309,7 @@ BenchmarkDotNet setup and benchmark scripts are available in [`benchmarks/`](ben
 
 Notes:
 
+* All caches accept an optional `TimeProvider` (defaulting to `TimeProvider.System`). Pass a `FakeTimeProvider` in tests to drive expiration and background refresh deterministically, without real delays.
 * Some of the classes implement `IDisposable` interface and should be correctly disposed.
 * Be cautious when caching types that implement `IDisposable` interface as the values will not be automatically disposed by the caches.
 * Be cautious when using classes with `LazyThreadSafetyMode.PublicationOnly` behavior together with `IDisposable` types as discarded instances will not be disposed.

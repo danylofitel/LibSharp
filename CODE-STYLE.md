@@ -1,16 +1,15 @@
 # Code style
 
-Generally speaking, there is no right or wrong when it comes to specific styles. For the most part they are a matter of personal preferences.
-That said, we are going to enforce a specific coding style that we agree upon, and there are at least 2 good reasons for doing that:
+There are at least 2 good reasons for enforcing a consistent code style:
 
 * The team spends zero time arguing about their subjective preferences when IDE makes those decisions
 * Having the style enforced by IDE means that all code is consistently formatted. It makes it easier to read for team members as they are used to it, and it's very easy to change from one style to another
 
-Here are the language specific styles.
-
 ## C\#
 
-The general coding style is based on standard C# style and is enforced by .editorconfig.
+The general coding style is based on standard C# style and is enforced by .editorconfig. A few key principles:
+* Prefer explicit intent over syntactic sugar
+* Avoid mixing multiple syntactic approaches
 
 ### Naming Conventions
 

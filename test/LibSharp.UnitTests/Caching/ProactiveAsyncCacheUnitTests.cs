@@ -6,6 +6,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using LibSharp.Caching;
+using Microsoft.Extensions.Time.Testing;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace LibSharp.UnitTests.Caching;
@@ -1077,6 +1078,24 @@ public class ProactiveAsyncCacheUnitTests
         Assert.IsTrue(initialFailureObserved, "Expected the initial background fetch to run and fail.");
         Assert.IsNotNull(backgroundTask);
         Assert.IsFalse(backgroundTask.IsFaulted, "Background task should remain active after a failed refresh with a very large retry window.");
+    }
+
+    [TestMethod]
+    public async Task Constructor_WithFakeTimeProvider_ServesValue()
+    {
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
+        int calls = 0;
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            _ => Task.FromResult(Interlocked.Increment(ref calls)),
+            TimeSpan.FromMinutes(5),
+            TimeSpan.FromSeconds(30),
+            allowStaleReads: false,
+            timeProvider);
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
+
+        int value = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+
+        Assert.AreEqual(1, value);
     }
 
     public TestContext TestContext { get; set; }

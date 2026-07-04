@@ -4,6 +4,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using LibSharp.Threading;
+using Microsoft.Extensions.Time.Testing;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace LibSharp.UnitTests.Threading;
@@ -151,6 +152,25 @@ public class DebouncedActionUnitTests
 
         // Assert — action ran exactly once; no post-dispose invocation
         Assert.AreEqual(1, callCount);
+    }
+
+    [TestMethod]
+    public void Invoke_WithFakeTimeProvider_FiresAfterQuietPeriod()
+    {
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
+        int count = 0;
+        using DebouncedAction debounced = new DebouncedAction(() => count++, TimeSpan.FromMilliseconds(300), timeProvider);
+
+        debounced.Invoke();
+        timeProvider.Advance(TimeSpan.FromMilliseconds(200)); // Quiet period not yet elapsed.
+        Assert.AreEqual(0, count);
+
+        debounced.Invoke(); // Resets the quiet period.
+        timeProvider.Advance(TimeSpan.FromMilliseconds(200)); // 200 ms since the reset: not yet.
+        Assert.AreEqual(0, count);
+
+        timeProvider.Advance(TimeSpan.FromMilliseconds(100)); // 300 ms since the reset: fires.
+        Assert.AreEqual(1, count);
     }
 
     public TestContext TestContext { get; set; }

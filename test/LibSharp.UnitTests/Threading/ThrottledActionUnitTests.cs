@@ -4,6 +4,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using LibSharp.Threading;
+using Microsoft.Extensions.Time.Testing;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace LibSharp.UnitTests.Threading;
@@ -189,6 +190,26 @@ public class ThrottledActionUnitTests
         await second.ConfigureAwait(false);
 
         Assert.AreEqual(2, callCount);
+    }
+
+    [TestMethod]
+    public void Invoke_WithFakeTimeProvider_ThrottlesByInterval()
+    {
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
+        int count = 0;
+        ThrottledAction throttled = new ThrottledAction(() => count++, TimeSpan.FromSeconds(1), timeProvider);
+
+        throttled.Invoke(); // First call always fires.
+        throttled.Invoke(); // Within the interval: dropped.
+        Assert.AreEqual(1, count);
+
+        timeProvider.Advance(TimeSpan.FromMilliseconds(999));
+        throttled.Invoke(); // Still within the interval: dropped.
+        Assert.AreEqual(1, count);
+
+        timeProvider.Advance(TimeSpan.FromMilliseconds(1));
+        throttled.Invoke(); // Interval elapsed: fires.
+        Assert.AreEqual(2, count);
     }
 
     public TestContext TestContext { get; set; }

@@ -4,6 +4,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using LibSharp.Caching;
+using Microsoft.Extensions.Time.Testing;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
@@ -447,5 +448,22 @@ public class KeyValueCacheUnitTests
         _ = createFactory.Received(1)(2);
         _ = updateFactory.Received(1)(1, Arg.Any<int>());
         _ = updateFactory.Received(1)(2, Arg.Any<int>());
+    }
+
+    [TestMethod]
+    public void GetValue_WithFakeTimeProvider_ExpiresPerKey()
+    {
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
+        int calls = 0;
+        KeyValueCache<string, int> cache = new KeyValueCache<string, int>(_ => ++calls, TimeSpan.FromMinutes(1), timeProvider);
+
+        Assert.AreEqual(1, cache.GetValue("a")); // Factory invoked for "a".
+        Assert.AreEqual(1, cache.GetValue("a")); // Cached.
+        Assert.AreEqual(2, cache.GetValue("b")); // Factory invoked for "b".
+        Assert.AreEqual(2, calls);
+
+        timeProvider.Advance(TimeSpan.FromMinutes(1));
+        Assert.AreEqual(3, cache.GetValue("a")); // "a" expired: factory invoked again.
+        Assert.AreEqual(3, calls);
     }
 }
