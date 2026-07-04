@@ -1,10 +1,12 @@
 {
   "permissions": {
     "allow": [
+      "Bash(awk '{print $4}')",
       "Bash(cat /c/Users/danyl/AppData/Local/Temp/claude/c--Repos-LibSharp/d7b79974-2e7d-42af-bc3f-56ea26efb102/scratchpad/tsterr.txt | grep -E 'Optional' )",
       "Bash(cat /c/Users/danyl/AppData/Local/Temp/claude/c--Repos-LibSharp/d7b79974-2e7d-42af-bc3f-56ea26efb102/scratchpad/tsterr2.txt | sed -E 's/\\\\\\([0-9]+,[0-9]+\\\\\\)//' | sort | uniq -c | sort -rn)",
       "Bash(dotnet build *)",
       "Bash(dotnet build:*)",
+      "Bash(dotnet pack *)",
       "Bash(dotnet pack:*)",
       "Bash(dotnet test *)",
       "Bash(dotnet test:*)",
@@ -12,6 +14,7 @@
       "Bash(grep -i \"nullable\" /e/Repos/LibSharp/src/LibSharp/*.csproj /e/Repos/LibSharp/test/LibSharp.UnitTests/*.csproj /e/Repos/LibSharp/benchmarks/LibSharp.Benchmarks/*.csproj)",
       "Bash(grep -n \"^\\\\s*\\\\\\(public\\\\|internal\\\\\\)\\\\s*\\\\\\(abstract\\\\|sealed\\\\|static\\\\\\)\\\\?\\\\s*class\\\\|^\\\\s*\\\\\\(public\\\\|internal\\\\\\)\\\\s*\\\\\\(abstract\\\\|sealed\\\\|static\\\\\\)\\\\?\\\\s*record\" e:/Repos/LibSharp/src/LibSharp/Caching/*.cs)",
       "Bash(grep -oE 'UnitTests\\\\\\\\[^\\(]+\\\\.cs')",
+      "Bash(grep -v '^$')",
       "Bash(grep -v \"^--$\")",
       "Bash(ls e:/Repos/LibSharp/*.md)",
       "Bash(powershell -Command \":*)",
@@ -33,6 +36,7 @@
       "Bash(tee /c/Users/danyl/AppData/Local/Temp/claude/c--Repos-LibSharp/d7b79974-2e7d-42af-bc3f-56ea26efb102/scratchpad/tsterr3.txt)",
       "Bash(tee /c/Users/danyl/AppData/Local/Temp/claude/c--Repos-LibSharp/d7b79974-2e7d-42af-bc3f-56ea26efb102/scratchpad/tsterr4.txt)",
       "Bash(tee /c/Users/danyl/AppData/Local/Temp/claude/c--Repos-LibSharp/d7b79974-2e7d-42af-bc3f-56ea26efb102/scratchpad/tsterr5.txt)",
+      "Bash(unzip -l /tmp/libsharp-pack/*.nupkg)",
       "PowerShell(dotnet build c:\\\\Repos\\\\LibSharp\\\\src\\\\LibSharp\\\\LibSharp.csproj -c Debug --nologo -v quiet)",
       "PowerShell(dotnet test c:\\\\Repos\\\\LibSharp\\\\test\\\\LibSharp.UnitTests\\\\LibSharp.UnitTests.csproj --nologo -v quiet --filter \"FullyQualifiedName~ProactiveAsyncCache\")",
       "Read(//c/Users/danyl/AppData/Local/Temp/claude/c--Repos-LibSharp/d7b79974-2e7d-42af-bc3f-56ea26efb102/scratchpad/**)"
