@@ -11,7 +11,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace LibSharp.UnitTests.Collections;
 
 [TestClass]
-public class IAsyncEnumerableExtensionsTests
+public class AsyncEnumerableExtensionsTests
 {
     // ── Chunk ─────────────────────────────────────────────────────────────
 

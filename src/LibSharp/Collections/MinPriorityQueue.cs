@@ -16,7 +16,7 @@ namespace LibSharp.Collections;
 public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
 {
     /// <summary>
-    /// Initializes a new instance of the <see cref="MinPriorityQueue{Item}"/> class.
+    /// Initializes a new instance of the <see cref="MinPriorityQueue{T}"/> class.
     /// </summary>
     public MinPriorityQueue()
         : this(InitialCapacity, Enumerable.Empty<T>(), TypeExtensions.GetDefaultComparer<T>())
@@ -24,7 +24,7 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="MinPriorityQueue{Item}"/> class.
+    /// Initializes a new instance of the <see cref="MinPriorityQueue{T}"/> class.
     /// </summary>
     /// <param name="comparison">Value comparison.</param>
     public MinPriorityQueue(Comparison<T> comparison)
@@ -33,7 +33,7 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="MinPriorityQueue{Item}"/> class.
+    /// Initializes a new instance of the <see cref="MinPriorityQueue{T}"/> class.
     /// </summary>
     /// <param name="comparer">Value comparer.</param>
     public MinPriorityQueue(IComparer<T> comparer)
@@ -42,7 +42,7 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="MinPriorityQueue{Item}"/> class.
+    /// Initializes a new instance of the <see cref="MinPriorityQueue{T}"/> class.
     /// </summary>
     /// <param name="capacity">Initial capacity.</param>
     public MinPriorityQueue(int capacity)
@@ -51,7 +51,7 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="MinPriorityQueue{Item}"/> class.
+    /// Initializes a new instance of the <see cref="MinPriorityQueue{T}"/> class.
     /// </summary>
     /// <param name="capacity">Initial capacity.</param>
     /// <param name="comparison">Value comparison.</param>
@@ -61,7 +61,7 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="MinPriorityQueue{Item}"/> class.
+    /// Initializes a new instance of the <see cref="MinPriorityQueue{T}"/> class.
     /// </summary>
     /// <param name="capacity">Initial capacity.</param>
     /// <param name="comparer">Value comparer.</param>
@@ -71,7 +71,7 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="MinPriorityQueue{Item}"/> class.
+    /// Initializes a new instance of the <see cref="MinPriorityQueue{T}"/> class.
     /// </summary>
     /// <param name="collection">The collection to add to the queue.</param>
     public MinPriorityQueue(IEnumerable<T> collection)
@@ -80,7 +80,7 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="MinPriorityQueue{Item}"/> class.
+    /// Initializes a new instance of the <see cref="MinPriorityQueue{T}"/> class.
     /// </summary>
     /// <param name="collection">The collection to add to the queue.</param>
     /// <param name="comparison">Value comparer.</param>
@@ -90,7 +90,7 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="MinPriorityQueue{Item}"/> class.
+    /// Initializes a new instance of the <see cref="MinPriorityQueue{T}"/> class.
     /// </summary>
     /// <param name="collection">The collection to add to the queue.</param>
     /// <param name="comparer">Value comparer.</param>
@@ -100,7 +100,7 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="MinPriorityQueue{Item}"/> class.
+    /// Initializes a new instance of the <see cref="MinPriorityQueue{T}"/> class.
     /// </summary>
     /// <param name="capacity">Initial capacity.</param>
     /// <param name="collection">The collection to add to the queue.</param>
@@ -306,8 +306,9 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
 
     /// <summary>
     /// Gets the index of the first occurrence of the item in the heap.
-    /// Uses the queue's comparer so that <see cref="Contains"/> and <see cref="Remove"/>
-    /// are consistent with the ordering relation.
+    /// Uses <see cref="EqualityComparer{T}.Default"/> so that <see cref="Contains"/> and
+    /// <see cref="Remove"/> honour the <see cref="ICollection{T}"/> contract (element equality),
+    /// independently of the ordering relation used to arrange the heap.
     /// </summary>
     /// <param name="item">The item to find.</param>
     /// <returns>Index of the item in the heap, or -1 if it was not found.</returns>
@@ -315,7 +316,7 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     {
         for (int i = 1; i <= Count; ++i)
         {
-            if (m_comparer.Compare(item, m_heap[i]) == 0)
+            if (s_equalityComparer.Equals(item, m_heap[i]))
             {
                 return i;
             }
@@ -412,6 +413,11 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     /// The default initial capacity.
     /// </summary>
     private const int InitialCapacity = 1;
+
+    /// <summary>
+    /// Equality comparer used by <see cref="Contains"/> and <see cref="Remove"/> to locate items.
+    /// </summary>
+    private static readonly EqualityComparer<T> s_equalityComparer = EqualityComparer<T>.Default;
 
     /// <summary>
     /// The value comparer.

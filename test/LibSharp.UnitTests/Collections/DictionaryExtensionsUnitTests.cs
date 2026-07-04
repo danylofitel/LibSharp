@@ -7,7 +7,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace LibSharp.UnitTests.Collections;
 
 [TestClass]
-public class IDictionaryExtensionsUnitTests
+public class DictionaryExtensionsUnitTests
 {
     [TestMethod]
     public void AddOrUpdate_FromValue_ValueDoesNotExist_AddsValue()

@@ -8,7 +8,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 namespace LibSharp.UnitTests.Collections;
 
 [TestClass]
-public class ICollectionExtensionsUnitTests
+public class CollectionExtensionsUnitTests
 {
     [TestMethod]
     public void AddRange_EmptyInitialCollection()

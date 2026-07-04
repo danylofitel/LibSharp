@@ -793,7 +793,7 @@ public class MaxPriorityQueueUnitTests
     public void GetEnumerator_NonEmptyQueue_IteratesThroughAllElements()
     {
         // Arrange
-        int[] collection = IEnumerableExtensions.Shuffle(Enumerable.Range(0, 100));
+        int[] collection = EnumerableExtensions.Shuffle(Enumerable.Range(0, 100));
         MaxPriorityQueue<int> queue = new MaxPriorityQueue<int>(collection);
 
         // Act
@@ -807,7 +807,7 @@ public class MaxPriorityQueueUnitTests
     public void GetWeakEnumerator_NonEmptyQueue_IteratesThroughAllElements()
     {
         // Arrange
-        int[] collection = IEnumerableExtensions.Shuffle(Enumerable.Range(0, 100));
+        int[] collection = EnumerableExtensions.Shuffle(Enumerable.Range(0, 100));
         IEnumerable queue = new MaxPriorityQueue<int>(collection);
 
         // Act
@@ -825,7 +825,7 @@ public class MaxPriorityQueueUnitTests
     public void GetEnumerator_AfterEnumeratingAllElements_Current_Throws()
     {
         // Arrange
-        MaxPriorityQueue<int> queue = new MaxPriorityQueue<int>(IEnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
+        MaxPriorityQueue<int> queue = new MaxPriorityQueue<int>(EnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
 
         using (IEnumerator<int> enumerator = queue.GetEnumerator())
         {
@@ -845,7 +845,7 @@ public class MaxPriorityQueueUnitTests
     public void GetEnumerator_AfterEnumeratingAllElements_MoveNext_ReturnsFalse()
     {
         // Arrange
-        MaxPriorityQueue<int> queue = new MaxPriorityQueue<int>(IEnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
+        MaxPriorityQueue<int> queue = new MaxPriorityQueue<int>(EnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
 
         using (IEnumerator<int> enumerator = queue.GetEnumerator())
         {
@@ -866,7 +866,7 @@ public class MaxPriorityQueueUnitTests
     public void GetEnumerator_AfterEnumeratingAllElements_Reset_ResetsEnumerator()
     {
         // Arrange
-        MaxPriorityQueue<int> queue = new MaxPriorityQueue<int>(IEnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
+        MaxPriorityQueue<int> queue = new MaxPriorityQueue<int>(EnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
 
         using (IEnumerator<int> enumerator = queue.GetEnumerator())
         {
@@ -894,7 +894,7 @@ public class MaxPriorityQueueUnitTests
     public void GetEnumerator_QueueModifiedDuringEnumeration_Current_Throws()
     {
         // Arrange
-        MaxPriorityQueue<int> queue = new MaxPriorityQueue<int>(IEnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
+        MaxPriorityQueue<int> queue = new MaxPriorityQueue<int>(EnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
 
         using (IEnumerator<int> enumerator = queue.GetEnumerator())
         {
@@ -913,7 +913,7 @@ public class MaxPriorityQueueUnitTests
     public void GetEnumerator_QueueModifiedDuringEnumeration_MoveNext_Throws()
     {
         // Arrange
-        MaxPriorityQueue<int> queue = new MaxPriorityQueue<int>(IEnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
+        MaxPriorityQueue<int> queue = new MaxPriorityQueue<int>(EnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
 
         using (IEnumerator<int> enumerator = queue.GetEnumerator())
         {
@@ -932,7 +932,7 @@ public class MaxPriorityQueueUnitTests
     public void GetEnumerator_QueueModifiedDuringEnumeration_Reset_Throws()
     {
         // Arrange
-        MaxPriorityQueue<int> queue = new MaxPriorityQueue<int>(IEnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
+        MaxPriorityQueue<int> queue = new MaxPriorityQueue<int>(EnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
 
         using (IEnumerator<int> enumerator = queue.GetEnumerator())
         {
@@ -951,7 +951,7 @@ public class MaxPriorityQueueUnitTests
     public void GetEnumerator_AfterDisposing_Current_Throws()
     {
         // Arrange
-        MaxPriorityQueue<int> queue = new MaxPriorityQueue<int>(IEnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
+        MaxPriorityQueue<int> queue = new MaxPriorityQueue<int>(EnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
 
         IEnumerator<int> enumerator;
         using (enumerator = queue.GetEnumerator())
@@ -970,7 +970,7 @@ public class MaxPriorityQueueUnitTests
     public void GetEnumerator_AfterDisposing_MoveNext_Throws()
     {
         // Arrange
-        MaxPriorityQueue<int> queue = new MaxPriorityQueue<int>(IEnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
+        MaxPriorityQueue<int> queue = new MaxPriorityQueue<int>(EnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
 
         IEnumerator<int> enumerator;
         using (enumerator = queue.GetEnumerator())
@@ -989,7 +989,7 @@ public class MaxPriorityQueueUnitTests
     public void GetEnumerator_AfterDisposing_Reset_Throws()
     {
         // Arrange
-        MaxPriorityQueue<int> queue = new MaxPriorityQueue<int>(IEnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
+        MaxPriorityQueue<int> queue = new MaxPriorityQueue<int>(EnumerableExtensions.Shuffle(Enumerable.Range(0, 10)));
 
         IEnumerator<int> enumerator;
         using (enumerator = queue.GetEnumerator())

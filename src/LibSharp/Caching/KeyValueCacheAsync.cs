@@ -86,7 +86,7 @@ public sealed class KeyValueCacheAsync<TKey, TValue> : IKeyValueCacheAsync<TKey,
     /// <inheritdoc/>
     public async Task<TValue> GetValueAsync(TKey key, CancellationToken cancellationToken = default)
     {
-        Argument.NotNull(key, nameof(key));
+        ArgumentNullException.ThrowIfNull(key);
 
         ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
 

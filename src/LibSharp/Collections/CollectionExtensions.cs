@@ -8,7 +8,7 @@ namespace LibSharp.Collections;
 /// <summary>
 /// Extension methods for ICollection.
 /// </summary>
-public static class ICollectionExtensions
+public static class CollectionExtensions
 {
     /// <summary>
     /// Adds a collection of elements to the set.

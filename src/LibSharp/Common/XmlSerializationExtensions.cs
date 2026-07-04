@@ -37,7 +37,7 @@ public static class XmlSerializationExtensions
     /// <returns>XML string.</returns>
     public static string SerializeToXml<T>(this T objectToSerialize)
     {
-        Argument.NotNull(objectToSerialize, nameof(objectToSerialize));
+        ArgumentNullException.ThrowIfNull(objectToSerialize);
 
         using StringWriter stringWriter = new StringWriter();
         GetSerializer(typeof(T)).Serialize(stringWriter, objectToSerialize);

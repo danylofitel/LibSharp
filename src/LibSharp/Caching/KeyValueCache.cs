@@ -85,7 +85,7 @@ public sealed class KeyValueCache<TKey, TValue> : IKeyValueCache<TKey, TValue>
     /// <inheritdoc/>
     public TValue GetValue(TKey key)
     {
-        Argument.NotNull(key, nameof(key));
+        ArgumentNullException.ThrowIfNull(key);
 
         Lazy<ValueCache<TValue>> lazyValueCache = m_cache.GetOrAdd(
             key,

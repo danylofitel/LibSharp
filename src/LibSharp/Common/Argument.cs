@@ -184,19 +184,6 @@ public static class Argument
     }
 
     /// <summary>
-    /// Verifies that the argument is not null.
-    /// </summary>
-    /// <param name="value">Argument value.</param>
-    /// <param name="name">Argument name.</param>
-    public static void NotNull(object value, string name)
-    {
-        if (value is null)
-        {
-            throw new ArgumentNullException(name);
-        }
-    }
-
-    /// <summary>
     /// Verifies that the argument is not null or empty.
     /// </summary>
     /// <param name="value">Argument value.</param>

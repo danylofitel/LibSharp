@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2026 Danylo Fitel
+// Copyright (c) 2026 Danylo Fitel
 
 using System;
 using System.Collections.Generic;
@@ -9,7 +9,16 @@ namespace LibSharp.Common;
 /// A wrapper for any type that may or may not hold a value.
 /// </summary>
 /// <typeparam name="T">Value type.</typeparam>
-public readonly struct Optional<T> : IEquatable<T>, IEquatable<Optional<T>>
+/// <remarks>
+/// Equality is defined only between two <see cref="Optional{T}"/> instances; the type implements
+/// <see cref="IEquatable{T}"/> of <see cref="Optional{T}"/> only. A bare <typeparamref name="T"/>
+/// participates in equality by first being implicitly converted to a present optional (see the
+/// implicit conversion operator), so <c>new Optional&lt;int&gt;(1).Equals(1)</c> is <c>true</c>.
+/// A boxed value typed as <see cref="object"/> is never converted and never compares equal.
+/// This differs from <see cref="Nullable{T}"/>, which the runtime special-cases so that even a
+/// boxed nullable compares equal to its boxed underlying value.
+/// </remarks>
+public readonly struct Optional<T> : IEquatable<Optional<T>>
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="Optional{T}"/> struct with the given value.
@@ -61,10 +70,69 @@ public readonly struct Optional<T> : IEquatable<T>, IEquatable<Optional<T>>
         return HasValue;
     }
 
-    /// <inheritdoc/>
-    public bool Equals(T other)
+    /// <summary>
+    /// Projects the wrapped value through <paramref name="onValue"/> if present, or invokes
+    /// <paramref name="onNone"/> if not, and returns the result.
+    /// </summary>
+    /// <typeparam name="TResult">The result type.</typeparam>
+    /// <param name="onValue">Invoked with the wrapped value when the optional has one.</param>
+    /// <param name="onNone">Invoked when the optional is empty.</param>
+    /// <returns>The result of the invoked delegate.</returns>
+    public TResult Match<TResult>(Func<T, TResult> onValue, Func<TResult> onNone)
     {
-        return HasValue && EqualityComparer<T>.Default.Equals(m_value, other);
+        Argument.NotNull(onValue, nameof(onValue));
+        Argument.NotNull(onNone, nameof(onNone));
+
+        return HasValue ? onValue(m_value) : onNone();
+    }
+
+    /// <summary>
+    /// Invokes <paramref name="onValue"/> with the wrapped value if present, or
+    /// <paramref name="onNone"/> if not.
+    /// </summary>
+    /// <param name="onValue">Invoked with the wrapped value when the optional has one.</param>
+    /// <param name="onNone">Invoked when the optional is empty.</param>
+    public void Match(Action<T> onValue, Action onNone)
+    {
+        Argument.NotNull(onValue, nameof(onValue));
+        Argument.NotNull(onNone, nameof(onNone));
+
+        if (HasValue)
+        {
+            onValue(m_value);
+        }
+        else
+        {
+            onNone();
+        }
+    }
+
+    /// <summary>
+    /// Transforms the wrapped value with <paramref name="selector"/> if present, returning a new
+    /// optional; returns an empty optional if this one is empty.
+    /// </summary>
+    /// <typeparam name="TResult">The result value type.</typeparam>
+    /// <param name="selector">The transform to apply to the wrapped value.</param>
+    /// <returns>An optional holding the transformed value, or an empty optional.</returns>
+    public Optional<TResult> Map<TResult>(Func<T, TResult> selector)
+    {
+        Argument.NotNull(selector, nameof(selector));
+
+        return HasValue ? new Optional<TResult>(selector(m_value)) : default;
+    }
+
+    /// <summary>
+    /// Transforms the wrapped value with <paramref name="selector"/> into another optional if
+    /// present; returns an empty optional if this one is empty.
+    /// </summary>
+    /// <typeparam name="TResult">The result value type.</typeparam>
+    /// <param name="selector">The transform producing the next optional from the wrapped value.</param>
+    /// <returns>The optional produced by <paramref name="selector"/>, or an empty optional.</returns>
+    public Optional<TResult> Bind<TResult>(Func<T, Optional<TResult>> selector)
+    {
+        Argument.NotNull(selector, nameof(selector));
+
+        return HasValue ? selector(m_value) : default;
     }
 
     /// <inheritdoc/>
@@ -81,22 +149,7 @@ public readonly struct Optional<T> : IEquatable<T>, IEquatable<Optional<T>>
     /// <inheritdoc/>
     public override bool Equals(object obj)
     {
-        if (obj is Optional<T> other)
-        {
-            return Equals(other);
-        }
-
-        if (!HasValue)
-        {
-            return false;
-        }
-
-        if (m_value is null)
-        {
-            return obj is null;
-        }
-
-        return obj is T value && EqualityComparer<T>.Default.Equals(m_value, value);
+        return obj is Optional<T> other && Equals(other);
     }
 
     /// <inheritdoc/>
@@ -109,6 +162,19 @@ public readonly struct Optional<T> : IEquatable<T>, IEquatable<Optional<T>>
     public override string ToString()
     {
         return HasValue ? (m_value?.ToString() ?? string.Empty) : string.Empty;
+    }
+
+    /// <summary>
+    /// Wraps a value in an optional that holds it.
+    /// </summary>
+    /// <param name="value">The value to wrap.</param>
+    /// <remarks>
+    /// The result always has a value, even when <paramref name="value"/> is <c>null</c>: a present
+    /// null and an empty optional are distinct states. Use <c>default</c> for an empty optional.
+    /// </remarks>
+    public static implicit operator Optional<T>(T value)
+    {
+        return new Optional<T>(value);
     }
 
     /// <summary>

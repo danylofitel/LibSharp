@@ -216,23 +216,10 @@ public class ArgumentUnitTests
     }
 
     [TestMethod]
-    public void NotNull_NotNull_DoesNotThrow()
-    {
-        // Act
-        Argument.NotNull(new object(), "name");
-    }
-
-    [TestMethod]
-    public void NotNull_Null_Throws()
-    {
-        // Act
-        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.NotNull(null, "name"));
-    }
-
-    [TestMethod]
     public void NotNull_Generic_NotNull_DoesNotThrow()
     {
-        // The generic overload avoids boxing for constrained reference types.
+        // NotNull is constrained to reference types; value types cannot be null and are a compile error.
+        Argument.NotNull(new object(), "name");
         Argument.NotNull<string>("value", "name");
         Argument.NotNull<List<int>>(new List<int>(), "name");
     }

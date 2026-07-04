@@ -1,4 +1,4 @@
-﻿{
+{
   "permissions": {
     "allow": [
       "Bash(dotnet build:*)",
@@ -12,7 +12,18 @@
       "Bash(powershell -Command \":*)",
       "Bash(powershell.exe -Command \"Get-Process -Name testhost -ErrorAction SilentlyContinue | Stop-Process -Force; Write-Host done\")",
       "PowerShell(dotnet build c:\\\\Repos\\\\LibSharp\\\\src\\\\LibSharp\\\\LibSharp.csproj -c Debug --nologo -v quiet)",
-      "PowerShell(dotnet test c:\\\\Repos\\\\LibSharp\\\\test\\\\LibSharp.UnitTests\\\\LibSharp.UnitTests.csproj --nologo -v quiet --filter \"FullyQualifiedName~ProactiveAsyncCache\")"
+      "PowerShell(dotnet test c:\\\\Repos\\\\LibSharp\\\\test\\\\LibSharp.UnitTests\\\\LibSharp.UnitTests.csproj --nologo -v quiet --filter \"FullyQualifiedName~ProactiveAsyncCache\")",
+      "Bash(sed -i 's/{Item}/{T}/g' src/LibSharp/Collections/MinPriorityQueue.cs src/LibSharp/Collections/MaxPriorityQueue.cs && grep -c '{Item}' src/LibSharp/Collections/MinPriorityQueue.cs src/LibSharp/Collections/MaxPriorityQueue.cs)",
+      "Bash(sed -i 's/public static class IEnumerableExtensions/public static class EnumerableExtensions/' EnumerableExtensions.cs)",
+      "Bash(sed -i 's/public static class ICollectionExtensions/public static class CollectionExtensions/' CollectionExtensions.cs)",
+      "Bash(sed -i 's/public static class IAsyncEnumerableExtensions/public static class AsyncEnumerableExtensions/' AsyncEnumerableExtensions.cs)",
+      "Bash(sed -i 's/public static class IDictionaryExtensions/public static class DictionaryExtensions/' DictionaryExtensions.cs)",
+      "Bash(sed -i 's/Argument\\\\.NotNull\\(key, nameof\\(key\\)\\);/ArgumentNullException.ThrowIfNull\\(key\\);/' DictionaryExtensions.cs)",
+      "Bash(dotnet build *)",
+      "Bash(dotnet test *)"
+    ],
+    "additionalDirectories": [
+      "c:\\Repos\\LibSharp\\src\\LibSharp\\Collections"
     ]
   }
 }

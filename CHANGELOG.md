@@ -1,7 +1,17 @@
 ﻿# Changelog
 
-- 3.0.1
-  - Updated `ProactiveAsyncCache<T>` to never throw exceptions from `DisposeAsync()`.
+- 4.0.0
+  - `Caching`
+    - Updated `ProactiveAsyncCache<T>` to never throw exceptions from `DisposeAsync()`
+  - `Collections`
+    - Renamed extension classes to drop the `I` prefix: `IEnumerableExtensions` → `EnumerableExtensions`, `ICollectionExtensions` → `CollectionExtensions`, `IDictionaryExtensions` → `DictionaryExtensions`, `IAsyncEnumerableExtensions` → `AsyncEnumerableExtensions` (extension methods called via instance syntax are unaffected; static-style calls must use the new names)
+    - `MinPriorityQueue<T>` and `MaxPriorityQueue<T>`: `Contains` and `Remove` now use element equality (`EqualityComparer<T>.Default`) instead of the ordering comparer, so they honour the `ICollection<T>` contract (reverses the 3.0.0 change; ordering still uses the comparer)
+  - `Common`
+    - `Optional<T>` no longer implements `IEquatable<T>`; it now implements only `IEquatable<Optional<T>>`, so equality is defined between two optionals. A bare value still compares equal via the new implicit conversion, but a value typed as `object` never does
+    - Added an implicit conversion from `T` to `Optional<T>` (always produces a present optional, even for `null`)
+    - Added `Match`, `Map`, and `Bind` to `Optional<T>`
+    - Added `Match`, `Map`, `MapError`, and `Bind` to `Result<T, TError>`
+    - Removed the `Argument.NotNull(object, string)` overload; calling `NotNull` on a non-nullable value type is now a compile error instead of a silent no-op (the reference-type generic overload is retained)
 
 - 3.0.0
   - `Caching`

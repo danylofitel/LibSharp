@@ -124,6 +124,91 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
         return IsError;
     }
 
+    /// <summary>
+    /// Projects the result through <paramref name="onSuccess"/> if it is a success, or
+    /// <paramref name="onError"/> if it is an error, and returns the result.
+    /// </summary>
+    /// <typeparam name="TResult">The result type.</typeparam>
+    /// <param name="onSuccess">Invoked with the success value when this is a success.</param>
+    /// <param name="onError">Invoked with the error value when this is an error.</param>
+    /// <returns>The result of the invoked delegate.</returns>
+    public TResult Match<TResult>(Func<T, TResult> onSuccess, Func<TError, TResult> onError)
+    {
+        Argument.NotNull(onSuccess, nameof(onSuccess));
+        Argument.NotNull(onError, nameof(onError));
+
+        return IsSuccess ? onSuccess(m_value) : onError(m_error);
+    }
+
+    /// <summary>
+    /// Invokes <paramref name="onSuccess"/> with the success value if this is a success, or
+    /// <paramref name="onError"/> with the error value if this is an error.
+    /// </summary>
+    /// <param name="onSuccess">Invoked with the success value when this is a success.</param>
+    /// <param name="onError">Invoked with the error value when this is an error.</param>
+    public void Match(Action<T> onSuccess, Action<TError> onError)
+    {
+        Argument.NotNull(onSuccess, nameof(onSuccess));
+        Argument.NotNull(onError, nameof(onError));
+
+        if (IsSuccess)
+        {
+            onSuccess(m_value);
+        }
+        else
+        {
+            onError(m_error);
+        }
+    }
+
+    /// <summary>
+    /// Transforms the success value with <paramref name="selector"/> if this is a success;
+    /// otherwise propagates the error unchanged.
+    /// </summary>
+    /// <typeparam name="TResult">The mapped success value type.</typeparam>
+    /// <param name="selector">The transform to apply to the success value.</param>
+    /// <returns>A result holding the transformed value, or the original error.</returns>
+    public Result<TResult, TError> Map<TResult>(Func<T, TResult> selector)
+    {
+        Argument.NotNull(selector, nameof(selector));
+
+        return IsSuccess
+            ? Result<TResult, TError>.Ok(selector(m_value))
+            : Result<TResult, TError>.Fail(m_error);
+    }
+
+    /// <summary>
+    /// Transforms the error value with <paramref name="selector"/> if this is an error;
+    /// otherwise propagates the success value unchanged.
+    /// </summary>
+    /// <typeparam name="TErrorResult">The mapped error value type.</typeparam>
+    /// <param name="selector">The transform to apply to the error value.</param>
+    /// <returns>A result holding the original success value, or the transformed error.</returns>
+    public Result<T, TErrorResult> MapError<TErrorResult>(Func<TError, TErrorResult> selector)
+    {
+        Argument.NotNull(selector, nameof(selector));
+
+        return IsSuccess
+            ? Result<T, TErrorResult>.Ok(m_value)
+            : Result<T, TErrorResult>.Fail(selector(m_error));
+    }
+
+    /// <summary>
+    /// Transforms the success value with <paramref name="selector"/> into another result if this
+    /// is a success; otherwise propagates the error unchanged.
+    /// </summary>
+    /// <typeparam name="TResult">The mapped success value type.</typeparam>
+    /// <param name="selector">The transform producing the next result from the success value.</param>
+    /// <returns>The result produced by <paramref name="selector"/>, or the original error.</returns>
+    public Result<TResult, TError> Bind<TResult>(Func<T, Result<TResult, TError>> selector)
+    {
+        Argument.NotNull(selector, nameof(selector));
+
+        return IsSuccess
+            ? selector(m_value)
+            : Result<TResult, TError>.Fail(m_error);
+    }
+
     /// <inheritdoc/>
     public bool Equals(Result<T, TError> other)
     {

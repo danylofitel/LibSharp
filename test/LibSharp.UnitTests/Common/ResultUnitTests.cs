@@ -321,4 +321,107 @@ public class ResultUnitTests
         Assert.IsTrue(Result<int, string>.Ok(1) != Result<int, string>.Ok(2));
         Assert.IsTrue(Result<int, string>.Ok(0) != Result<int, string>.Fail(null));
     }
+
+    // ── Match / Map / MapError / Bind ────────────────────────────────────
+
+    [TestMethod]
+    public void Match_Success_InvokesOnSuccess()
+    {
+        Result<int, string> result = Result<int, string>.Ok(21);
+        string projected = result.Match(v => $"ok:{v}", e => $"err:{e}");
+        Assert.AreEqual("ok:21", projected);
+    }
+
+    [TestMethod]
+    public void Match_Error_InvokesOnError()
+    {
+        Result<int, string> result = Result<int, string>.Fail("boom");
+        string projected = result.Match(v => $"ok:{v}", e => $"err:{e}");
+        Assert.AreEqual("err:boom", projected);
+    }
+
+    [TestMethod]
+    public void Match_Action_DispatchesOnState()
+    {
+        string seen = null;
+
+        _ = Result<int, string>.Ok(5).Match(v => seen = $"ok:{v}", e => seen = $"err:{e}");
+        Assert.AreEqual("ok:5", seen);
+
+        _ = Result<int, string>.Fail("x").Match(v => seen = $"ok:{v}", e => seen = $"err:{e}");
+        Assert.AreEqual("err:x", seen);
+    }
+
+    [TestMethod]
+    public void Match_NullDelegate_Throws()
+    {
+        Result<int, string> result = Result<int, string>.Ok(1);
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => result.Match<int>(null, e => 0));
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => result.Match(v => v, null));
+    }
+
+    [TestMethod]
+    public void Map_Success_Transforms()
+    {
+        Result<int, string> result = Result<int, string>.Ok(21);
+        Result<string, string> mapped = result.Map(v => (v * 2).ToString());
+        Assert.IsTrue(mapped.IsSuccess);
+        Assert.AreEqual("42", mapped.Value);
+    }
+
+    [TestMethod]
+    public void Map_Error_PropagatesError()
+    {
+        Result<int, string> result = Result<int, string>.Fail("boom");
+        Result<string, string> mapped = result.Map(v => v.ToString());
+        Assert.IsTrue(mapped.IsError);
+        Assert.AreEqual("boom", mapped.Error);
+    }
+
+    [TestMethod]
+    public void MapError_Error_Transforms()
+    {
+        Result<int, string> result = Result<int, string>.Fail("boom");
+        Result<int, int> mapped = result.MapError(e => e.Length);
+        Assert.IsTrue(mapped.IsError);
+        Assert.AreEqual(4, mapped.Error);
+    }
+
+    [TestMethod]
+    public void MapError_Success_PropagatesValue()
+    {
+        Result<int, string> result = Result<int, string>.Ok(7);
+        Result<int, int> mapped = result.MapError(e => e.Length);
+        Assert.IsTrue(mapped.IsSuccess);
+        Assert.AreEqual(7, mapped.Value);
+    }
+
+    [TestMethod]
+    public void Bind_Success_ChainsResult()
+    {
+        Result<int, string> result = Result<int, string>.Ok(4);
+        Result<int, string> bound = result.Bind(
+            v => v > 0 ? Result<int, string>.Ok(v + 1) : Result<int, string>.Fail("non-positive"));
+        Assert.IsTrue(bound.IsSuccess);
+        Assert.AreEqual(5, bound.Value);
+    }
+
+    [TestMethod]
+    public void Bind_Success_CanProduceError()
+    {
+        Result<int, string> result = Result<int, string>.Ok(-1);
+        Result<int, string> bound = result.Bind(
+            v => v > 0 ? Result<int, string>.Ok(v + 1) : Result<int, string>.Fail("non-positive"));
+        Assert.IsTrue(bound.IsError);
+        Assert.AreEqual("non-positive", bound.Error);
+    }
+
+    [TestMethod]
+    public void Bind_Error_PropagatesError()
+    {
+        Result<int, string> result = Result<int, string>.Fail("boom");
+        Result<int, string> bound = result.Bind(v => Result<int, string>.Ok(v + 1));
+        Assert.IsTrue(bound.IsError);
+        Assert.AreEqual("boom", bound.Error);
+    }
 }

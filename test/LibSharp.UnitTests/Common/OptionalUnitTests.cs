@@ -236,39 +236,27 @@ public class OptionalUnitTests
     }
 
     [TestMethod]
-    public void Equals_ValueType_NoValue()
+    public void Equals_BareValue_ComparesViaImplicitConversion()
     {
-        // Arrange
-        Optional<string> optionalValue = default;
+        // A bare T is implicitly converted to a present optional before Equals, so it compares
+        // equal only when this optional is also present and holds an equal value.
+        Assert.IsTrue(new Optional<string>("boxed").Equals("boxed"));
+        Assert.IsFalse(new Optional<string>("boxed").Equals("not boxed"));
 
-        // Assert
-        Assert.IsFalse(optionalValue.Equals(null));
-        Assert.IsFalse(optionalValue.Equals("not boxed"));
-        Assert.IsFalse(optionalValue.Equals("boxed"));
+        // An empty optional is never equal to a (present) converted bare value.
+        Assert.IsFalse(default(Optional<string>).Equals("boxed"));
+
+        // A present-null optional is not equal to a present non-null value.
+        Assert.IsFalse(new Optional<string>(null).Equals("boxed"));
     }
 
     [TestMethod]
-    public void Equals_ValueType_HasValue()
+    public void Equals_BareValue_TypedAsObject_NeverEqual()
     {
-        // Arrange
-        Optional<string> optionalValue = new Optional<string>("boxed");
-
-        // Assert
-        Assert.IsFalse(optionalValue.Equals(null));
-        Assert.IsFalse(optionalValue.Equals("not boxed"));
-
-        Assert.IsTrue(optionalValue.Equals("boxed"));
-    }
-
-    [TestMethod]
-    public void Equals_ValueType_NullValue()
-    {
-        // Arrange
-        Optional<string> optionalValue = new Optional<string>(null);
-
-        // Assert
-        Assert.IsTrue(optionalValue.Equals(null));
-        Assert.IsFalse(optionalValue.Equals("boxed"));
+        // Once boxed to object, no implicit conversion applies, so equality falls through to
+        // Equals(object), which only matches another Optional<T>.
+        Assert.IsFalse(new Optional<string>("boxed").Equals((object)"boxed"));
+        Assert.IsFalse(new Optional<string>(null).Equals((object)null));
     }
 
     [TestMethod]
@@ -348,7 +336,7 @@ public class OptionalUnitTests
         Assert.IsFalse(optional.Equals(new Optional<object>("boxed")));
 
         Assert.IsTrue(optional.Equals((object)optional));
-        Assert.IsTrue(optional.Equals((object)"boxed"));
+        Assert.IsFalse(optional.Equals((object)"boxed"));
         Assert.IsTrue(optional.Equals((object)new Optional<string>("boxed")));
     }
 
@@ -359,7 +347,7 @@ public class OptionalUnitTests
         Optional<string> optional = new Optional<string>(null);
 
         // Assert
-        Assert.IsTrue(optional.Equals((object)null));
+        Assert.IsFalse(optional.Equals((object)null));
         Assert.IsTrue(optional.Equals((object)new Optional<string>(null)));
 
         Assert.IsFalse(optional.Equals((object)default(Optional<string>)));
@@ -445,6 +433,101 @@ public class OptionalUnitTests
         Assert.IsTrue(new Optional<int>(5) != new Optional<int>(7));
         Assert.IsTrue(new Optional<string>("value") != new Optional<string>("other"));
         Assert.IsTrue(new Optional<string>(null) != new Optional<string>("value"));
+    }
+
+    [TestMethod]
+    public void ImplicitConversion_FromValue_HasValue()
+    {
+        Optional<int> optional = 42;
+        Assert.IsTrue(optional.HasValue);
+        Assert.AreEqual(42, optional.Value);
+    }
+
+    [TestMethod]
+    public void ImplicitConversion_FromNull_HasPresentNull()
+    {
+        // The implicit conversion always produces a present value, even for null.
+        Optional<string> optional = (string)null;
+        Assert.IsTrue(optional.HasValue);
+        Assert.IsNull(optional.Value);
+    }
+
+    [TestMethod]
+    public void Match_HasValue_InvokesOnValue()
+    {
+        Optional<int> optional = 10;
+        int result = optional.Match(v => v * 2, () => -1);
+        Assert.AreEqual(20, result);
+    }
+
+    [TestMethod]
+    public void Match_NoValue_InvokesOnNone()
+    {
+        Optional<int> optional = default;
+        int result = optional.Match(v => v * 2, () => -1);
+        Assert.AreEqual(-1, result);
+    }
+
+    [TestMethod]
+    public void Match_Action_DispatchesOnState()
+    {
+        int seen = 0;
+
+        _ = new Optional<int>(5).Match(v => seen = v, () => seen = -1);
+        Assert.AreEqual(5, seen);
+
+        _ = default(Optional<int>).Match(v => seen = v, () => seen = -1);
+        Assert.AreEqual(-1, seen);
+    }
+
+    [TestMethod]
+    public void Match_NullDelegate_Throws()
+    {
+        Optional<int> optional = 1;
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => optional.Match<int>(null, () => 0));
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => optional.Match(v => v, null));
+    }
+
+    [TestMethod]
+    public void Map_HasValue_Transforms()
+    {
+        Optional<int> optional = 21;
+        Optional<string> mapped = optional.Map(v => (v * 2).ToString());
+        Assert.IsTrue(mapped.HasValue);
+        Assert.AreEqual("42", mapped.Value);
+    }
+
+    [TestMethod]
+    public void Map_NoValue_StaysEmpty()
+    {
+        Optional<int> optional = default;
+        Optional<string> mapped = optional.Map(v => v.ToString());
+        Assert.IsFalse(mapped.HasValue);
+    }
+
+    [TestMethod]
+    public void Bind_HasValue_ChainsOptional()
+    {
+        Optional<int> optional = 4;
+        Optional<int> bound = optional.Bind(v => v > 0 ? new Optional<int>(v + 1) : default);
+        Assert.IsTrue(bound.HasValue);
+        Assert.AreEqual(5, bound.Value);
+    }
+
+    [TestMethod]
+    public void Bind_HasValue_CanProduceEmpty()
+    {
+        Optional<int> optional = -1;
+        Optional<int> bound = optional.Bind(v => v > 0 ? new Optional<int>(v + 1) : default);
+        Assert.IsFalse(bound.HasValue);
+    }
+
+    [TestMethod]
+    public void Bind_NoValue_StaysEmpty()
+    {
+        Optional<int> optional = default;
+        Optional<int> bound = optional.Bind(v => new Optional<int>(v));
+        Assert.IsFalse(bound.HasValue);
     }
 
     private static Optional<T> CopyOptional<T>(Optional<T> original)

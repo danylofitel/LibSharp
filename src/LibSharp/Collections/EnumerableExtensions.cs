@@ -2,34 +2,38 @@
 
 using System;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
-using System.Threading;
-using System.Threading.Tasks;
+using System.Linq;
 using LibSharp.Common;
 
 namespace LibSharp.Collections;
 
 /// <summary>
-/// Extension methods for IAsyncEnumerable.
+/// Extension methods for IEnumerable.
 /// </summary>
-public static class IAsyncEnumerableExtensions
+public static class EnumerableExtensions
 {
     /// <summary>
-    /// Splits an async sequence into chunks.
+    /// Splits a sequence into chunks bounded by a total weight per chunk.
     /// </summary>
     /// <typeparam name="TSource">Type of the elements in the sequence.</typeparam>
-    /// <param name="source">The async sequence of elements to split.</param>
+    /// <param name="source">The sequence of elements to split.</param>
     /// <param name="chunkWeight">The maximum total weight of elements in a chunk.</param>
     /// <param name="itemWeight">The item weight selector.</param>
     /// <returns>A sequence of chunks.</returns>
     /// <remarks>
+    /// This is a weight-based variant, distinct from the standard-library
+    /// <see cref="System.Linq.Enumerable.Chunk{TSource}(System.Collections.Generic.IEnumerable{TSource}, int)"/>,
+    /// which splits by a fixed element count. Use the standard-library overload for a fixed number of
+    /// elements per chunk, and this one when each element contributes a variable weight.
+    /// <para>
     /// Weights are compared using <c>double</c> arithmetic. Accumulated floating-point
     /// rounding errors may cause items whose combined weights are exactly equal to
     /// <paramref name="chunkWeight"/> to occasionally spill into a new chunk.
     /// Use weights with sufficient margin if exact budget boundaries are required.
+    /// </para>
     /// </remarks>
-    public static IAsyncEnumerable<List<TSource>> Chunk<TSource>(
-        this IAsyncEnumerable<TSource> source,
+    public static IEnumerable<List<TSource>> Chunk<TSource>(
+        this IEnumerable<TSource> source,
         double chunkWeight,
         Func<TSource, double> itemWeight)
     {
@@ -41,24 +45,20 @@ public static class IAsyncEnumerableExtensions
     }
 
     /// <summary>
-    /// Returns the index of the first element in the async sequence that satisfies the condition.
+    /// Returns index of the first element in the sequence that satisfies the condition.
     /// </summary>
     /// <typeparam name="TSource">The type of elements.</typeparam>
-    /// <param name="source">The async sequence of elements.</param>
+    /// <param name="source">The sequence of elements.</param>
     /// <param name="predicate">A function to test each element for a condition.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Index of the first matching element, or -1 if none match.</returns>
-    public static async Task<int> FirstIndexOfAsync<TSource>(
-        this IAsyncEnumerable<TSource> source,
-        Func<TSource, bool> predicate,
-        CancellationToken cancellationToken = default)
+    /// <returns>Index of the first element in the sequence that satisfies the condition, -1 otherwise.</returns>
+    public static int FirstIndexOf<TSource>(this IEnumerable<TSource> source, Func<TSource, bool> predicate)
     {
         Argument.NotNull(source, nameof(source));
         Argument.NotNull(predicate, nameof(predicate));
 
         int index = -1;
 
-        await foreach (TSource element in source.WithCancellation(cancellationToken).ConfigureAwait(false))
+        foreach (TSource element in source)
         {
             ++index;
 
@@ -72,17 +72,13 @@ public static class IAsyncEnumerableExtensions
     }
 
     /// <summary>
-    /// Returns the index of the last element in the async sequence that satisfies the condition.
+    /// Returns index of the last element in the sequence that satisfies the condition.
     /// </summary>
     /// <typeparam name="TSource">The type of elements.</typeparam>
-    /// <param name="source">The async sequence of elements.</param>
+    /// <param name="source">The sequence of elements.</param>
     /// <param name="predicate">A function to test each element for a condition.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Index of the last matching element, or -1 if none match.</returns>
-    public static async Task<int> LastIndexOfAsync<TSource>(
-        this IAsyncEnumerable<TSource> source,
-        Func<TSource, bool> predicate,
-        CancellationToken cancellationToken = default)
+    /// <returns>Index of the last element in the sequence that satisfies the condition, -1 otherwise.</returns>
+    public static int LastIndexOf<TSource>(this IEnumerable<TSource> source, Func<TSource, bool> predicate)
     {
         Argument.NotNull(source, nameof(source));
         Argument.NotNull(predicate, nameof(predicate));
@@ -90,7 +86,7 @@ public static class IAsyncEnumerableExtensions
         int index = -1;
         int match = -1;
 
-        await foreach (TSource element in source.WithCancellation(cancellationToken).ConfigureAwait(false))
+        foreach (TSource element in source)
         {
             ++index;
 
@@ -103,16 +99,39 @@ public static class IAsyncEnumerableExtensions
         return match;
     }
 
-    private static async IAsyncEnumerable<List<TSource>> ChunkIterator<TSource>(
-        IAsyncEnumerable<TSource> source,
+    /// <summary>
+    /// Randomly shuffles the sequence using Fisher-Yates algorithm.
+    /// Does not modify the original collection and returns a new array
+    /// </summary>
+    /// <typeparam name="TSource">The type of the elements of source.</typeparam>
+    /// <param name="source">The sequence of elements to shuffle.</param>
+    /// <returns>A randomly shuffled array.</returns>
+    public static TSource[] Shuffle<TSource>(this IEnumerable<TSource> source)
+    {
+        Argument.NotNull(source, nameof(source));
+
+        TSource[] elements = source.ToArray();
+
+        int count = elements.Length;
+        while (count > 1)
+        {
+            --count;
+            int k = Random.Shared.Next(count + 1);
+            (elements[count], elements[k]) = (elements[k], elements[count]);
+        }
+
+        return elements;
+    }
+
+    private static IEnumerable<List<TSource>> ChunkIterator<TSource>(
+        IEnumerable<TSource> source,
         double chunkWeight,
-        Func<TSource, double> itemWeight,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        Func<TSource, double> itemWeight)
     {
         List<TSource> currentBatch = new List<TSource>();
         double currentBatchWeight = 0.0;
 
-        await foreach (TSource item in source.WithCancellation(cancellationToken).ConfigureAwait(false))
+        foreach (TSource item in source)
         {
             double currentItemWeight = itemWeight(item);
 
@@ -143,3 +162,4 @@ public static class IAsyncEnumerableExtensions
         }
     }
 }
+
