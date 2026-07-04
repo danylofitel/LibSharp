@@ -200,7 +200,7 @@ public class ArgumentUnitTests
     }
 
     [TestMethod]
-    public void NotEqualTo_Different_ArgumentNull_DoesNotThrow()
+    public void NotEqualTo_Different_WithOneNull_DoesNotThrow()
     {
         // Act
         Argument.NotEqualTo(null, "value", "name");
@@ -238,6 +238,96 @@ public class ArgumentUnitTests
         string argumentValue = null!;
 
         ArgumentNullException exception = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.NotNull(argumentValue));
+
+        Assert.AreEqual(nameof(argumentValue), exception.ParamName);
+    }
+
+    [TestMethod]
+    public void EqualTo_WithoutExplicitName_CapturesArgumentExpression()
+    {
+        string argumentValue = "left";
+
+        ArgumentException exception = Assert.ThrowsExactly<ArgumentException>(() => Argument.EqualTo(argumentValue, "right"));
+
+        Assert.AreEqual(nameof(argumentValue), exception.ParamName);
+    }
+
+    [TestMethod]
+    public void GreaterThan_WithoutExplicitName_CapturesArgumentExpression()
+    {
+        int argumentValue = 0;
+
+        ArgumentOutOfRangeException exception = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => Argument.GreaterThan(argumentValue, 0));
+
+        Assert.AreEqual(nameof(argumentValue), exception.ParamName);
+    }
+
+    [TestMethod]
+    public void GreaterThanOrEqualTo_WithoutExplicitName_CapturesArgumentExpression()
+    {
+        int argumentValue = -1;
+
+        ArgumentOutOfRangeException exception = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => Argument.GreaterThanOrEqualTo(argumentValue, 0));
+
+        Assert.AreEqual(nameof(argumentValue), exception.ParamName);
+    }
+
+    [TestMethod]
+    public void LessThan_WithoutExplicitName_CapturesArgumentExpression()
+    {
+        int argumentValue = 1;
+
+        ArgumentOutOfRangeException exception = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => Argument.LessThan(argumentValue, 1));
+
+        Assert.AreEqual(nameof(argumentValue), exception.ParamName);
+    }
+
+    [TestMethod]
+    public void LessThanOrEqualTo_WithoutExplicitName_CapturesArgumentExpression()
+    {
+        int argumentValue = 2;
+
+        ArgumentOutOfRangeException exception = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => Argument.LessThanOrEqualTo(argumentValue, 1));
+
+        Assert.AreEqual(nameof(argumentValue), exception.ParamName);
+    }
+
+    [TestMethod]
+    public void NotEqualTo_WithoutExplicitName_CapturesArgumentExpression()
+    {
+        int argumentValue = 1;
+
+        ArgumentException exception = Assert.ThrowsExactly<ArgumentException>(() => Argument.NotEqualTo(argumentValue, 1));
+
+        Assert.AreEqual(nameof(argumentValue), exception.ParamName);
+    }
+
+    [TestMethod]
+    public void NotNullOrEmpty_WithoutExplicitName_CapturesArgumentExpression()
+    {
+        string argumentValue = string.Empty;
+
+        ArgumentException exception = Assert.ThrowsExactly<ArgumentException>(() => Argument.NotNullOrEmpty(argumentValue));
+
+        Assert.AreEqual(nameof(argumentValue), exception.ParamName);
+    }
+
+    [TestMethod]
+    public void NotNullOrWhiteSpace_WithoutExplicitName_CapturesArgumentExpression()
+    {
+        string argumentValue = "   ";
+
+        ArgumentException exception = Assert.ThrowsExactly<ArgumentException>(() => Argument.NotNullOrWhiteSpace(argumentValue));
+
+        Assert.AreEqual(nameof(argumentValue), exception.ParamName);
+    }
+
+    [TestMethod]
+    public void OfType_WithoutExplicitName_CapturesArgumentExpression()
+    {
+        object argumentValue = "hello world";
+
+        ArgumentException exception = Assert.ThrowsExactly<ArgumentException>(() => Argument.OfType(argumentValue, typeof(DateTime)));
 
         Assert.AreEqual(nameof(argumentValue), exception.ParamName);
     }
