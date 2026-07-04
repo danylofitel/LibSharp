@@ -1,0 +1,14 @@
+# Enforce LF line endings for all text files across platforms.
+# Git auto-detects text vs binary; text files are stored and checked out with LF.
+* text=auto eol=lf
+
+# Binary assets: never normalize line endings or encoding.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.snk binary
+*.dll binary
+*.exe binary
+*.nupkg binary

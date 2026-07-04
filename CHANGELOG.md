@@ -1,4 +1,4 @@
-﻿# Changelog
+# Changelog
 
 - 4.0.0
   - Enabled nullable reference type annotations across the entire public API; `TryGet*` methods and out parameters are now annotated (e.g. `[MaybeNullWhen(false)]`), and nullable inputs such as optional `Encoding`/`XmlReaderSettings` arguments are marked accordingly

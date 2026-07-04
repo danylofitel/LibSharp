@@ -1,4 +1,4 @@
-﻿# LibSharp
+# LibSharp
 
 ## Introduction
 
