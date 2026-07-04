@@ -1052,6 +1052,54 @@ public class MinPriorityQueueUnitTests
         Assert.AreEqual(1, queue.Count);
     }
 
+    [TestMethod]
+    public void Remove_DistinctValuesWithSameOrder_RemovesOnlyTheEqualOne()
+    {
+        // 1 and -1 compare equal by order (|1| == |-1|) but are distinct values, and both are present.
+        MinPriorityQueue<int> queue = new MinPriorityQueue<int>((a, b) => Math.Abs(a).CompareTo(Math.Abs(b)));
+        queue.Enqueue(1);
+        queue.Enqueue(-1);
+        queue.Enqueue(5);
+
+        Assert.IsTrue(queue.Contains(1));
+        Assert.IsTrue(queue.Contains(-1));
+
+        // Removing 1 targets that exact value and leaves its same-order sibling -1 intact.
+        Assert.IsTrue(queue.Remove(1));
+        Assert.AreEqual(2, queue.Count);
+        Assert.IsFalse(queue.Contains(1));
+        Assert.IsTrue(queue.Contains(-1));
+
+        // The heap is still well-formed: -1 (order 1) dequeues before 5 (order 5).
+        Assert.AreEqual(-1, queue.Dequeue());
+        Assert.AreEqual(5, queue.Dequeue());
+    }
+
+    [TestMethod]
+    public void Remove_ReferenceTypesWithSamePriority_RemovesTheSpecifiedInstance()
+    {
+        // Two distinct instances that compare equal by priority (Value) but are reference-distinct.
+        // Default equality for a reference type without an Equals override is reference equality.
+        WrapperClass first = new WrapperClass { Value = 5 };
+        WrapperClass second = new WrapperClass { Value = 5 };
+        WrapperClass smallest = new WrapperClass { Value = 1 };
+
+        MinPriorityQueue<WrapperClass> queue = new MinPriorityQueue<WrapperClass>(new WrapperClassComparer());
+        queue.Enqueue(first);
+        queue.Enqueue(second);
+        queue.Enqueue(smallest);
+
+        // Removing the specific instance leaves the equal-priority sibling in place.
+        Assert.IsTrue(queue.Remove(first));
+        Assert.AreEqual(2, queue.Count);
+        Assert.IsFalse(queue.Contains(first));
+        Assert.IsTrue(queue.Contains(second));
+
+        // Dequeues by priority: smallest (1) then the surviving Value == 5 instance.
+        Assert.AreSame(smallest, queue.Dequeue());
+        Assert.AreSame(second, queue.Dequeue());
+    }
+
     private class WrapperClass
     {
         public int Value { get; set; }

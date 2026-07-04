@@ -1004,6 +1004,30 @@ public class MaxPriorityQueueUnitTests
         _ = Assert.ThrowsExactly<ObjectDisposedException>(() => enumerator.Reset());
     }
 
+    [TestMethod]
+    public void Remove_ReferenceTypesWithSamePriority_RemovesTheSpecifiedInstance()
+    {
+        // MaxPriorityQueue delegates Contains/Remove to MinPriorityQueue, which uses element equality.
+        // Two distinct instances share a priority (Value); removing one must leave the other.
+        WrapperClass first = new WrapperClass { Value = 5 };
+        WrapperClass second = new WrapperClass { Value = 5 };
+        WrapperClass largest = new WrapperClass { Value = 9 };
+
+        MaxPriorityQueue<WrapperClass> queue = new MaxPriorityQueue<WrapperClass>(new WrapperClassComparer());
+        queue.Enqueue(first);
+        queue.Enqueue(second);
+        queue.Enqueue(largest);
+
+        Assert.IsTrue(queue.Remove(first));
+        Assert.AreEqual(2, queue.Count);
+        Assert.IsFalse(queue.Contains(first));
+        Assert.IsTrue(queue.Contains(second));
+
+        // Max dequeues by priority descending: largest (9) then the surviving Value == 5 instance.
+        Assert.AreSame(largest, queue.Dequeue());
+        Assert.AreSame(second, queue.Dequeue());
+    }
+
     private class WrapperClass
     {
         public int Value { get; set; }
