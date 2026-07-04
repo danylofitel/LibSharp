@@ -71,7 +71,9 @@ public sealed class LazyAsyncExecutionAndPublication<T> : IDisposable
             {
                 if (!m_hasValue)
                 {
-                    Task<T> factoryTask = m_factory(cancellationToken)
+                    // m_factory is non-null whenever m_hasValue is false: the value constructor sets
+                    // m_hasValue to true, and the factory constructor sets m_factory.
+                    Task<T> factoryTask = m_factory!(cancellationToken)
                         ?? throw new InvalidOperationException("The value factory returned a null task.");
                     m_value = await factoryTask.ConfigureAwait(false);
                     m_hasValue = true;
@@ -98,9 +100,11 @@ public sealed class LazyAsyncExecutionAndPublication<T> : IDisposable
     }
 
     private readonly AsyncLock m_lock = new AsyncLock();
-    private readonly Func<CancellationToken, Task<T>> m_factory;
+    private readonly Func<CancellationToken, Task<T>>? m_factory;
     private volatile bool m_hasValue;
-    private T m_value;
+
+    // Assigned before m_hasValue is set to true; only ever read after observing m_hasValue == true.
+    private T m_value = default!;
 
     private int m_isDisposed;
 }

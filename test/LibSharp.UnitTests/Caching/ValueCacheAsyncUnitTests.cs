@@ -111,7 +111,7 @@ public class ValueCacheAsyncUnitTests
     public async Task FromValueFactory_NullTask_ThrowsInvalidOperationException()
     {
         // Arrange
-        using ValueCacheAsync<int> cache = new ValueCacheAsync<int>(_ => null, TimeSpan.FromMinutes(1));
+        using ValueCacheAsync<int> cache = new ValueCacheAsync<int>(_ => null!, TimeSpan.FromMinutes(1));
 
         // Act
         _ = await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () =>
@@ -124,7 +124,7 @@ public class ValueCacheAsyncUnitTests
         // Arrange
         using ValueCacheAsync<int> cache = new ValueCacheAsync<int>(
             _ => Task.FromResult(1),
-            (_, _) => null,
+            (_, _) => null!,
             TimeSpan.Zero);
 
         Assert.AreEqual(1, await cache.GetValueAsync(CancellationToken.None).ConfigureAwait(false));

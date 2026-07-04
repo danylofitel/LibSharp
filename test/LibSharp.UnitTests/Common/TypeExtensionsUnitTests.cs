@@ -14,9 +14,9 @@ public class TypeExtensionsUnitTests
     {
         public int Value { get; init; }
 
-        public int CompareTo(object obj)
+        public int CompareTo(object? obj)
         {
-            return Value.CompareTo(((NonGenericComparable)obj).Value);
+            return Value.CompareTo(((NonGenericComparable)obj!).Value);
         }
     }
 

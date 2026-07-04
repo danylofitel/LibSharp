@@ -1011,9 +1011,9 @@ public class MaxPriorityQueueUnitTests
 
     private class WrapperClassComparer : IComparer<WrapperClass>
     {
-        public int Compare(WrapperClass x, WrapperClass y)
+        public int Compare(WrapperClass? x, WrapperClass? y)
         {
-            return x.Value.CompareTo(y.Value);
+            return x!.Value.CompareTo(y!.Value);
         }
     }
 
@@ -1026,7 +1026,7 @@ public class MaxPriorityQueueUnitTests
     {
         public int Compare(WrapperStruct x, WrapperStruct y)
         {
-            return x.Value.CompareTo(y.Value);
+            return x!.Value.CompareTo(y!.Value);
         }
     }
 }

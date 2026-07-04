@@ -18,6 +18,7 @@ namespace LibSharp.Collections;
 /// </remarks>
 /// <typeparam name="T">Element type.</typeparam>
 public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
+    where T : notnull
 {
     /// <summary>
     /// Initializes a new empty instance of <see cref="ConcurrentHashSet{T}"/> using the default equality comparer.

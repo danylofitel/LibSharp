@@ -23,7 +23,7 @@ public sealed class ReverseComparer<TComparable> : IComparer<TComparable>
     }
 
     /// <inheritdoc/>
-    public int Compare(TComparable x, TComparable y)
+    public int Compare(TComparable? x, TComparable? y)
     {
         return m_comparer.Compare(y, x);
     }

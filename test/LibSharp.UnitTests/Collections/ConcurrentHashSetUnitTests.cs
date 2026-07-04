@@ -26,7 +26,7 @@ public class ConcurrentHashSetUnitTests
     public void Constructor_WithComparer_NullComparer_Throws()
     {
         _ = Assert.ThrowsExactly<ArgumentNullException>(() =>
-            _ = new ConcurrentHashSet<string>((IEqualityComparer<string>)null));
+            _ = new ConcurrentHashSet<string>((IEqualityComparer<string>)null!));
     }
 
     [TestMethod]
@@ -43,7 +43,7 @@ public class ConcurrentHashSetUnitTests
     public void Constructor_WithCollection_NullCollection_Throws()
     {
         _ = Assert.ThrowsExactly<ArgumentNullException>(() =>
-            _ = new ConcurrentHashSet<int>((IEnumerable<int>)null));
+            _ = new ConcurrentHashSet<int>((IEnumerable<int>)null!));
     }
 
     [TestMethod]
@@ -69,14 +69,14 @@ public class ConcurrentHashSetUnitTests
     public void Constructor_WithCollectionAndComparer_NullCollection_Throws()
     {
         _ = Assert.ThrowsExactly<ArgumentNullException>(() =>
-            _ = new ConcurrentHashSet<string>(null, StringComparer.OrdinalIgnoreCase));
+            _ = new ConcurrentHashSet<string>(null!, StringComparer.OrdinalIgnoreCase));
     }
 
     [TestMethod]
     public void Constructor_WithCollectionAndComparer_NullComparer_Throws()
     {
         _ = Assert.ThrowsExactly<ArgumentNullException>(() =>
-            _ = new ConcurrentHashSet<string>(Array.Empty<string>(), null));
+            _ = new ConcurrentHashSet<string>(Array.Empty<string>(), null!));
     }
 
     [TestMethod]
@@ -199,7 +199,7 @@ public class ConcurrentHashSetUnitTests
     {
         ConcurrentHashSet<int> set = new ConcurrentHashSet<int> { 1, 2 };
 
-        _ = Assert.ThrowsExactly<ArgumentNullException>(() => set.CopyTo(null, 0));
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => set.CopyTo(null!, 0));
     }
 
     [TestMethod]
@@ -267,7 +267,7 @@ public class ConcurrentHashSetUnitTests
     [TestMethod]
     public void UnionWith_NullOther_Throws()
     {
-        _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ConcurrentHashSet<int>().UnionWith(null));
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ConcurrentHashSet<int>().UnionWith(null!));
     }
 
     [TestMethod]
@@ -297,7 +297,7 @@ public class ConcurrentHashSetUnitTests
     [TestMethod]
     public void IntersectWith_NullOther_Throws()
     {
-        _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ConcurrentHashSet<int>().IntersectWith(null));
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ConcurrentHashSet<int>().IntersectWith(null!));
     }
 
     [TestMethod]
@@ -327,7 +327,7 @@ public class ConcurrentHashSetUnitTests
     [TestMethod]
     public void ExceptWith_NullOther_Throws()
     {
-        _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ConcurrentHashSet<int>().ExceptWith(null));
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ConcurrentHashSet<int>().ExceptWith(null!));
     }
 
     [TestMethod]
@@ -357,7 +357,7 @@ public class ConcurrentHashSetUnitTests
     [TestMethod]
     public void SymmetricExceptWith_NullOther_Throws()
     {
-        _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ConcurrentHashSet<int>().SymmetricExceptWith(null));
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ConcurrentHashSet<int>().SymmetricExceptWith(null!));
     }
 
     [TestMethod]
@@ -390,7 +390,7 @@ public class ConcurrentHashSetUnitTests
     [TestMethod]
     public void IsSubsetOf_NullOther_Throws()
     {
-        _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ConcurrentHashSet<int>().IsSubsetOf(null));
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ConcurrentHashSet<int>().IsSubsetOf(null!));
     }
 
     [TestMethod]
@@ -427,7 +427,7 @@ public class ConcurrentHashSetUnitTests
     [TestMethod]
     public void IsSupersetOf_NullOther_Throws()
     {
-        _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ConcurrentHashSet<int>().IsSupersetOf(null));
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ConcurrentHashSet<int>().IsSupersetOf(null!));
     }
 
     [TestMethod]
@@ -457,7 +457,7 @@ public class ConcurrentHashSetUnitTests
     [TestMethod]
     public void IsProperSubsetOf_NullOther_Throws()
     {
-        _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ConcurrentHashSet<int>().IsProperSubsetOf(null));
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ConcurrentHashSet<int>().IsProperSubsetOf(null!));
     }
 
     [TestMethod]
@@ -487,7 +487,7 @@ public class ConcurrentHashSetUnitTests
     [TestMethod]
     public void IsProperSupersetOf_NullOther_Throws()
     {
-        _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ConcurrentHashSet<int>().IsProperSupersetOf(null));
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ConcurrentHashSet<int>().IsProperSupersetOf(null!));
     }
 
     [TestMethod]
@@ -517,7 +517,7 @@ public class ConcurrentHashSetUnitTests
     [TestMethod]
     public void Overlaps_NullOther_Throws()
     {
-        _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ConcurrentHashSet<int>().Overlaps(null));
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ConcurrentHashSet<int>().Overlaps(null!));
     }
 
     [TestMethod]
@@ -547,7 +547,7 @@ public class ConcurrentHashSetUnitTests
     [TestMethod]
     public void SetEquals_NullOther_Throws()
     {
-        _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ConcurrentHashSet<int>().SetEquals(null));
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ConcurrentHashSet<int>().SetEquals(null!));
     }
 
     [TestMethod]

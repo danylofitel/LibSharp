@@ -1,11 +1,13 @@
 ﻿# Changelog
 
 - 4.0.0
+  - Enabled nullable reference type annotations across the entire public API; `TryGet*` methods and out parameters are now annotated (e.g. `[MaybeNullWhen(false)]`), and nullable inputs such as optional `Encoding`/`XmlReaderSettings` arguments are marked accordingly
   - `Caching`
     - Updated `ProactiveAsyncCache<T>` to never throw exceptions from `DisposeAsync()`
   - `Collections`
     - Renamed extension classes to drop the `I` prefix: `IEnumerableExtensions` → `EnumerableExtensions`, `ICollectionExtensions` → `CollectionExtensions`, `IDictionaryExtensions` → `DictionaryExtensions`, `IAsyncEnumerableExtensions` → `AsyncEnumerableExtensions` (extension methods called via instance syntax are unaffected; static-style calls must use the new names)
     - `MinPriorityQueue<T>` and `MaxPriorityQueue<T>`: `Contains` and `Remove` now use element equality (`EqualityComparer<T>.Default`) instead of the ordering comparer, so they honour the `ICollection<T>` contract (reverses the 3.0.0 change; ordering still uses the comparer)
+    - `ConcurrentHashSet<T>` now constrains `T` to `notnull` (it is backed by `ConcurrentDictionary`, which never permitted null elements); `IDictionaryExtensions.Copy` likewise constrains its key to `notnull`
   - `Common`
     - `Optional<T>` no longer implements `IEquatable<T>`; it now implements only `IEquatable<Optional<T>>`, so equality is defined between two optionals. A bare value still compares equal via the new implicit conversion, but a value typed as `object` never does
     - Added an implicit conversion from `T` to `Optional<T>` (always produces a present optional, even for `null`)

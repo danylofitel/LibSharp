@@ -169,20 +169,23 @@ public sealed class KeyValueCacheAsync<TKey, TValue> : IKeyValueCacheAsync<TKey,
         {
             return m_timeToLive.HasValue
                 ? new ValueCacheAsync<TValue>((token) => m_createFactory(key, token), m_timeToLive.Value)
-                : new ValueCacheAsync<TValue>((token) => m_createFactory(key, token), value => m_expirationFunction(key, value));
+                : new ValueCacheAsync<TValue>((token) => m_createFactory(key, token), value => m_expirationFunction!(key, value));
         }
 
         return m_timeToLive.HasValue
             ? new ValueCacheAsync<TValue>((token) => m_createFactory(key, token), (value, token) => m_updateFactory(key, value, token), m_timeToLive.Value)
-            : new ValueCacheAsync<TValue>((token) => m_createFactory(key, token), (value, token) => m_updateFactory(key, value, token), value => m_expirationFunction(key, value));
+            : new ValueCacheAsync<TValue>((token) => m_createFactory(key, token), (value, token) => m_updateFactory(key, value, token), value => m_expirationFunction!(key, value));
     }
 
     private readonly ConcurrentDictionary<TKey, Lazy<ValueCacheAsync<TValue>>> m_cache = new ConcurrentDictionary<TKey, Lazy<ValueCacheAsync<TValue>>>();
 
+    // Exactly one of m_timeToLive / m_expirationFunction is set by each constructor; m_updateFactory
+    // is null when the cache was created without an update factory. The forgiving access to
+    // m_expirationFunction in CreateValueCache is guarded by this invariant.
     private readonly Func<TKey, CancellationToken, Task<TValue>> m_createFactory;
-    private readonly Func<TKey, TValue, CancellationToken, Task<TValue>> m_updateFactory;
+    private readonly Func<TKey, TValue, CancellationToken, Task<TValue>>? m_updateFactory;
     private readonly TimeSpan? m_timeToLive;
-    private readonly Func<TKey, TValue, DateTime> m_expirationFunction;
+    private readonly Func<TKey, TValue, DateTime>? m_expirationFunction;
 
     private int m_isDisposed;
 }

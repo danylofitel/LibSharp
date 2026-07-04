@@ -92,7 +92,8 @@ public sealed class ValueCache<T> : IValueCache<T>
                     Refresh();
                 }
 
-                return m_boxed.Value;
+                // Refresh guarantees m_boxed is non-null on return.
+                return m_boxed!.Value;
             }
         }
 
@@ -127,8 +128,8 @@ public sealed class ValueCache<T> : IValueCache<T>
     private readonly object m_lock = new object();
 
     private readonly Func<T> m_createFactory;
-    private readonly Func<T, T> m_updateFactory;
+    private readonly Func<T, T>? m_updateFactory;
     private readonly Func<T, DateTime> m_expirationFunction;
 
-    private volatile ValueReference<T> m_boxed;
+    private volatile ValueReference<T>? m_boxed;
 }

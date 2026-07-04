@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 namespace LibSharp.Common;
 
@@ -30,7 +31,9 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     /// <param name="value">The success value.</param>
     public static Result<T, TError> Ok(T value)
     {
-        return new(value, true, default);
+        // The error slot is intentionally unused for a success; default! marks it as deliberately
+        // absent. It is never observed because Error throws unless IsSuccess is false.
+        return new(value, true, default!);
     }
 
     /// <summary>
@@ -39,7 +42,9 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     /// <param name="error">The error value.</param>
     public static Result<T, TError> Fail(TError error)
     {
-        return new(default, false, error);
+        // The value slot is intentionally unused for an error; default! marks it as deliberately
+        // absent. It is never observed because Value throws unless IsSuccess is true.
+        return new(default!, false, error);
     }
 
     /// <summary>
@@ -90,7 +95,7 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     /// Returns the success value if this is a success result, or <paramref name="fallback"/> otherwise.
     /// </summary>
     /// <param name="fallback">The fallback value. Defaults to <c>default(T)</c>.</param>
-    public T GetValueOrDefault(T fallback = default)
+    public T? GetValueOrDefault(T? fallback = default)
     {
         return IsSuccess ? m_value : fallback;
     }
@@ -99,7 +104,7 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     /// Returns the error value if this is an error result, or <paramref name="fallback"/> otherwise.
     /// </summary>
     /// <param name="fallback">The fallback error. Defaults to <c>default(TError)</c>.</param>
-    public TError GetErrorOrDefault(TError fallback = default)
+    public TError? GetErrorOrDefault(TError? fallback = default)
     {
         return IsError ? m_error : fallback;
     }
@@ -108,7 +113,7 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     /// Returns true and sets <paramref name="value"/> to the success value if this is a success result;
     /// otherwise returns false and sets <paramref name="value"/> to <c>default(T)</c>.
     /// </summary>
-    public bool TryGetValue(out T value)
+    public bool TryGetValue([MaybeNullWhen(false)] out T value)
     {
         value = m_value;
         return IsSuccess;
@@ -118,7 +123,7 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     /// Returns true and sets <paramref name="error"/> to the error value if this is an error result;
     /// otherwise returns false and sets <paramref name="error"/> to <c>default(TError)</c>.
     /// </summary>
-    public bool TryGetError(out TError error)
+    public bool TryGetError([MaybeNullWhen(false)] out TError error)
     {
         error = m_error;
         return IsError;
@@ -226,7 +231,7 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     }
 
     /// <inheritdoc/>
-    public override bool Equals(object obj)
+    public override bool Equals(object? obj)
     {
         return obj is Result<T, TError> other && Equals(other);
     }

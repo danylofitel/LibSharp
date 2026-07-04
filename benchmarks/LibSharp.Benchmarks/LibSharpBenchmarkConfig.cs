@@ -27,13 +27,13 @@ internal static class LibSharpBenchmarkConfig
 
     private static string ResolveArtifactsPath()
     {
-        string artifactsFromEnvironment = Environment.GetEnvironmentVariable("LIBSHARP_BENCHMARK_ARTIFACTS");
+        string? artifactsFromEnvironment = Environment.GetEnvironmentVariable("LIBSHARP_BENCHMARK_ARTIFACTS");
         if (!string.IsNullOrWhiteSpace(artifactsFromEnvironment))
         {
             return Path.GetFullPath(artifactsFromEnvironment);
         }
 
-        string label = Environment.GetEnvironmentVariable("LIBSHARP_BENCHMARK_LABEL");
+        string? label = Environment.GetEnvironmentVariable("LIBSHARP_BENCHMARK_LABEL");
         if (string.IsNullOrWhiteSpace(label))
         {
             label = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");

@@ -14,7 +14,7 @@ public class ReverseComparerUnitTests
     public void Constructor_NullComparer_Throws()
     {
         // Act
-        _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ReverseComparer<int>(null));
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => new ReverseComparer<int>(null!));
     }
 
     [TestMethod]

@@ -121,7 +121,7 @@ public class StringExtensionsUnitTests
         // Arrange
 
         // Assert
-        Assert.IsFalse(((string)null).TryConvertToEnum<HttpStatusCode>(out _));
+        Assert.IsFalse(((string)null!).TryConvertToEnum<HttpStatusCode>(out _));
         Assert.IsFalse(string.Empty.TryConvertToEnum<HttpStatusCode>(out _));
         Assert.IsFalse(" ".TryConvertToEnum<HttpStatusCode>(out _));
         Assert.IsFalse("abc".TryConvertToEnum<HttpStatusCode>(out _));
@@ -166,7 +166,7 @@ public class StringExtensionsUnitTests
         // Arrange
 
         // Assert
-        Assert.IsFalse(((string)null).TryConvertToEnum<StringComparison>(out _));
+        Assert.IsFalse(((string)null!).TryConvertToEnum<StringComparison>(out _));
         Assert.IsFalse(string.Empty.TryConvertToEnum<StringComparison>(out _));
         Assert.IsFalse(" ".TryConvertToEnum<StringComparison>(out _));
         Assert.IsFalse("abc".TryConvertToEnum<StringComparison>(out _));

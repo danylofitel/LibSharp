@@ -35,5 +35,7 @@ public sealed class Initializer<T> : IInitializer<T>
 
     private readonly object m_lock = new object();
     private volatile bool m_hasValue;
-    private T m_instance;
+
+    // Assigned before m_hasValue is set to true; only ever read after observing m_hasValue == true.
+    private T m_instance = default!;
 }

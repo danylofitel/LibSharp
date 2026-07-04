@@ -15,7 +15,7 @@ public class ThrottledActionUnitTests
     public void Constructor_NullAction_Throws()
     {
         _ = Assert.ThrowsExactly<ArgumentNullException>(() =>
-            _ = new ThrottledAction(null, TimeSpan.FromMilliseconds(50)));
+            _ = new ThrottledAction(null!, TimeSpan.FromMilliseconds(50)));
     }
 
     [TestMethod]

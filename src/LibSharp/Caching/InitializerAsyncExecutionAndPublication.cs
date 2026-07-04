@@ -70,6 +70,8 @@ public sealed class InitializerAsyncExecutionAndPublication<T> : IInitializerAsy
 
     private readonly AsyncLock m_lock = new AsyncLock();
     private volatile bool m_hasValue;
-    private T m_value;
+
+    // Assigned before m_hasValue is set to true; only ever read after observing m_hasValue == true.
+    private T m_value = default!;
     private int m_isDisposed;
 }

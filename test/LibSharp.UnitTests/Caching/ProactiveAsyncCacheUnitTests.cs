@@ -20,7 +20,7 @@ public class ProactiveAsyncCacheUnitTests
     {
         _ = Assert.ThrowsExactly<ArgumentNullException>(() =>
         {
-            _ = new ProactiveAsyncCache<int>(null, TimeSpan.FromMinutes(1), TimeSpan.FromSeconds(10));
+            _ = new ProactiveAsyncCache<int>(null!, TimeSpan.FromMinutes(1), TimeSpan.FromSeconds(10));
         });
     }
 
@@ -62,9 +62,9 @@ public class ProactiveAsyncCacheUnitTests
             TimeSpan.FromTicks(1));
         await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
-        FieldInfo retryDelayField = typeof(ProactiveAsyncCache<int>).GetField("m_retryDelay", BindingFlags.Instance | BindingFlags.NonPublic);
+        FieldInfo? retryDelayField = typeof(ProactiveAsyncCache<int>).GetField("m_retryDelay", BindingFlags.Instance | BindingFlags.NonPublic);
         Assert.IsNotNull(retryDelayField, "Could not find m_retryDelay field.");
-        TimeSpan retryDelay = (TimeSpan)retryDelayField.GetValue(cache);
+        TimeSpan retryDelay = (TimeSpan)retryDelayField!.GetValue(cache)!;
 
         Assert.IsTrue(retryDelay > TimeSpan.Zero, $"Expected a positive retry delay, but got {retryDelay}.");
 
@@ -231,7 +231,7 @@ public class ProactiveAsyncCacheUnitTests
     public async Task GetValueAsync_FactoryReturningNullTask_ThrowsInvalidOperationException()
     {
         // Arrange
-        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(_ => (Task<int>)null, TimeSpan.FromHours(1), TimeSpan.Zero);
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(_ => (Task<int>)null!, TimeSpan.FromHours(1), TimeSpan.Zero);
         await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         // Act & Assert
@@ -465,7 +465,7 @@ public class ProactiveAsyncCacheUnitTests
         // Arrange
         StrongBox<ProactiveAsyncCache<int>> cacheBox = new StrongBox<ProactiveAsyncCache<int>>();
         TaskCompletionSource cacheReady = new(TaskCreationOptions.RunContinuationsAsynchronously);
-        Task<int> nestedReadTask = null;
+        Task<int>? nestedReadTask = null;
         int callCount = 0;
 
         ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
@@ -473,7 +473,7 @@ public class ProactiveAsyncCacheUnitTests
             {
                 _ = Interlocked.Increment(ref callCount);
                 cacheReady.Task.GetAwaiter().GetResult();
-                nestedReadTask = cacheBox.Value.GetValueAsync(TestContext.CancellationToken);
+                nestedReadTask = cacheBox.Value!.GetValueAsync(TestContext.CancellationToken);
                 return Task.FromResult(42);
             },
             TimeSpan.FromHours(1),
@@ -1035,13 +1035,13 @@ public class ProactiveAsyncCacheUnitTests
             TimeSpan.Zero);
         await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
-        FieldInfo backgroundTaskField = typeof(ProactiveAsyncCache<int>).GetField("m_backgroundTask", BindingFlags.Instance | BindingFlags.NonPublic);
+        FieldInfo? backgroundTaskField = typeof(ProactiveAsyncCache<int>).GetField("m_backgroundTask", BindingFlags.Instance | BindingFlags.NonPublic);
         Assert.IsNotNull(backgroundTaskField, "Could not find m_backgroundTask field.");
 
         // Act
         int value = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
         await Task.Delay(50, TestContext.CancellationToken).ConfigureAwait(false);
-        Task backgroundTask = (Task)backgroundTaskField.GetValue(cache);
+        Task backgroundTask = (Task)backgroundTaskField!.GetValue(cache)!;
 
         // Assert
         Assert.AreEqual(42, value);
@@ -1065,13 +1065,13 @@ public class ProactiveAsyncCacheUnitTests
             TimeSpan.Zero);
         await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
-        FieldInfo backgroundTaskField = typeof(ProactiveAsyncCache<int>).GetField("m_backgroundTask", BindingFlags.Instance | BindingFlags.NonPublic);
+        FieldInfo? backgroundTaskField = typeof(ProactiveAsyncCache<int>).GetField("m_backgroundTask", BindingFlags.Instance | BindingFlags.NonPublic);
         Assert.IsNotNull(backgroundTaskField, "Could not find m_backgroundTask field.");
 
         // Act
         bool initialFailureObserved = await fetchSignal.WaitAsync(TimeSpan.FromSeconds(5), TestContext.CancellationToken).ConfigureAwait(false);
         await Task.Delay(50, TestContext.CancellationToken).ConfigureAwait(false);
-        Task backgroundTask = (Task)backgroundTaskField.GetValue(cache);
+        Task backgroundTask = (Task)backgroundTaskField!.GetValue(cache)!;
 
         // Assert
         Assert.IsTrue(initialFailureObserved, "Expected the initial background fetch to run and fail.");

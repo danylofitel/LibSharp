@@ -3,6 +3,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using LibSharp.Common;
 
@@ -143,7 +144,7 @@ public sealed class MaxPriorityQueue<T> : IPriorityQueue<T>, ICollection
     }
 
     /// <inheritdoc/>
-    public bool TryPeek(out T item)
+    public bool TryPeek([MaybeNullWhen(false)] out T item)
     {
         return m_minPriorityQueue.TryPeek(out item);
     }
@@ -164,7 +165,7 @@ public sealed class MaxPriorityQueue<T> : IPriorityQueue<T>, ICollection
     }
 
     /// <inheritdoc/>
-    public bool TryDequeue(out T item)
+    public bool TryDequeue([MaybeNullWhen(false)] out T item)
     {
         return m_minPriorityQueue.TryDequeue(out item);
     }

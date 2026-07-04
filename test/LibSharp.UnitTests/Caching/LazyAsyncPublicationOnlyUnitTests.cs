@@ -44,7 +44,7 @@ public class LazyAsyncPublicationOnlyUnitTests
     {
         // Arrange — null is a legitimate value to cache; HasValue reflects whether the
         // wrapper has been initialised, not whether the contained value is non-null.
-        LazyAsyncPublicationOnly<string> lazy = new LazyAsyncPublicationOnly<string>((string)null);
+        LazyAsyncPublicationOnly<string> lazy = new LazyAsyncPublicationOnly<string>((string)null!);
 
         // Assert
         Assert.IsTrue(lazy.HasValue);
@@ -55,7 +55,7 @@ public class LazyAsyncPublicationOnlyUnitTests
     public async Task FromFactory_NullResult_HasValueIsTrue_ReturnsNull()
     {
         // Arrange
-        LazyAsyncPublicationOnly<string> lazy = new LazyAsyncPublicationOnly<string>(_ => Task.FromResult<string>(null));
+        LazyAsyncPublicationOnly<string> lazy = new LazyAsyncPublicationOnly<string>(_ => Task.FromResult<string>(null!));
 
         // Assert
         Assert.IsFalse(lazy.HasValue);
@@ -99,7 +99,7 @@ public class LazyAsyncPublicationOnlyUnitTests
     public async Task FromFactory_NullTask_ThrowsInvalidOperationException()
     {
         // Arrange
-        LazyAsyncPublicationOnly<int> lazy = new LazyAsyncPublicationOnly<int>(_ => null);
+        LazyAsyncPublicationOnly<int> lazy = new LazyAsyncPublicationOnly<int>(_ => null!);
 
         // Act
         _ = await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () =>

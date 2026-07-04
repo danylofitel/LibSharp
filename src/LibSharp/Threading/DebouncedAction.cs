@@ -78,7 +78,7 @@ public sealed class DebouncedAction : IDisposable
         m_callbackRunning.Dispose();
     }
 
-    private void OnTimer(object state)
+    private void OnTimer(object? state)
     {
         bool acquired;
 

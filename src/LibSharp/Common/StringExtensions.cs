@@ -19,7 +19,7 @@ public static class StringExtensions
     /// <param name="input">Base 64 encoded string.</param>
     /// <param name="encoding">String encoding.</param>
     /// <returns>Original string.</returns>
-    public static string Base64Decode(this string input, Encoding encoding = null)
+    public static string Base64Decode(this string input, Encoding? encoding = null)
     {
         Argument.NotNull(input, nameof(input));
 
@@ -33,7 +33,7 @@ public static class StringExtensions
     /// <param name="input">Input string.</param>
     /// <param name="encoding">String encoding.</param>
     /// <returns>Base 64 encoded string.</returns>
-    public static string Base64Encode(this string input, Encoding encoding = null)
+    public static string Base64Encode(this string input, Encoding? encoding = null)
     {
         Argument.NotNull(input, nameof(input));
 

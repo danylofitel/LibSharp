@@ -52,7 +52,7 @@ public class InitializerAsyncPublicationOnlyUnitTests
 
         // Act
         _ = await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () =>
-            await lazy.GetValueAsync(_ => null, CancellationToken.None).ConfigureAwait(false)).ConfigureAwait(false);
+            await lazy.GetValueAsync(_ => null!, CancellationToken.None).ConfigureAwait(false)).ConfigureAwait(false);
     }
 
     [TestMethod]

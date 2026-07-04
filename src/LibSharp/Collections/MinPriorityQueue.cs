@@ -3,6 +3,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using LibSharp.Common;
 
@@ -163,11 +164,11 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     }
 
     /// <inheritdoc/>
-    public bool TryPeek(out T item)
+    public bool TryPeek([MaybeNullWhen(false)] out T item)
     {
         if (Count == 0)
         {
-            item = default;
+            item = default!;
             return false;
         }
 
@@ -204,18 +205,18 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
         Exchange(1, Count--);
         Sink(1);
 
-        m_heap[Count + 1] = default;
+        m_heap[Count + 1] = default!;
         Shrink();
 
         return min;
     }
 
     /// <inheritdoc/>
-    public bool TryDequeue(out T item)
+    public bool TryDequeue([MaybeNullWhen(false)] out T item)
     {
         if (Count == 0)
         {
-            item = default;
+            item = default!;
             return false;
         }
 
@@ -271,7 +272,7 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
             Sink(firstIndex);
             Swim(firstIndex);
 
-            m_heap[Count + 1] = default;
+            m_heap[Count + 1] = default!;
             Shrink();
 
             return true;
@@ -456,33 +457,33 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
         {
             get
             {
-                Validate();
+                MinPriorityQueue<TItem> queue = Validate();
 
-                if (m_index >= m_queue.Count)
+                if (m_index >= queue.Count)
                 {
                     throw new InvalidOperationException("Enumerator has enumerated all items and needs to be reset.");
                 }
 
-                return m_queue.m_heap[m_index + 1];
+                return queue.m_heap[m_index + 1];
             }
         }
 
         /// <inheritdoc/>
-        readonly object IEnumerator.Current => Current;
+        readonly object? IEnumerator.Current => Current;
 
         /// <inheritdoc/>
         public bool MoveNext()
         {
-            Validate();
+            MinPriorityQueue<TItem> queue = Validate();
 
             ++m_index;
-            return m_index < m_queue.Count;
+            return m_index < queue.Count;
         }
 
         /// <inheritdoc/>
         public void Reset()
         {
-            Validate();
+            _ = Validate();
 
             m_index = -1;
         }
@@ -496,7 +497,8 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
         /// <summary>
         /// Ensures that the enumerator is in a valid state, e.g. it has not been disposed, and the collection has not been modified.
         /// </summary>
-        private readonly void Validate()
+        /// <returns>The non-null queue being enumerated.</returns>
+        private readonly MinPriorityQueue<TItem> Validate()
         {
             if (m_queue is null)
             {
@@ -506,6 +508,8 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
             {
                 throw new InvalidOperationException("Collection was modified; enumeration operation may not execute.");
             }
+
+            return m_queue;
         }
 
         /// <summary>
@@ -516,7 +520,7 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
         /// <summary>
         /// Reference to the queue being enumerated.
         /// </summary>
-        private MinPriorityQueue<TItem> m_queue;
+        private MinPriorityQueue<TItem>? m_queue;
 
         /// <summary>
         /// Current of the enumerator.

@@ -157,7 +157,7 @@ public class InitializerAsyncExecutionAndPublicationUnitTests
 
         // Act
         _ = await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () =>
-            await initializer.GetValueAsync(_ => null, CancellationToken.None).ConfigureAwait(false)).ConfigureAwait(false);
+            await initializer.GetValueAsync(_ => null!, CancellationToken.None).ConfigureAwait(false)).ConfigureAwait(false);
     }
 
     [TestMethod]

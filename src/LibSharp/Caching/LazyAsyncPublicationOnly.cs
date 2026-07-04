@@ -54,15 +54,18 @@ public sealed class LazyAsyncPublicationOnly<T>
     {
         if (!HasValue)
         {
-            Task<T> factoryTask = m_factory(cancellationToken)
+            // m_factory is non-null whenever HasValue is false: the value constructor publishes
+            // m_value (making HasValue true), and the factory constructor sets m_factory.
+            Task<T> factoryTask = m_factory!(cancellationToken)
                 ?? throw new InvalidOperationException("The value factory returned a null task.");
             T value = await factoryTask.ConfigureAwait(false);
             _ = Interlocked.CompareExchange(ref m_value, new ValueReference<T>(value), null);
         }
 
-        return m_value.Value;
+        // m_value is non-null here: either HasValue was already true, or the block above published it.
+        return m_value!.Value;
     }
 
-    private readonly Func<CancellationToken, Task<T>> m_factory;
-    private volatile ValueReference<T> m_value;
+    private readonly Func<CancellationToken, Task<T>>? m_factory;
+    private volatile ValueReference<T>? m_value;
 }

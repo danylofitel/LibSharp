@@ -35,7 +35,7 @@ public class ArgumentUnitTests
     public void EqualTo_Equal_DoesNotThrow()
     {
         // Act
-        Argument.EqualTo((string)null, null, "name");
+        Argument.EqualTo((string)null!, null, "name");
         Argument.EqualTo((int?)null, null, "name");
 
         Argument.EqualTo(1, 1, "name");
@@ -52,14 +52,14 @@ public class ArgumentUnitTests
     public void GreaterThan_Null_Throws()
     {
         // Act
-        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.GreaterThan(null, "1", "name"));
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.GreaterThan((string)null!, "1", "name"));
     }
 
     [TestMethod]
     public void GreaterThan_NullBoundary_Throws()
     {
         // A null boundary is a programming error that must be caught, not silently ignored.
-        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.GreaterThan("value", null, "name"));
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.GreaterThan("value", (string)null!, "name"));
     }
 
     [TestMethod]
@@ -87,13 +87,13 @@ public class ArgumentUnitTests
     public void GreaterThanOrEqualTo_Null_Throws()
     {
         // Act
-        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.GreaterThanOrEqualTo(null, "1", "name"));
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.GreaterThanOrEqualTo((string)null!, "1", "name"));
     }
 
     [TestMethod]
     public void GreaterThanOrEqualTo_NullBoundary_Throws()
     {
-        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.GreaterThanOrEqualTo("value", null, "name"));
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.GreaterThanOrEqualTo("value", (string)null!, "name"));
     }
 
     [TestMethod]
@@ -121,13 +121,13 @@ public class ArgumentUnitTests
     public void LessThan_Null_Throws()
     {
         // Act
-        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.LessThan(null, "1", "name"));
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.LessThan((string)null!, "1", "name"));
     }
 
     [TestMethod]
     public void LessThan_NullBoundary_Throws()
     {
-        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.LessThan("value", null, "name"));
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.LessThan("value", (string)null!, "name"));
     }
 
     [TestMethod]
@@ -155,13 +155,13 @@ public class ArgumentUnitTests
     public void LessThanOrEqualTo_Null_Throws()
     {
         // Act
-        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.LessThanOrEqualTo(null, "1", "name"));
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.LessThanOrEqualTo((string)null!, "1", "name"));
     }
 
     [TestMethod]
     public void LessThanOrEqualTo_NullBoundary_Throws()
     {
-        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.LessThanOrEqualTo("value", null, "name"));
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.LessThanOrEqualTo("value", (string)null!, "name"));
     }
 
     [TestMethod]
@@ -189,7 +189,7 @@ public class ArgumentUnitTests
     public void NotEqualTo_BothNull_Throws()
     {
         // Act
-        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.NotEqualTo((string)null, null, "name"));
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.NotEqualTo((string)null!, null, "name"));
     }
 
     [TestMethod]
@@ -204,7 +204,7 @@ public class ArgumentUnitTests
     {
         // Act
         Argument.NotEqualTo(null, "value", "name");
-        Argument.NotEqualTo("value", null, "name");
+        Argument.NotEqualTo("value", (string)null!, "name");
 
         Argument.NotEqualTo(1, 2, "name");
         Argument.NotEqualTo(long.MinValue, long.MaxValue, "name");
@@ -227,8 +227,8 @@ public class ArgumentUnitTests
     [TestMethod]
     public void NotNull_Generic_Null_Throws()
     {
-        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.NotNull<string>(null, "name"));
-        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.NotNull<List<int>>(null, "name"));
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.NotNull<string>(null!, "name"));
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.NotNull<List<int>>(null!, "name"));
     }
 
     [TestMethod]
@@ -242,7 +242,7 @@ public class ArgumentUnitTests
     public void NotNullOrEmpty_Null_Throws()
     {
         // Act
-        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.NotNullOrEmpty(null, "name"));
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.NotNullOrEmpty(null!, "name"));
     }
 
     [TestMethod]
@@ -270,7 +270,7 @@ public class ArgumentUnitTests
     public void NotNullOrWhiteSpace_Null_Throws()
     {
         // Act
-        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.NotNullOrWhiteSpace(null, "name"));
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.NotNullOrWhiteSpace(null!, "name"));
     }
 
     [TestMethod]
@@ -312,14 +312,14 @@ public class ArgumentUnitTests
     public void OfType_Null_Throws()
     {
         // Act
-        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.OfType(null, typeof(string), "name"));
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.OfType(null!, typeof(string), "name"));
     }
 
     [TestMethod]
     public void OfType_NullType_Throws()
     {
         // Act
-        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.OfType("hello world", null, "name"));
+        _ = Assert.ThrowsExactly<ArgumentNullException>(() => Argument.OfType("hello world", null!, "name"));
     }
 
     [TestMethod]

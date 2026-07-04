@@ -2,6 +2,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 namespace LibSharp.Common;
 
@@ -55,7 +56,7 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
     /// Returns the value if it exists, or <paramref name="fallback"/> if it doesn't.
     /// </summary>
     /// <param name="fallback">The fallback value. Defaults to <c>default(T)</c>.</param>
-    public T GetValueOrDefault(T fallback = default)
+    public T? GetValueOrDefault(T? fallback = default)
     {
         return HasValue ? m_value : fallback;
     }
@@ -64,7 +65,7 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
     /// Returns true and sets <paramref name="value"/> to the wrapped value if the optional has one;
     /// otherwise returns false and sets <paramref name="value"/> to <c>default(T)</c>.
     /// </summary>
-    public bool TryGetValue(out T value)
+    public bool TryGetValue([MaybeNullWhen(false)] out T value)
     {
         value = m_value;
         return HasValue;
@@ -147,7 +148,7 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
     }
 
     /// <inheritdoc/>
-    public override bool Equals(object obj)
+    public override bool Equals(object? obj)
     {
         return obj is Optional<T> other && Equals(other);
     }

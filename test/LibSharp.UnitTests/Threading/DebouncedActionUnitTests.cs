@@ -15,7 +15,7 @@ public class DebouncedActionUnitTests
     public void Constructor_NullAction_Throws()
     {
         _ = Assert.ThrowsExactly<ArgumentNullException>(() =>
-            _ = new DebouncedAction(null, TimeSpan.FromMilliseconds(50)));
+            _ = new DebouncedAction(null!, TimeSpan.FromMilliseconds(50)));
     }
 
     [TestMethod]

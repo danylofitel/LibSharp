@@ -20,13 +20,16 @@ public static class XmlSerializationExtensions
     /// <param name="xmlString">XML string.</param>
     /// <param name="xmlReaderSettings">XML reader settings.</param>
     /// <returns>Deserialized object.</returns>
-    public static T DeserializeFromXml<T>(this string xmlString, XmlReaderSettings xmlReaderSettings = null)
+    public static T DeserializeFromXml<T>(this string xmlString, XmlReaderSettings? xmlReaderSettings = null)
     {
         Argument.NotNullOrWhiteSpace(xmlString, nameof(xmlString));
 
         using StringReader stringReader = new StringReader(xmlString);
         using XmlReader xmlReader = XmlReader.Create(stringReader, xmlReaderSettings ?? s_xmlReaderSettings);
-        return (T)GetSerializer(typeof(T)).Deserialize(xmlReader);
+
+        // XmlSerializer.Deserialize is typed as object? but only yields null for content that cannot
+        // represent T (e.g. an empty document); the cast then surfaces that as the caller's error.
+        return (T)GetSerializer(typeof(T)).Deserialize(xmlReader)!;
     }
 
     /// <summary>

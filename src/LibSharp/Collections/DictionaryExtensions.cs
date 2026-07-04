@@ -60,7 +60,7 @@ public static class DictionaryExtensions
 
         TValue newValue;
 
-        if (dictionary.TryGetValue(key, out TValue oldValue))
+        if (dictionary.TryGetValue(key, out TValue? oldValue))
         {
             newValue = updateValueFactory(key, oldValue);
         }
@@ -141,7 +141,7 @@ public static class DictionaryExtensions
         ArgumentNullException.ThrowIfNull(key);
         Argument.NotNull(valueFactory, nameof(valueFactory));
 
-        if (dictionary.TryGetValue(key, out TValue oldValue))
+        if (dictionary.TryGetValue(key, out TValue? oldValue))
         {
             return oldValue;
         }
@@ -187,6 +187,7 @@ public static class DictionaryExtensions
     /// <param name="source">Source dictionary.</param>
     /// <returns>A copy of the source dictionary.</returns>
     public static IDictionary<TKey, TValue> Copy<TKey, TValue>(this IDictionary<TKey, TValue> source)
+        where TKey : notnull
     {
         Argument.NotNull(source, nameof(source));
 

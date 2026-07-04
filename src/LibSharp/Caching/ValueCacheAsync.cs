@@ -117,7 +117,8 @@ public sealed class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
                 // fail this call instead of returning a value after disposal.
                 ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
 
-                return m_boxed.Value;
+                // Refresh guarantees m_boxed is non-null on return.
+                return m_boxed!.Value;
             }
         }
 
@@ -168,10 +169,10 @@ public sealed class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
 
     private readonly AsyncLock m_lock = new AsyncLock();
     private readonly Func<CancellationToken, Task<T>> m_createFactory;
-    private readonly Func<T, CancellationToken, Task<T>> m_updateFactory;
+    private readonly Func<T, CancellationToken, Task<T>>? m_updateFactory;
     private readonly Func<T, DateTime> m_expirationFunction;
 
-    private volatile ValueReference<T> m_boxed;
+    private volatile ValueReference<T>? m_boxed;
 
     private int m_isDisposed;
 }
