@@ -363,7 +363,7 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
             // likely failing fast because it is already overloaded. Within m_retryDelay of a
             // failure, replay the stored exception instead of calling the factory again.
             FetchFailure? failure = state.Failure;
-            if (!backgroundRefresh && failure is not null && UtcNow - failure.Time < m_retryDelay)
+            if (!backgroundRefresh && failure is not null && UtcNow - failure.FailedAt < m_retryDelay)
             {
                 Task<CacheSnapshot> suppressed = Task.FromException<CacheSnapshot>(failure.Exception);
 
@@ -627,5 +627,5 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
     // would not recover the real production time.
     private sealed record CacheSnapshot(T Value, DateTime CreatedAt, DateTime ExpiresAt);
 
-    private sealed record FetchFailure(Exception Exception, DateTime Time, int ConsecutiveCount);
+    private sealed record FetchFailure(Exception Exception, DateTime FailedAt, int ConsecutiveCount);
 }
