@@ -101,6 +101,20 @@ public sealed class KeyValueCache<TKey, TValue> : IKeyValueCache<TKey, TValue>
         m_expirationFunction = expirationFunction;
     }
 
+    /// <summary>
+    /// Gets the number of entries the cache is holding.
+    /// </summary>
+    /// <remarks>
+    /// Entries are never evicted, so this is the number of distinct keys ever requested, including
+    /// those whose value has since expired. It is the measure to watch when confirming that a key
+    /// space really is bounded.
+    /// <para>
+    /// Not free: reading it takes every bucket lock of the underlying <see cref="ConcurrentDictionary{TKey, TValue}"/>
+    /// and so contends with concurrent writers. Sample it periodically; do not read it per request.
+    /// </para>
+    /// </remarks>
+    public int Count => m_cache.Count;
+
     /// <inheritdoc/>
     public TValue GetValue(TKey key)
     {
@@ -109,11 +123,15 @@ public sealed class KeyValueCache<TKey, TValue> : IKeyValueCache<TKey, TValue>
             throw new ArgumentNullException(nameof(key));
         }
 
+        // The factory is static and takes `this` as state, so no delegate is allocated per call.
+        // A closure-capturing lambda would allocate one on every read, not just on insert, because
+        // Roslyn only caches lambdas that capture nothing.
         Lazy<ValueCache<TValue>> lazyValueCache = m_cache.GetOrAdd(
             key,
-            cacheKey => new Lazy<ValueCache<TValue>>(
-                () => CreateValueCache(cacheKey),
-                LazyThreadSafetyMode.ExecutionAndPublication));
+            static (cacheKey, self) => new Lazy<ValueCache<TValue>>(
+                () => self.CreateValueCache(cacheKey),
+                LazyThreadSafetyMode.ExecutionAndPublication),
+            this);
 
         return lazyValueCache.Value.GetValue();
     }

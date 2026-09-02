@@ -102,6 +102,29 @@ public sealed class KeyValueCacheAsync<TKey, TValue> : IKeyValueCacheAsync<TKey,
         m_expirationFunction = expirationFunction;
     }
 
+    /// <summary>
+    /// Gets the number of entries the cache is holding.
+    /// </summary>
+    /// <remarks>
+    /// Entries are never evicted, so this is the number of distinct keys ever requested, including
+    /// those whose value has since expired. It is the measure to watch when confirming that a key
+    /// space really is bounded.
+    /// <para>
+    /// Not free: reading it takes every bucket lock of the underlying <see cref="ConcurrentDictionary{TKey, TValue}"/>
+    /// and so contends with concurrent writers. Sample it periodically; do not read it per request.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ObjectDisposedException">Thrown if the cache has been disposed.</exception>
+    public int Count
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
+
+            return m_cache.Count;
+        }
+    }
+
     /// <inheritdoc/>
     public ValueTask<TValue> GetValueAsync(TKey key, CancellationToken cancellationToken = default)
     {
@@ -124,11 +147,15 @@ public sealed class KeyValueCacheAsync<TKey, TValue> : IKeyValueCacheAsync<TKey,
          *
          * This will not invoke the factory method yet.
          */
+        // The factory is static and takes `this` as state, so no delegate is allocated per call.
+        // A closure-capturing lambda would allocate one on every read, not just on insert, because
+        // Roslyn only caches lambdas that capture nothing.
         Lazy<ValueCacheAsync<TValue>> lazyValueCache = m_cache.GetOrAdd(
             key,
-            cacheKey => new Lazy<ValueCacheAsync<TValue>>(
-                () => CreateValueCache(cacheKey),
-                LazyThreadSafetyMode.ExecutionAndPublication));
+            static (cacheKey, self) => new Lazy<ValueCacheAsync<TValue>>(
+                () => self.CreateValueCache(cacheKey),
+                LazyThreadSafetyMode.ExecutionAndPublication),
+            this);
 
         // Re-check after GetOrAdd to avoid leaking entries added concurrently with Dispose.
         ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
