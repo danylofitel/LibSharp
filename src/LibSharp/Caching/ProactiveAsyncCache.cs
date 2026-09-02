@@ -114,7 +114,66 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
         get
         {
             ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
-            return m_state.Snapshot?.ExpirationTime;
+            return m_state.Snapshot?.ExpiresAt;
+        }
+    }
+
+    /// <summary>
+    /// Gets the exception from the most recent failed refresh, or <c>null</c> if the cache is healthy.
+    /// </summary>
+    /// <remarks>
+    /// Cleared by the next successful refresh, so a non-null value means the cache is failing
+    /// <em>now</em>, not that it failed at some point. With stale reads enabled this is the only
+    /// signal that the value being served has stopped being updated, since readers see no error.
+    /// <para>
+    /// This and the two properties below are each sampled independently from an internally
+    /// consistent state object, so a pair of reads may straddle a refresh. Treat them as a health
+    /// signal rather than a transactional snapshot.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ObjectDisposedException">Thrown if the cache has been disposed.</exception>
+    public Exception? LastRefreshException
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
+            return m_state.Failure?.Exception;
+        }
+    }
+
+    /// <summary>
+    /// Gets the number of consecutive failed refreshes since the last successful one.
+    /// </summary>
+    /// <remarks>
+    /// Zero when the cache is healthy. A value that keeps climbing is the signal to alert on: it
+    /// distinguishes a single transient failure from a dependency that is genuinely down.
+    /// </remarks>
+    /// <exception cref="ObjectDisposedException">Thrown if the cache has been disposed.</exception>
+    public int ConsecutiveRefreshFailures
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
+            return m_state.Failure?.ConsecutiveCount ?? 0;
+        }
+    }
+
+    /// <summary>
+    /// Gets the time at which the current value was produced, or <c>null</c> before the first
+    /// successful refresh.
+    /// </summary>
+    /// <remarks>
+    /// Measured with the cache's <see cref="TimeProvider"/>. Together with
+    /// <see cref="ConsecutiveRefreshFailures"/> this gives the age of what is actually being served,
+    /// which is what matters when stale reads are enabled and the value could be arbitrarily old.
+    /// </remarks>
+    /// <exception cref="ObjectDisposedException">Thrown if the cache has been disposed.</exception>
+    public DateTime? LastSuccessfulRefresh
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
+            return m_state.Snapshot?.CreatedAt;
         }
     }
 
@@ -139,7 +198,7 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
         // m_state is volatile so the reference read is immediately visible across threads, and the
         // whole state is immutable, so this single read gives a consistent view.
         CacheSnapshot? snapshot = m_state.Snapshot;
-        if (snapshot is not null && now < snapshot.ExpirationTime)
+        if (snapshot is not null && now < snapshot.ExpiresAt)
         {
             // Hit: this method is deliberately not async, so the common path costs no allocation
             // and builds no state machine.
@@ -259,8 +318,8 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
     // Returns a task representing an in-progress or newly started fetch. Callers should
     // await the returned task to get the refreshed snapshot.
     //
-    // backgroundRefresh = false (GetValueAsync): fresh if now < expirationTime
-    // backgroundRefresh = true  (background loop): fresh if now < expirationTime - preFetchOffset
+    // backgroundRefresh = false (GetValueAsync): fresh if now < expiresAt
+    // backgroundRefresh = true  (background loop): fresh if now < expiresAt - preFetchOffset
     //   The tighter threshold prevents the background from duplicating a fetch that
     //   GetValueAsync just performed while the loop was sleeping.
     // The flag also exempts the loop from the reader-side failure backoff below: the loop already
@@ -293,7 +352,7 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
             CacheState state = m_state;
             CacheSnapshot? snapshot = state.Snapshot;
             TimeSpan freshThreshold = backgroundRefresh ? m_preFetchOffset : TimeSpan.Zero;
-            if (snapshot is not null && UtcNow < snapshot.ExpirationTime - freshThreshold)
+            if (snapshot is not null && UtcNow < snapshot.ExpiresAt - freshThreshold)
             {
                 return Task.FromResult(snapshot);
             }
@@ -357,7 +416,7 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
                 ? DateTime.MaxValue
                 : now + m_refreshInterval;
 
-            CacheSnapshot snapshot = new CacheSnapshot(value, expiration);
+            CacheSnapshot snapshot = new CacheSnapshot(value, now, expiration);
 
             // Volatile write — immediately visible on the hot path. Success clears any recorded
             // failure, so the backoff and the failure counters reset together.
@@ -443,7 +502,7 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
                 CacheSnapshot? snapshot = m_state.Snapshot;
                 if (snapshot is not null)
                 {
-                    TimeSpan delay = snapshot.ExpirationTime - m_preFetchOffset - UtcNow;
+                    TimeSpan delay = snapshot.ExpiresAt - m_preFetchOffset - UtcNow;
 
                     // Never sleep past the moment the cache goes idle. Without this the loop would
                     // hold its refresh timer for the rest of the interval after falling idle —
@@ -474,12 +533,12 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
                 // Re-read after sleeping: a concurrent GetValueAsync may have refreshed
                 // the value while we were waiting, making our pre-fetch unnecessary.
                 snapshot = m_state.Snapshot;
-                if (snapshot is not null && UtcNow < snapshot.ExpirationTime - m_preFetchOffset)
+                if (snapshot is not null && UtcNow < snapshot.ExpiresAt - m_preFetchOffset)
                 {
                     continue;
                 }
 
-                        _ = await GetOrCreateFetchTask(backgroundRefresh: true).ConfigureAwait(false);
+                _ = await GetOrCreateFetchTask(backgroundRefresh: true).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (m_cts.IsCancellationRequested)
             {
@@ -563,7 +622,10 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
 
     private sealed record CacheState(CacheSnapshot? Snapshot, FetchFailure? Failure);
 
-    private sealed record CacheSnapshot(T Value, DateTime ExpirationTime);
+    // CreatedAt is stored rather than derived from ExpiresAt: expiration is clamped to
+    // DateTime.MaxValue for very large refresh intervals, so subtracting the interval back off it
+    // would not recover the real production time.
+    private sealed record CacheSnapshot(T Value, DateTime CreatedAt, DateTime ExpiresAt);
 
     private sealed record FetchFailure(Exception Exception, DateTime Time, int ConsecutiveCount);
 }

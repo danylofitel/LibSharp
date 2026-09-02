@@ -985,4 +985,134 @@ public class ProactiveAsyncCacheUnitTests
         int value = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
         Assert.IsGreaterThan(0, value);
     }
+
+    // ── Refresh diagnostics ───────────────────────────────
+
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task Diagnostics_AreCleanOnAHealthyCache()
+    {
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            _ => Task.FromResult(42),
+            TimeSpan.FromMinutes(10),
+            TimeSpan.Zero,
+            allowStaleReads: false,
+            timeProvider);
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
+
+        // Before any fetch there is neither a value nor a failure.
+        Assert.AreEqual(0, cache.ConsecutiveRefreshFailures);
+        Assert.IsNull(cache.LastRefreshException);
+
+        DateTime fetchedAt = timeProvider.GetUtcNow().UtcDateTime;
+        _ = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+
+        Assert.IsNull(cache.LastRefreshException);
+        Assert.AreEqual(0, cache.ConsecutiveRefreshFailures);
+        Assert.AreEqual(fetchedAt, cache.LastSuccessfulRefresh);
+    }
+
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task Diagnostics_CountConsecutiveFailuresAndSurfaceTheException()
+    {
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            _ => throw new InvalidTimeZoneException("dependency down"),
+            TimeSpan.FromMinutes(10),
+            TimeSpan.Zero,
+            allowStaleReads: false,
+            timeProvider);
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
+
+        // Each attempt must clear the backoff window, or the factory is never reached again.
+        for (int expected = 1; expected <= 3; expected++)
+        {
+            _ = await Assert.ThrowsExactlyAsync<InvalidTimeZoneException>(
+                () => cache.GetValueAsync(TestContext.CancellationToken).AsTask()).ConfigureAwait(false);
+
+            Assert.AreEqual(expected, cache.ConsecutiveRefreshFailures);
+            _ = Assert.IsInstanceOfType<InvalidTimeZoneException>(cache.LastRefreshException);
+            Assert.IsNull(cache.LastSuccessfulRefresh, "No value has ever been produced.");
+
+            timeProvider.Advance(TimeSpan.FromMinutes(6));
+        }
+    }
+
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task Diagnostics_ASuccessfulRefreshClearsTheFailureState()
+    {
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
+        int calls = 0;
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            _ => Interlocked.Increment(ref calls) == 1
+                ? throw new InvalidTimeZoneException("transient")
+                : Task.FromResult(42),
+            TimeSpan.FromMinutes(10),
+            TimeSpan.Zero,
+            allowStaleReads: false,
+            timeProvider);
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
+
+        _ = await Assert.ThrowsExactlyAsync<InvalidTimeZoneException>(
+            () => cache.GetValueAsync(TestContext.CancellationToken).AsTask()).ConfigureAwait(false);
+        Assert.AreEqual(1, cache.ConsecutiveRefreshFailures);
+
+        // Act
+        timeProvider.Advance(TimeSpan.FromMinutes(6));
+        DateTime successAt = timeProvider.GetUtcNow().UtcDateTime;
+        Assert.AreEqual(42, await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false));
+
+        // Assert
+        Assert.IsNull(cache.LastRefreshException, "A successful refresh must clear the recorded failure.");
+        Assert.AreEqual(0, cache.ConsecutiveRefreshFailures);
+        Assert.AreEqual(successAt, cache.LastSuccessfulRefresh);
+    }
+
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task Diagnostics_WithStaleReads_ExposeHowOldTheServedValueIs()
+    {
+        // The case the diagnostics exist for: stale reads hide the failure from callers entirely,
+        // so this is the only way to tell that the value has stopped being updated.
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
+        int calls = 0;
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            _ => Interlocked.Increment(ref calls) == 1
+                ? Task.FromResult(1)
+                : throw new InvalidTimeZoneException("dependency down"),
+            TimeSpan.FromMinutes(10),
+            TimeSpan.Zero,
+            allowStaleReads: true,
+            timeProvider);
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
+
+        DateTime producedAt = timeProvider.GetUtcNow().UtcDateTime;
+        Assert.AreEqual(1, await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false));
+
+        // Expire it and read again: the caller still sees a value, with no error at all.
+        timeProvider.Advance(TimeSpan.FromMinutes(11));
+        Assert.AreEqual(1, await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false));
+
+        // Assert — the diagnostics tell the story the reader cannot see.
+        _ = Assert.IsInstanceOfType<InvalidTimeZoneException>(cache.LastRefreshException);
+        Assert.IsGreaterThan(0, cache.ConsecutiveRefreshFailures);
+        Assert.AreEqual(producedAt, cache.LastSuccessfulRefresh, "The served value still dates from the first fetch.");
+    }
+
+    [TestMethod]
+    public async Task Diagnostics_ThrowWhenDisposed()
+    {
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            _ => Task.FromResult(42),
+            TimeSpan.FromHours(1),
+            TimeSpan.Zero);
+        await cache.DisposeAsync().ConfigureAwait(false);
+
+        _ = Assert.ThrowsExactly<ObjectDisposedException>(() => _ = cache.LastRefreshException);
+        _ = Assert.ThrowsExactly<ObjectDisposedException>(() => _ = cache.ConsecutiveRefreshFailures);
+        _ = Assert.ThrowsExactly<ObjectDisposedException>(() => _ = cache.LastSuccessfulRefresh);
+    }
 }
