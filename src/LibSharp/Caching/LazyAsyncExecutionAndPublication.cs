@@ -12,7 +12,6 @@ namespace LibSharp.Caching;
 /// </summary>
 /// <typeparam name="T">Value type.</typeparam>
 /// <remarks>
-/// Should not be used with IDisposable or IAsyncDisposable value types since it does not dispose of values.
 /// A successful initialization is cached permanently. Faulted or canceled attempts are not cached and may be retried by later callers.
 /// <para>
 /// Concurrent callers share a single factory execution rather than queueing behind a lock: the
@@ -20,6 +19,12 @@ namespace LibSharp.Caching;
 /// cancellation token. A caller that gives up cancels only its own wait, never the shared work.
 /// Because the work is shared, the factory runs with <see cref="CancellationToken.None"/> — no one
 /// caller's token may cancel an initialization the others are waiting on.
+/// </para>
+/// <para>
+/// Unlike the PublicationOnly variant, no value is ever produced and then dropped: exactly one
+/// factory execution succeeds, and its value is the one every caller receives. A disposable
+/// <typeparamref name="T"/> is therefore usable here. This type never disposes the value, but it
+/// never hides one from you either, so disposal remains the caller's responsibility.
 /// </para>
 /// </remarks>
 public sealed class LazyAsyncExecutionAndPublication<T>

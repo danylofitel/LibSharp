@@ -12,7 +12,6 @@ namespace LibSharp.Caching;
 /// </summary>
 /// <typeparam name="T">Value type.</typeparam>
 /// <remarks>
-/// Should not be used with IDisposable or IAsyncDisposable value types since it does not dispose of values.
 /// A successful initialization is cached permanently. Faulted or canceled attempts are not cached and may be retried by later callers.
 /// <para>
 /// Concurrent callers share a single factory execution rather than queueing behind a lock: the
@@ -24,6 +23,12 @@ namespace LibSharp.Caching;
 /// <para>
 /// When callers race, the factory supplied by whichever caller starts the initialization is the one
 /// that runs; the others receive its result without their own factory being invoked.
+/// </para>
+/// <para>
+/// Unlike the PublicationOnly variant, no value is ever produced and then dropped: exactly one
+/// factory execution succeeds, and its value is the one every caller receives. A disposable
+/// <typeparamref name="T"/> is therefore usable here. This type never disposes the value, but it
+/// never hides one from you either, so disposal remains the caller's responsibility.
 /// </para>
 /// </remarks>
 public sealed class InitializerAsyncExecutionAndPublication<T> : IInitializerAsync<T>

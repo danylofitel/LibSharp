@@ -9,14 +9,10 @@
     - `ValueCacheAsync<T>` no longer holds a lock across the value factory: it publishes a shared refresh task the way `ProactiveAsyncCache<T>` does. A factory that synchronously re-enters the cache now joins that refresh instead of deadlocking; one that awaits the nested read still deadlocks
     - Fixed an already-cancelled `CancellationToken` being ignored by `GetValueAsync` on `ValueCacheAsync<T>` and `ProactiveAsyncCache<T>` when the shared fetch had already completed. A cache hit is still served, since it does no waiting
     - Argument validation and disposal checks in `GetValueAsync` now throw synchronously rather than returning a faulted task, following the convention for `ValueTask`-returning members
-    - Documented that `ProactiveAsyncCache<T>`, `KeyValueCache<TKey, TValue>` and `KeyValueCacheAsync<TKey, TValue>` do not dispose replaced values, matching the caveat the other caches already carried
-    - Documented the value-factory re-entrancy hazard on `ValueCache<T>`, `ValueCacheAsync<T>`, `KeyValueCache<TKey, TValue>` and `KeyValueCacheAsync<TKey, TValue>`: the lock is held across the factory call, so the async caches deadlock and the synchronous ones silently invoke the factory twice
     - Added `Count` to `KeyValueCache<TKey, TValue>` and `KeyValueCacheAsync<TKey, TValue>`, reporting the number of entries held. Deliberately on the concrete types rather than the interfaces, following `MemoryCache`/`IMemoryCache`: the number means different things for evicting and non-evicting implementations, may be expensive or unavailable for a remote one, and reading it takes every bucket lock of the underlying `ConcurrentDictionary`. Since nothing is evicted, it counts entries whose value has expired, which makes it the measure to watch when confirming a key space is bounded
     - `KeyValueCache<TKey, TValue>` and `KeyValueCacheAsync<TKey, TValue>` no longer allocate a delegate on every read. The `GetOrAdd` factory captured `this`, and Roslyn only caches closure-free lambdas, so one was allocated per call rather than per insert
-    - `IKeyValueCache<TKey, TValue>` and `IKeyValueCacheAsync<TKey, TValue>` now document that eviction behaviour is implementation-defined and may be unbounded
   - `Threading`
     - **Breaking:** `AsyncLock.AcquireAsync` now returns `ValueTask<Handle>` instead of `Task<Handle>`; an uncontended acquisition no longer allocates
-  - Package validation is now baselined against 4.0.0, and every intentional break above is recorded in `CompatibilitySuppressions.xml`
 
 - 4.0.0
   - Enabled nullable reference type annotations across the entire public API; `TryGet*` methods and out parameters are now annotated (e.g. `[MaybeNullWhen(false)]`), and nullable inputs such as optional `Encoding`/`XmlReaderSettings` arguments are marked accordingly
