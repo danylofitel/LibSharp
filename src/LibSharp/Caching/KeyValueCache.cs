@@ -23,9 +23,9 @@ namespace LibSharp.Caching;
 /// </para>
 /// <para>
 /// The value factory must not call <see cref="GetValue"/> on this same cache for the same key.
-/// The per-key lock is held across the factory call; because it is a monitor it is re-entrant on
-/// the calling thread, so a re-entrant call does not deadlock — it invokes the factory a second
-/// time and publishes twice. Re-entering for a <em>different</em> key is safe.
+/// Doing so throws <see cref="InvalidOperationException"/>, the way <see cref="Lazy{T}"/> reports
+/// recursive initialization. Re-entering for a <em>different</em> key is safe: each key gets its
+/// own value cache with its own lock.
 /// </para>
 /// </remarks>
 public sealed class KeyValueCache<TKey, TValue> : IKeyValueCache<TKey, TValue>

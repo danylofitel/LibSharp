@@ -839,4 +839,150 @@ public class ProactiveAsyncCacheUnitTests
     }
 
     public TestContext TestContext { get; set; }
+
+    // ── Failure backoff ────────────────────────────────────
+
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task GetValueAsync_AfterAFailure_SuppressesFurtherFactoryCallsWithinTheRetryDelay()
+    {
+        // Without negative caching a faulted fetch is IsCompleted, so every subsequent read starts
+        // a fresh factory call with no delay: a fast-failing dependency gets hammered at read rate.
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
+        int calls = 0;
+
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            cancellationToken =>
+            {
+                _ = Interlocked.Increment(ref calls);
+                throw new InvalidTimeZoneException("dependency down");
+            },
+            TimeSpan.FromMinutes(10),
+            TimeSpan.Zero,
+            allowStaleReads: false,
+            timeProvider);
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
+
+        // Act — the first read fails and records the failure.
+        _ = await Assert.ThrowsExactlyAsync<InvalidTimeZoneException>(
+            () => cache.GetValueAsync(TestContext.CancellationToken).AsTask()).ConfigureAwait(false);
+
+        int callsAfterFirst = Volatile.Read(ref calls);
+
+        // Assert — reads inside the retry window replay the stored exception, calling nothing.
+        for (int i = 0; i < 20; i++)
+        {
+            _ = await Assert.ThrowsExactlyAsync<InvalidTimeZoneException>(
+                () => cache.GetValueAsync(TestContext.CancellationToken).AsTask()).ConfigureAwait(false);
+        }
+
+        Assert.AreEqual(callsAfterFirst, Volatile.Read(ref calls), "Reads inside the retry window must not reach the factory.");
+    }
+
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task GetValueAsync_OnceTheRetryDelayElapses_TheFactoryIsTriedAgain()
+    {
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
+        int calls = 0;
+
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            cancellationToken =>
+            {
+                int call = Interlocked.Increment(ref calls);
+                return call == 1
+                    ? throw new InvalidTimeZoneException("transient")
+                    : Task.FromResult(42);
+            },
+            TimeSpan.FromMinutes(10),
+            TimeSpan.Zero,
+            allowStaleReads: false,
+            timeProvider);
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
+
+        _ = await Assert.ThrowsExactlyAsync<InvalidTimeZoneException>(
+            () => cache.GetValueAsync(TestContext.CancellationToken).AsTask()).ConfigureAwait(false);
+
+        // Act — step past the retry window. m_retryDelay is half the quiet window, so five minutes
+        // here against a ten-minute interval with no pre-fetch offset.
+        timeProvider.Advance(TimeSpan.FromMinutes(6));
+
+        // Assert — the suppression has lapsed and the factory runs again.
+        Assert.AreEqual(42, await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false));
+    }
+
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task GetValueAsync_WithStaleReads_ServesTheStaleValueWithoutCallingTheFactory()
+    {
+        // The outage case that matters: an expired value plus a failing factory must serve stale
+        // rather than retry per read.
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
+        int calls = 0;
+
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            cancellationToken =>
+            {
+                int call = Interlocked.Increment(ref calls);
+                return call == 1
+                    ? Task.FromResult(1)
+                    : throw new InvalidTimeZoneException("dependency down");
+            },
+            TimeSpan.FromMinutes(10),
+            TimeSpan.Zero,
+            allowStaleReads: true,
+            timeProvider);
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
+
+        Assert.AreEqual(1, await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false));
+
+        // Expire the value, then read: this read triggers the failing refresh and serves stale.
+        timeProvider.Advance(TimeSpan.FromMinutes(11));
+        Assert.AreEqual(1, await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false));
+
+        int callsAfterFailure = Volatile.Read(ref calls);
+
+        // Act & Assert — further reads keep serving stale and stop touching the factory entirely.
+        for (int i = 0; i < 20; i++)
+        {
+            Assert.AreEqual(1, await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false));
+        }
+
+        Assert.AreEqual(callsAfterFailure, Volatile.Read(ref calls), "Stale reads inside the retry window must not reach the factory.");
+    }
+
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task GetValueAsync_ASuccessfulFetch_ClearsTheRecordedFailure()
+    {
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
+        int calls = 0;
+
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            cancellationToken =>
+            {
+                int call = Interlocked.Increment(ref calls);
+                return call == 1
+                    ? throw new InvalidTimeZoneException("transient")
+                    : Task.FromResult(call);
+            },
+            TimeSpan.FromMinutes(10),
+            TimeSpan.Zero,
+            allowStaleReads: false,
+            timeProvider);
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
+
+        _ = await Assert.ThrowsExactlyAsync<InvalidTimeZoneException>(
+            () => cache.GetValueAsync(TestContext.CancellationToken).AsTask()).ConfigureAwait(false);
+
+        timeProvider.Advance(TimeSpan.FromMinutes(6));
+        _ = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+
+        // Act — expire the fresh value. The earlier failure must not still be suppressing fetches.
+        timeProvider.Advance(TimeSpan.FromMinutes(11));
+
+        // Assert — a refresh happens rather than the stale failure being replayed.
+        int value = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+        Assert.IsGreaterThan(0, value);
+    }
 }

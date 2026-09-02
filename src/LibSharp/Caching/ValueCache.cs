@@ -12,9 +12,9 @@ namespace LibSharp.Caching;
 /// <remarks>
 /// Should not be used with IDisposable value types since it does not dispose of expired values.
 /// <para>
-/// The value factory must not call <see cref="GetValue"/> on this same cache. The lock is held
-/// across the factory call; because it is a monitor it is re-entrant on the calling thread, so a
-/// re-entrant call does not deadlock — it invokes the factory a second time and publishes twice.
+/// The value factory must not call <see cref="GetValue"/> on this same cache. Doing so throws
+/// <see cref="InvalidOperationException"/>, the way <see cref="Lazy{T}"/> reports recursive
+/// initialization, rather than recursing until the stack overflows.
 /// </para>
 /// </remarks>
 public sealed class ValueCache<T> : IValueCache<T>
@@ -109,7 +109,31 @@ public sealed class ValueCache<T> : IValueCache<T>
                 boxed = m_boxed;
                 if (boxed is null || UtcNow >= boxed.Expiration)
                 {
-                    Refresh();
+                    // The monitor is re-entrant, so a factory that reads this same cache would
+                    // re-enter here, still find no published value, and call the factory again,
+                    // recursing until the stack overflows and takes the process with it. Fail fast
+                    // instead, the way Lazy<T> reports recursive initialization.
+                    //
+                    // m_isRefreshing needs no synchronisation of its own: it is only ever touched
+                    // under m_lock, and only the thread already holding that lock can observe it
+                    // set. Any other thread is blocked at the lock and never sees it.
+                    if (m_isRefreshing)
+                    {
+                        throw new InvalidOperationException(
+                            "The value factory attempted to read the cache it is refreshing. Re-entering a cache from its own value factory is not supported.");
+                    }
+
+                    m_isRefreshing = true;
+                    try
+                    {
+                        Refresh();
+                    }
+                    finally
+                    {
+                        // Reset even when the factory throws, so one failure does not wedge the cache.
+                        m_isRefreshing = false;
+                    }
+
                     boxed = m_boxed;
                 }
 
@@ -156,4 +180,7 @@ public sealed class ValueCache<T> : IValueCache<T>
     private readonly Func<T, DateTime> m_expirationFunction;
 
     private volatile ValueReference<T>? m_boxed;
+
+    // Guards against a value factory re-entering this cache. Written and read only under m_lock.
+    private bool m_isRefreshing;
 }
