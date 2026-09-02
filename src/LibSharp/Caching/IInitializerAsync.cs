@@ -40,5 +40,15 @@ public interface IInitializerAsync<T>
     /// <exception cref="ObjectDisposedException">Thrown if the initializer has been disposed.</exception>
     /// <exception cref="OperationCanceledException">Thrown if <paramref name="cancellationToken"/> is canceled before the value is produced.</exception>
     /// <exception cref="InvalidOperationException">Thrown if <paramref name="factory"/> returns a null task.</exception>
-    Task<T> GetValueAsync(Func<CancellationToken, Task<T>> factory, CancellationToken cancellationToken = default);
+    /// <remarks>
+    /// Returns <see cref="System.Threading.Tasks.ValueTask{TResult}"/> because a cache read usually
+    /// completes synchronously, and that path must not allocate. Observe the standard contract: await
+    /// the result at most once, never concurrently, and call <c>AsTask</c> before handing it to
+    /// <see cref="System.Threading.Tasks.Task.WhenAll(System.Threading.Tasks.Task[])"/> or storing it.
+    /// </remarks>
+    /// <remarks>
+    /// The <paramref name="factory"/> keeps returning <see cref="Task{TResult}"/>: it performs the real
+    /// work and never completes synchronously, so a value task there would be caller friction for no gain.
+    /// </remarks>
+    ValueTask<T> GetValueAsync(Func<CancellationToken, Task<T>> factory, CancellationToken cancellationToken = default);
 }

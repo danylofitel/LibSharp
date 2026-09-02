@@ -35,7 +35,7 @@ public class ProactiveAsyncCacheBenchmarks
     }
 
     [Benchmark(Baseline = true)]
-    public Task<int> ProactiveAsyncCache_FreshHit()
+    public ValueTask<int> ProactiveAsyncCache_FreshHit()
     {
         return m_proactiveAsyncCache.GetValueAsync(CancellationToken.None);
     }

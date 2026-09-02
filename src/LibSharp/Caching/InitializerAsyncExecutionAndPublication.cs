@@ -30,31 +30,36 @@ public sealed class InitializerAsyncExecutionAndPublication<T> : IInitializerAsy
     }
 
     /// <inheritdoc/>
-    public async Task<T> GetValueAsync(Func<CancellationToken, Task<T>> factory, CancellationToken cancellationToken = default)
+    public ValueTask<T> GetValueAsync(Func<CancellationToken, Task<T>> factory, CancellationToken cancellationToken = default)
     {
         Argument.NotNull(factory);
 
         ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
 
-        if (!m_hasValue)
+        if (m_hasValue)
         {
-            using (await m_lock.AcquireAsync(cancellationToken).ConfigureAwait(false))
-            {
-                if (!m_hasValue)
-                {
-                    Task<T> factoryTask = factory(cancellationToken)
-                        ?? throw new InvalidOperationException("The value factory returned a null task.");
-                    m_value = await factoryTask.ConfigureAwait(false);
-                    m_hasValue = true;
-                }
-
-                ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
-
-                return m_value;
-            }
+            return new ValueTask<T>(m_value);
         }
 
-        return m_value;
+        return InitializeAsync(factory, cancellationToken);
+    }
+
+    private async ValueTask<T> InitializeAsync(Func<CancellationToken, Task<T>> factory, CancellationToken cancellationToken)
+    {
+        using (await m_lock.AcquireAsync(cancellationToken).ConfigureAwait(false))
+        {
+            if (!m_hasValue)
+            {
+                Task<T> factoryTask = factory(cancellationToken)
+                    ?? throw new InvalidOperationException("The value factory returned a null task.");
+                m_value = await factoryTask.ConfigureAwait(false);
+                m_hasValue = true;
+            }
+
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
+
+            return m_value;
+        }
     }
 
     /// <inheritdoc/>

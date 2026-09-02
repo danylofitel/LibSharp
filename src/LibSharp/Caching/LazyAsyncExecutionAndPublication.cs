@@ -61,31 +61,36 @@ public sealed class LazyAsyncExecutionAndPublication<T> : IDisposable
     /// <exception cref="ObjectDisposedException">Thrown if this instance has been disposed.</exception>
     /// <exception cref="OperationCanceledException">Thrown if <paramref name="cancellationToken"/> is canceled before the value is produced.</exception>
     /// <exception cref="InvalidOperationException">Thrown if the value factory returns a null task.</exception>
-    public async Task<T> GetValueAsync(CancellationToken cancellationToken = default)
+    public ValueTask<T> GetValueAsync(CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
 
-        if (!m_hasValue)
+        if (m_hasValue)
         {
-            using (await m_lock.AcquireAsync(cancellationToken).ConfigureAwait(false))
-            {
-                if (!m_hasValue)
-                {
-                    // m_factory is non-null whenever m_hasValue is false: the value constructor sets
-                    // m_hasValue to true, and the factory constructor sets m_factory.
-                    Task<T> factoryTask = m_factory!(cancellationToken)
-                        ?? throw new InvalidOperationException("The value factory returned a null task.");
-                    m_value = await factoryTask.ConfigureAwait(false);
-                    m_hasValue = true;
-                }
-
-                ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
-
-                return m_value;
-            }
+            return new ValueTask<T>(m_value);
         }
 
-        return m_value;
+        return InitializeAsync(cancellationToken);
+    }
+
+    private async ValueTask<T> InitializeAsync(CancellationToken cancellationToken)
+    {
+        using (await m_lock.AcquireAsync(cancellationToken).ConfigureAwait(false))
+        {
+            if (!m_hasValue)
+            {
+                // m_factory is non-null whenever m_hasValue is false: the value constructor sets
+                // m_hasValue to true, and the factory constructor sets m_factory.
+                Task<T> factoryTask = m_factory!(cancellationToken)
+                    ?? throw new InvalidOperationException("The value factory returned a null task.");
+                m_value = await factoryTask.ConfigureAwait(false);
+                m_hasValue = true;
+            }
+
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
+
+            return m_value;
+        }
     }
 
     /// <inheritdoc/>

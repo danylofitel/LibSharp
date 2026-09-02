@@ -69,7 +69,7 @@ public class ValueCacheAsyncUnitTests
         Task<int>[] callers = new Task<int>[8];
         for (int i = 0; i < callers.Length; i++)
         {
-            callers[i] = cache.GetValueAsync(CancellationToken.None);
+            callers[i] = cache.GetValueAsync(CancellationToken.None).AsTask();
         }
 
         _ = await factoryStarted.Task.WaitAsync(CancellationToken.None).ConfigureAwait(false);
@@ -97,7 +97,7 @@ public class ValueCacheAsyncUnitTests
             },
             TimeSpan.FromHours(1));
 
-        Task<int> getTask = cache.GetValueAsync(CancellationToken.None);
+        Task<int> getTask = cache.GetValueAsync(CancellationToken.None).AsTask();
         _ = await factoryStarted.Task.WaitAsync(CancellationToken.None).ConfigureAwait(false);
 
         // Act

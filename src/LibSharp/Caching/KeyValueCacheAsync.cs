@@ -103,7 +103,7 @@ public sealed class KeyValueCacheAsync<TKey, TValue> : IKeyValueCacheAsync<TKey,
     }
 
     /// <inheritdoc/>
-    public async Task<TValue> GetValueAsync(TKey key, CancellationToken cancellationToken = default)
+    public ValueTask<TValue> GetValueAsync(TKey key, CancellationToken cancellationToken = default)
     {
         if (key is null)
         {
@@ -161,7 +161,10 @@ public sealed class KeyValueCacheAsync<TKey, TValue> : IKeyValueCacheAsync<TKey,
          *
          * This will invoke the factory method if the value has not been initialized yet or if it has expired.
          */
-        return await valueCache.GetValueAsync(cancellationToken).ConfigureAwait(false);
+        // Returned directly rather than awaited: this method has no work of its own after the
+        // delegation, so not being async saves a second state machine and a second allocation
+        // on top of whatever the per-key cache does.
+        return valueCache.GetValueAsync(cancellationToken);
     }
 
     /// <summary>

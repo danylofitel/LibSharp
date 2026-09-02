@@ -50,19 +50,27 @@ public sealed class LazyAsyncPublicationOnly<T>
     /// <returns>The value.</returns>
     /// <exception cref="OperationCanceledException">Thrown if <paramref name="cancellationToken"/> is canceled before a published value is produced.</exception>
     /// <exception cref="InvalidOperationException">Thrown if the value factory returns a null task.</exception>
-    public async Task<T> GetValueAsync(CancellationToken cancellationToken = default)
+    public ValueTask<T> GetValueAsync(CancellationToken cancellationToken = default)
     {
-        if (!HasValue)
+        ValueReference<T>? value = m_value;
+        if (value is not null)
         {
-            // m_factory is non-null whenever HasValue is false: the value constructor publishes
-            // m_value (making HasValue true), and the factory constructor sets m_factory.
-            Task<T> factoryTask = m_factory!(cancellationToken)
-                ?? throw new InvalidOperationException("The value factory returned a null task.");
-            T value = await factoryTask.ConfigureAwait(false);
-            _ = Interlocked.CompareExchange(ref m_value, new ValueReference<T>(value), null);
+            return new ValueTask<T>(value.Value);
         }
 
-        // m_value is non-null here: either HasValue was already true, or the block above published it.
+        return InitializeAsync(cancellationToken);
+    }
+
+    private async ValueTask<T> InitializeAsync(CancellationToken cancellationToken)
+    {
+        // m_factory is non-null whenever m_value is null: the value constructor publishes
+        // m_value, and the factory constructor sets m_factory.
+        Task<T> factoryTask = m_factory!(cancellationToken)
+            ?? throw new InvalidOperationException("The value factory returned a null task.");
+        T value = await factoryTask.ConfigureAwait(false);
+        _ = Interlocked.CompareExchange(ref m_value, new ValueReference<T>(value), null);
+
+        // m_value is non-null here: this call published it, or a concurrent caller won the race.
         return m_value!.Value;
     }
 

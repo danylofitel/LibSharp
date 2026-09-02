@@ -1,7 +1,16 @@
 # Changelog
 
 - 5.0.0
-  - `ProactiveAsyncCache<T>` now accepts an optional `idleTimeout`; when set, the background refresh loop suspends itself once `GetValueAsync` has not been called for that long, and the next read resumes it immediately
+  - `Caching`
+    - **Breaking:** `GetValueAsync` now returns `ValueTask<T>` instead of `Task<T>` on `IValueCacheAsync<T>`, `IKeyValueCacheAsync<TKey, TValue>`, `IInitializerAsync<T>` and all their implementations. A cache read usually completes synchronously, and that path no longer allocates. Await the result at most once, never concurrently, and call `AsTask()` before storing it or handing it to `Task.WhenAll`. The factory delegates deliberately still take and return `Task<T>`: they perform the real work and never complete synchronously, so a value task there would be caller friction for no gain
+    - **Breaking:** `ProactiveAsyncCache<T>` now accepts an optional `idleTimeout`; when set, the background refresh loop suspends itself once `GetValueAsync` has not been called for that long, holding no timer and consuming no CPU, and the next read resumes it immediately. Only `GetValueAsync` counts as activity, not `HasValue` or `Expiration`
+    - Argument validation and disposal checks in `GetValueAsync` now throw synchronously rather than returning a faulted task, following the convention for `ValueTask`-returning members
+    - Documented that `ProactiveAsyncCache<T>`, `KeyValueCache<TKey, TValue>` and `KeyValueCacheAsync<TKey, TValue>` do not dispose replaced values, matching the caveat the other caches already carried
+    - Documented the value-factory re-entrancy hazard on `ValueCache<T>`, `ValueCacheAsync<T>`, `KeyValueCache<TKey, TValue>` and `KeyValueCacheAsync<TKey, TValue>`: the lock is held across the factory call, so the async caches deadlock and the synchronous ones silently invoke the factory twice
+    - `IKeyValueCache<TKey, TValue>` and `IKeyValueCacheAsync<TKey, TValue>` now document that eviction behaviour is implementation-defined and may be unbounded
+  - `Threading`
+    - **Breaking:** `AsyncLock.AcquireAsync` now returns `ValueTask<Handle>` instead of `Task<Handle>`; an uncontended acquisition no longer allocates
+  - Package validation is now baselined against 4.0.0, and every intentional break above is recorded in `CompatibilitySuppressions.xml`
 
 - 4.0.0
   - Enabled nullable reference type annotations across the entire public API; `TryGet*` methods and out parameters are now annotated (e.g. `[MaybeNullWhen(false)]`), and nullable inputs such as optional `Encoding`/`XmlReaderSettings` arguments are marked accordingly

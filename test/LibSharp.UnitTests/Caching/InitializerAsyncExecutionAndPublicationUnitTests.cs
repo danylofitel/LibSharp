@@ -106,7 +106,7 @@ public class InitializerAsyncExecutionAndPublicationUnitTests
         Task<int>[] callers = new Task<int>[8];
         for (int i = 0; i < callers.Length; i++)
         {
-            callers[i] = Task.Run(() => initializer.GetValueAsync(Factory, CancellationToken.None), CancellationToken.None);
+            callers[i] = Task.Run(() => initializer.GetValueAsync(Factory, CancellationToken.None).AsTask(), CancellationToken.None);
         }
 
         _ = await factoryStarted.Task.WaitAsync(CancellationToken.None).ConfigureAwait(false);
@@ -174,7 +174,7 @@ public class InitializerAsyncExecutionAndPublicationUnitTests
                 _ = factoryStarted.TrySetResult(true);
                 return factoryTcs.Task;
             },
-            CancellationToken.None);
+            CancellationToken.None).AsTask();
 
         _ = await factoryStarted.Task.WaitAsync(CancellationToken.None).ConfigureAwait(false);
 

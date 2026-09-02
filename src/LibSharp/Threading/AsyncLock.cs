@@ -54,10 +54,40 @@ public sealed class AsyncLock : IDisposable
     /// <returns>A <see cref="Handle"/> that releases the lock when disposed.</returns>
     /// <exception cref="ObjectDisposedException">The lock has been disposed.</exception>
     /// <exception cref="OperationCanceledException">The cancellation token was cancelled before the lock could be acquired.</exception>
-    public async Task<Handle> AcquireAsync(CancellationToken cancellationToken = default)
+    /// <remarks>
+    /// Returns <see cref="ValueTask{TResult}"/> because an uncontended acquisition completes
+    /// synchronously and must not allocate. Await the result at most once, and never concurrently.
+    /// </remarks>
+    public ValueTask<Handle> AcquireAsync(CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
 
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return ValueTask.FromCanceled<Handle>(cancellationToken);
+        }
+
+        // Uncontended fast path. Wait(0) never blocks, so when the lock is free this method costs no
+        // allocation and builds no state machine. The semaphore is never disposed by this class, so
+        // this cannot throw ObjectDisposedException.
+        // CancellationToken.None is deliberate: a zero timeout cannot block, so there is nothing for
+        // a token to interrupt. Caller cancellation is already handled by the check above.
+        if (m_semaphore.Wait(0, CancellationToken.None))
+        {
+            if (Volatile.Read(ref m_isDisposed) != 0)
+            {
+                _ = m_semaphore.Release();
+                throw new ObjectDisposedException(GetType().Name);
+            }
+
+            return new ValueTask<Handle>(Handle.Create(m_semaphore));
+        }
+
+        return AcquireContendedAsync(cancellationToken);
+    }
+
+    private async ValueTask<Handle> AcquireContendedAsync(CancellationToken cancellationToken)
+    {
         try
         {
             if (cancellationToken.CanBeCanceled)

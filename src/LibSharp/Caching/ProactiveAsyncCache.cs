@@ -119,7 +119,7 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
     }
 
     /// <inheritdoc/>
-    public async Task<T> GetValueAsync(CancellationToken cancellationToken = default)
+    public ValueTask<T> GetValueAsync(CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
 
@@ -142,9 +142,17 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
         CacheSnapshot? snapshot = m_snapshot;
         if (snapshot is not null && now < snapshot.ExpirationTime)
         {
-            return snapshot.Value;
+            // Hit: this method is deliberately not async, so the common path costs no allocation
+            // and builds no state machine.
+            return new ValueTask<T>(snapshot.Value);
         }
 
+        return FetchValueAsync(snapshot, cancellationToken);
+    }
+
+    // Slow path: no value yet, or the value has expired.
+    private async ValueTask<T> FetchValueAsync(CacheSnapshot? snapshot, CancellationToken cancellationToken)
+    {
         // Snapshot is absent or expired — get or start a fetch.
         Task<CacheSnapshot> fetchTask = GetOrCreateFetchTask();
 

@@ -98,21 +98,27 @@ public sealed class ValueCache<T> : IValueCache<T>
     /// <inheritdoc/>
     public T GetValue()
     {
-        if (m_boxed is null || UtcNow >= m_boxed.Expiration)
+        // Snapshot the volatile field once. ValueReference is immutable, so a non-null reference is
+        // always a fully constructed, consistent object, and reading it once means the value returned
+        // is the same one whose expiration was checked.
+        ValueReference<T>? boxed = m_boxed;
+        if (boxed is null || UtcNow >= boxed.Expiration)
         {
             lock (m_lock)
             {
-                if (m_boxed is null || UtcNow >= m_boxed.Expiration)
+                boxed = m_boxed;
+                if (boxed is null || UtcNow >= boxed.Expiration)
                 {
                     Refresh();
+                    boxed = m_boxed;
                 }
 
                 // Refresh guarantees m_boxed is non-null on return.
-                return m_boxed!.Value;
+                return boxed!.Value;
             }
         }
 
-        return m_boxed.Value;
+        return boxed.Value;
     }
 
     private DateTime UtcNow => m_timeProvider.GetUtcNow().UtcDateTime;

@@ -76,8 +76,8 @@ public class InitializerAsyncPublicationOnlyUnitTests
         }
 
         // Act
-        Task<int> first = Task.Run(() => initializer.GetValueAsync(Factory, CancellationToken.None), CancellationToken.None);
-        Task<int> second = Task.Run(() => initializer.GetValueAsync(Factory, CancellationToken.None), CancellationToken.None);
+        Task<int> first = Task.Run(() => initializer.GetValueAsync(Factory, CancellationToken.None).AsTask(), CancellationToken.None);
+        Task<int> second = Task.Run(() => initializer.GetValueAsync(Factory, CancellationToken.None).AsTask(), CancellationToken.None);
         int[] results = await Task.WhenAll(first, second).ConfigureAwait(false);
         int published = await initializer.GetValueAsync(Factory, CancellationToken.None).ConfigureAwait(false);
 

@@ -162,7 +162,7 @@ public class LazyAsyncExecutionAndPublicationUnitTests
         Task<int>[] callers = new Task<int>[8];
         for (int i = 0; i < callers.Length; i++)
         {
-            callers[i] = Task.Run(() => lazy.GetValueAsync(CancellationToken.None), CancellationToken.None);
+            callers[i] = Task.Run(() => lazy.GetValueAsync(CancellationToken.None).AsTask(), CancellationToken.None);
         }
 
         _ = await factoryStarted.Task.WaitAsync(CancellationToken.None).ConfigureAwait(false);
@@ -191,7 +191,7 @@ public class LazyAsyncExecutionAndPublicationUnitTests
                 return factoryTcs.Task;
             });
 
-        Task<int> getTask = lazy.GetValueAsync(CancellationToken.None);
+        Task<int> getTask = lazy.GetValueAsync(CancellationToken.None).AsTask();
         _ = await factoryStarted.Task.WaitAsync(CancellationToken.None).ConfigureAwait(false);
 
         // Act

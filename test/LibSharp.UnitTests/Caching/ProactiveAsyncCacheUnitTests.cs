@@ -237,7 +237,7 @@ public class ProactiveAsyncCacheUnitTests
 
         // Act & Assert
         _ = await Assert.ThrowsExactlyAsync<InvalidOperationException>(
-            () => cache.GetValueAsync(TestContext.CancellationToken)).ConfigureAwait(false);
+            () => cache.GetValueAsync(TestContext.CancellationToken).AsTask()).ConfigureAwait(false);
     }
 
     [TestMethod]
@@ -270,9 +270,9 @@ public class ProactiveAsyncCacheUnitTests
         await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         // Act — start multiple concurrent calls
-        Task<int> task1 = cache.GetValueAsync(TestContext.CancellationToken);
-        Task<int> task2 = cache.GetValueAsync(TestContext.CancellationToken);
-        Task<int> task3 = cache.GetValueAsync(TestContext.CancellationToken);
+        Task<int> task1 = cache.GetValueAsync(TestContext.CancellationToken).AsTask();
+        Task<int> task2 = cache.GetValueAsync(TestContext.CancellationToken).AsTask();
+        Task<int> task3 = cache.GetValueAsync(TestContext.CancellationToken).AsTask();
 
         // Complete the single shared fetch
         fetchTcs.SetResult(42);
@@ -300,7 +300,7 @@ public class ProactiveAsyncCacheUnitTests
         using CancellationTokenSource callerCts = new CancellationTokenSource();
 
         // Act — start a fetch and then cancel the caller's token
-        Task<int> getTask = cache.GetValueAsync(callerCts.Token);
+        Task<int> getTask = cache.GetValueAsync(callerCts.Token).AsTask();
         callerCts.Cancel();
 
         _ = await Assert.ThrowsExactlyAsync<TaskCanceledException>(() => getTask).ConfigureAwait(false);
@@ -333,7 +333,7 @@ public class ProactiveAsyncCacheUnitTests
 
         // Act & Assert
         _ = await Assert.ThrowsExactlyAsync<TaskCanceledException>(
-            () => cache.GetValueAsync(cts.Token)).ConfigureAwait(false);
+            () => cache.GetValueAsync(cts.Token).AsTask()).ConfigureAwait(false);
 
         // Clean up the pending fetch
         fetchTcs.SetResult(42);
@@ -368,7 +368,7 @@ public class ProactiveAsyncCacheUnitTests
 
         timeProvider.Advance(TimeSpan.FromMinutes(1));
 
-        Task<int> blockedReader = cache.GetValueAsync(TestContext.CancellationToken);
+        Task<int> blockedReader = cache.GetValueAsync(TestContext.CancellationToken).AsTask();
         Assert.IsFalse(blockedReader.IsCompleted, "Reader should block when allowStaleReads is false.");
 
         secondFetchTcs.SetResult(200);
@@ -401,7 +401,7 @@ public class ProactiveAsyncCacheUnitTests
             {
                 _ = Interlocked.Increment(ref callCount);
                 cacheReady.Task.GetAwaiter().GetResult();
-                nestedReadTask = cacheBox.Value!.GetValueAsync(TestContext.CancellationToken);
+                nestedReadTask = cacheBox.Value!.GetValueAsync(TestContext.CancellationToken).AsTask();
                 return Task.FromResult(42);
             },
             TimeSpan.FromHours(1),
@@ -571,7 +571,7 @@ public class ProactiveAsyncCacheUnitTests
             TimeSpan.Zero);
 
         // Start a GetValueAsync that will block on the slow factory
-        Task<int> getTask = cache.GetValueAsync(TestContext.CancellationToken);
+        Task<int> getTask = cache.GetValueAsync(TestContext.CancellationToken).AsTask();
 
         // Act — dispose while the caller is still waiting
         await cache.DisposeAsync().ConfigureAwait(false);
@@ -595,7 +595,7 @@ public class ProactiveAsyncCacheUnitTests
             TimeSpan.FromHours(1),
             TimeSpan.Zero);
 
-        Task<int> getTask = cache.GetValueAsync();
+        Task<int> getTask = cache.GetValueAsync().AsTask();
 
         // Act
         await cache.DisposeAsync().ConfigureAwait(false);

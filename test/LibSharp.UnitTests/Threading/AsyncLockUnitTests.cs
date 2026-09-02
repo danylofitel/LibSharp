@@ -335,7 +335,7 @@ public class AsyncLockUnitTests
             firstHandle.Dispose();
 
             AsyncLock.Handle secondHandle = await asyncLock.AcquireAsync(TestContext.CancellationToken).ConfigureAwait(false);
-            Task<AsyncLock.Handle> thirdAcquireTask = asyncLock.AcquireAsync(TestContext.CancellationToken);
+            Task<AsyncLock.Handle> thirdAcquireTask = asyncLock.AcquireAsync(TestContext.CancellationToken).AsTask();
 
             // Act + Assert — third acquisition should remain blocked while second holds lock.
             await Task.Delay(20, TestContext.CancellationToken).ConfigureAwait(false);
@@ -364,7 +364,7 @@ public class AsyncLockUnitTests
             originalHandle.Dispose();
 
             AsyncLock.Handle secondHandle = await asyncLock.AcquireAsync(TestContext.CancellationToken).ConfigureAwait(false);
-            Task<AsyncLock.Handle> thirdAcquireTask = asyncLock.AcquireAsync(TestContext.CancellationToken);
+            Task<AsyncLock.Handle> thirdAcquireTask = asyncLock.AcquireAsync(TestContext.CancellationToken).AsTask();
 
             await Task.Delay(20, TestContext.CancellationToken).ConfigureAwait(false);
             Assert.IsFalse(thirdAcquireTask.IsCompleted);

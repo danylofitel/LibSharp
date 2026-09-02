@@ -126,8 +126,8 @@ public class LazyAsyncPublicationOnlyUnitTests
         });
 
         // Act
-        Task<int> first = Task.Run(() => lazy.GetValueAsync(CancellationToken.None), CancellationToken.None);
-        Task<int> second = Task.Run(() => lazy.GetValueAsync(CancellationToken.None), CancellationToken.None);
+        Task<int> first = Task.Run(() => lazy.GetValueAsync(CancellationToken.None).AsTask(), CancellationToken.None);
+        Task<int> second = Task.Run(() => lazy.GetValueAsync(CancellationToken.None).AsTask(), CancellationToken.None);
         int[] results = await Task.WhenAll(first, second).ConfigureAwait(false);
         int published = await lazy.GetValueAsync(CancellationToken.None).ConfigureAwait(false);
 

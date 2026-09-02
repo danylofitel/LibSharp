@@ -114,29 +114,42 @@ public sealed class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
     }
 
     /// <inheritdoc/>
-    public async Task<T> GetValueAsync(CancellationToken cancellationToken = default)
+    public ValueTask<T> GetValueAsync(CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
 
-        if (m_boxed is null || UtcNow >= m_boxed.Expiration)
+        // Snapshot the volatile field once. ValueReference is immutable, so a non-null reference is
+        // always a fully constructed, consistent object, and reading it once means the value returned
+        // is the same one whose expiration was checked.
+        ValueReference<T>? boxed = m_boxed;
+        if (boxed is not null && UtcNow < boxed.Expiration)
         {
-            using (await m_lock.AcquireAsync(cancellationToken).ConfigureAwait(false))
-            {
-                if (m_boxed is null || UtcNow >= m_boxed.Expiration)
-                {
-                    await Refresh(cancellationToken).ConfigureAwait(false);
-                }
-
-                // If disposal raced with an in-flight factory while we held the lock,
-                // fail this call instead of returning a value after disposal.
-                ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
-
-                // Refresh guarantees m_boxed is non-null on return.
-                return m_boxed!.Value;
-            }
+            // Hit: this method is deliberately not async, so the common path costs no allocation
+            // and builds no state machine.
+            return new ValueTask<T>(boxed.Value);
         }
 
-        return m_boxed.Value;
+        return RefreshAndGetValueAsync(cancellationToken);
+    }
+
+    private async ValueTask<T> RefreshAndGetValueAsync(CancellationToken cancellationToken)
+    {
+        using (await m_lock.AcquireAsync(cancellationToken).ConfigureAwait(false))
+        {
+            ValueReference<T>? boxed = m_boxed;
+            if (boxed is null || UtcNow >= boxed.Expiration)
+            {
+                await Refresh(cancellationToken).ConfigureAwait(false);
+                boxed = m_boxed;
+            }
+
+            // If disposal raced with an in-flight factory while we held the lock,
+            // fail this call instead of returning a value after disposal.
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
+
+            // Refresh guarantees m_boxed is non-null on return.
+            return boxed!.Value;
+        }
     }
 
     /// <summary>

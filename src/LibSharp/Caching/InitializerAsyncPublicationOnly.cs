@@ -22,19 +22,27 @@ public sealed class InitializerAsyncPublicationOnly<T> : IInitializerAsync<T>
     public bool HasValue => m_value is not null;
 
     /// <inheritdoc/>
-    public async Task<T> GetValueAsync(Func<CancellationToken, Task<T>> factory, CancellationToken cancellationToken = default)
+    public ValueTask<T> GetValueAsync(Func<CancellationToken, Task<T>> factory, CancellationToken cancellationToken = default)
     {
         Argument.NotNull(factory);
 
-        if (!HasValue)
+        ValueReference<T>? value = m_value;
+        if (value is not null)
         {
-            Task<T> factoryTask = factory(cancellationToken)
-                ?? throw new InvalidOperationException("The value factory returned a null task.");
-            T value = await factoryTask.ConfigureAwait(false);
-            _ = Interlocked.CompareExchange(ref m_value, new ValueReference<T>(value), null);
+            return new ValueTask<T>(value.Value);
         }
 
-        // m_value is non-null here: either HasValue was already true, or the block above published it.
+        return InitializeAsync(factory, cancellationToken);
+    }
+
+    private async ValueTask<T> InitializeAsync(Func<CancellationToken, Task<T>> factory, CancellationToken cancellationToken)
+    {
+        Task<T> factoryTask = factory(cancellationToken)
+            ?? throw new InvalidOperationException("The value factory returned a null task.");
+        T value = await factoryTask.ConfigureAwait(false);
+        _ = Interlocked.CompareExchange(ref m_value, new ValueReference<T>(value), null);
+
+        // m_value is non-null here: this call published it, or a concurrent caller won the race.
         return m_value!.Value;
     }
 
