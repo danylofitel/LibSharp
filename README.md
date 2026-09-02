@@ -504,4 +504,21 @@ Key-value caches allow caching and automatically refreshing multiple values with
 
         int value = await cache.GetValueAsync(cancellationToken);
     }
+
+    public static async Task ProactiveAsyncCacheWithIdleTimeoutExample(Func<CancellationToken, Task<int>> factory, CancellationToken cancellationToken)
+    {
+        await using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            factory,
+            refreshInterval: TimeSpan.FromMinutes(5),
+            preFetchOffset: TimeSpan.FromSeconds(30),
+            idleTimeout: TimeSpan.FromHours(1));           // stop refreshing in the background once the cache falls out of use
+
+        int value = await cache.GetValueAsync(cancellationToken);
+
+        // After an hour with no call to GetValueAsync the background loop suspends itself and stops
+        // invoking the factory; it holds no timer and consumes no CPU while suspended. The next read
+        // resumes it, paying for at most one on-demand fetch if the cached value has since expired.
+        // Only GetValueAsync counts as activity — HasValue and Expiration do not. Disposal is still
+        // required: an idle cache is dormant, not collected.
+    }
 ```

@@ -1,5 +1,8 @@
 # Changelog
 
+- 5.0.0
+  - `ProactiveAsyncCache<T>` now accepts an optional `idleTimeout`; when set, the background refresh loop suspends itself once `GetValueAsync` has not been called for that long, and the next read resumes it immediately
+
 - 4.0.0
   - Enabled nullable reference type annotations across the entire public API; `TryGet*` methods and out parameters are now annotated (e.g. `[MaybeNullWhen(false)]`), and nullable inputs such as optional `Encoding`/`XmlReaderSettings` arguments are marked accordingly
   - `Caching`

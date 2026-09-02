@@ -12,7 +12,13 @@ namespace LibSharp.Caching;
 /// Async in-memory value cache with ThreadSafetyMode.ExecutionAndPublication behavior.
 /// </summary>
 /// <typeparam name="T">Value type.</typeparam>
-/// <remarks>Should not be used with IDisposable value types since it does not dispose of expired values.</remarks>
+/// <remarks>
+/// Should not be used with IDisposable value types since it does not dispose of expired values.
+/// <para>
+/// The value factory must not call <see cref="GetValueAsync"/> on this same cache and await the
+/// result. The lock is held across the factory call and is not re-entrant, so that deadlocks.
+/// </para>
+/// </remarks>
 public sealed class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
 {
     /// <summary>

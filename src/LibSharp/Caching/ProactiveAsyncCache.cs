@@ -16,6 +16,15 @@ namespace LibSharp.Caching;
 /// lifetime, so an instance that is never disposed is never garbage collected and keeps invoking
 /// the value factory forever — both a managed leak and a continuous load on whatever the factory
 /// calls. Always dispose the cache via <see cref="DisposeAsync"/> when it is no longer needed.
+/// An <c>idleTimeout</c> stops the factory calls once the cache falls out of use, but it does not
+/// release the instance — disposal is still mandatory.
+/// <para>
+/// Should not be used with <see cref="IDisposable"/> value types since it does not dispose of
+/// replaced values. This cache sheds values more readily than the others in this namespace: the
+/// background loop replaces the current value once per refresh interval whether or not anything
+/// ever reads it, so a disposable <typeparamref name="T"/> leaks on every refresh rather than only
+/// on demand.
+/// </para>
 /// </remarks>
 public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposable
 {
@@ -39,6 +48,23 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
     /// (Optional) Time provider used to measure expiration and schedule background refreshes.
     /// Defaults to <see cref="TimeProvider.System"/>.
     /// </param>
+    /// <param name="idleTimeout">
+    /// (Optional) When set, the background refresh loop suspends itself once no call to
+    /// <see cref="GetValueAsync(System.Threading.CancellationToken)"/> has been made for this long,
+    /// so a cache that has fallen out of use stops invoking the value factory. While suspended the
+    /// loop holds no timer and consumes no CPU; the next
+    /// <see cref="GetValueAsync(System.Threading.CancellationToken)"/> resumes it immediately.
+    /// That call is served from the cached value if it has not yet expired, and otherwise fetches
+    /// on the caller's behalf exactly as the first-ever read does, so the cost of having gone idle
+    /// is at most one reactive fetch when usage resumes.
+    /// Only <see cref="GetValueAsync(System.Threading.CancellationToken)"/> counts as activity;
+    /// <see cref="HasValue"/> and <see cref="Expiration"/> are metadata probes and do not.
+    /// Construction counts as activity, so a newly created cache always gets a full idle window in
+    /// which to perform its initial fetch.
+    /// Choose a value comfortably larger than <paramref name="refreshInterval"/>: a shorter one lets
+    /// the cache fall idle between consecutive reads, which degrades it to on-demand refresh.
+    /// Defaults to <c>null</c>, meaning the loop never suspends.
+    /// </param>
     /// <remarks>
     /// The value factory is expected to be independent of this cache instance. Re-entering this same
     /// cache from inside the factory is unsupported and may deadlock if the factory awaits the nested read.
@@ -48,12 +74,17 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
         TimeSpan refreshInterval,
         TimeSpan preFetchOffset,
         bool allowStaleReads = false,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        TimeSpan? idleTimeout = null)
     {
         Argument.NotNull(valueFactory);
         Argument.GreaterThan(refreshInterval, TimeSpan.Zero);
         Argument.GreaterThanOrEqualTo(preFetchOffset, TimeSpan.Zero);
         Argument.LessThan(preFetchOffset, refreshInterval);
+        if (idleTimeout.HasValue)
+        {
+            Argument.GreaterThan(idleTimeout.Value, TimeSpan.Zero, nameof(idleTimeout));
+        }
 
         m_cts = new CancellationTokenSource();
         m_lock = new object();
@@ -63,6 +94,7 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
         m_preFetchOffset = preFetchOffset;
         m_retryDelay = CalculateRetryDelay(refreshInterval, preFetchOffset);
         m_allowStaleReads = allowStaleReads;
+        m_idleTracker = idleTimeout.HasValue ? new IdleTracker(m_timeProvider, idleTimeout.Value) : null;
         m_backgroundTask = Task.Run(BackgroundRefreshAsync);
     }
 
@@ -91,12 +123,24 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
 
+        DateTime now = UtcNow;
+
+        // Record the access before looking at the snapshot, so the background loop's idle deadline
+        // reflects this call whether or not the cached value turns out to be fresh. Skipped
+        // entirely when no idle timeout is configured, leaving the default hot path exactly as it
+        // was: a single volatile reference read, with no interlocked operation and no shared cache
+        // line to dirty.
+        if (m_idleTracker is not null)
+        {
+            m_idleTracker.RecordAccess(now);
+        }
+
         // Hot path: snapshot is fresh, no lock needed.
         // m_snapshot is volatile so the reference read is immediately visible across threads.
         // CacheSnapshot is an immutable record so a non-null reference is always a fully
         // constructed, consistent object.
         CacheSnapshot? snapshot = m_snapshot;
-        if (snapshot is not null && UtcNow < snapshot.ExpirationTime)
+        if (snapshot is not null && now < snapshot.ExpirationTime)
         {
             return snapshot.Value;
         }
@@ -299,6 +343,15 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
         // required before the timed refresh loop can compute meaningful delays.
         while (m_snapshot is null)
         {
+            // Nobody has asked for a value since construction: suspend instead of retrying the
+            // factory forever. A reader arriving meanwhile fetches reactively and wakes this loop;
+            // falling straight through to GetOrCreateFetchTask afterwards is harmless, because it
+            // re-checks freshness under the lock and hands back that reader's snapshot unchanged.
+            if (!await WaitWhileIdleAsync().ConfigureAwait(false))
+            {
+                return;
+            }
+
             try
             {
                 _ = await GetOrCreateFetchTask().ConfigureAwait(false);
@@ -331,6 +384,14 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
         {
             try
             {
+                // Suspend instead of scheduling around an expiration nobody is waiting on. The
+                // snapshot is then left to expire; the read that ends the idle period pays for one
+                // reactive fetch, which is exactly the trade this option makes.
+                if (!await WaitWhileIdleAsync().ConfigureAwait(false))
+                {
+                    break;
+                }
+
                 // Anchor the delay to the snapshot's expiration time rather than using a
                 // fixed interval, so scheduling jitter does not cause cumulative drift.
                 // Phase 1 guarantees a snapshot exists on entry; the null guard is defensive
@@ -339,10 +400,31 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
                 if (snapshot is not null)
                 {
                     TimeSpan delay = snapshot.ExpirationTime - m_preFetchOffset - UtcNow;
+
+                    // Never sleep past the moment the cache goes idle. Without this the loop would
+                    // hold its refresh timer for the rest of the interval after falling idle —
+                    // up to a full refreshInterval of staying scheduled for a pre-fetch it is
+                    // going to skip anyway. Waking at the earlier of the two deadlines lets the
+                    // idle check below park it and release the timer promptly.
+                    // TimeUntilIdle is zero exactly when IsIdle is true, so clamping only to a
+                    // strictly positive value keeps this from ever collapsing into a spin.
+                    TimeSpan? untilIdle = m_idleTracker?.TimeUntilIdle();
+                    if (untilIdle is TimeSpan remaining && remaining > TimeSpan.Zero && remaining < delay)
+                    {
+                        delay = remaining;
+                    }
+
                     if (delay > TimeSpan.Zero)
                     {
                         await Task.Delay(Clamp(delay), m_timeProvider, m_cts.Token).ConfigureAwait(false);
                     }
+                }
+
+                // The cache may have fallen idle while we slept: skip this refresh and let the top
+                // of the next iteration suspend the loop.
+                if (m_idleTracker?.IsIdle() is true)
+                {
+                    continue;
                 }
 
                 // Re-read after sleeping: a concurrent GetValueAsync may have refreshed
@@ -392,6 +474,15 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
         return delay <= s_maxDelay ? delay : s_maxDelay;
     }
 
+    // Suspends the background refresh loop for as long as the cache is idle. Returns true once the
+    // cache is active again, and false when it was disposed while suspended, in which case the
+    // caller must exit its loop. A no-op when no idle timeout is configured.
+    private async Task<bool> WaitWhileIdleAsync()
+    {
+        return m_idleTracker is null
+            || await m_idleTracker.WaitWhileIdleAsync(m_cts.Token).ConfigureAwait(false);
+    }
+
     private DateTime UtcNow => m_timeProvider.GetUtcNow().UtcDateTime;
 
     // Task.Delay internally converts TimeSpan to int milliseconds; clamp to avoid overflow
@@ -407,6 +498,7 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
     private readonly TimeSpan m_preFetchOffset;
     private readonly TimeSpan m_retryDelay;
     private readonly bool m_allowStaleReads;
+    private readonly IdleTracker? m_idleTracker;
     private readonly Task m_backgroundTask;
 
     // Volatile: the reference must be immediately visible to all threads because the hot

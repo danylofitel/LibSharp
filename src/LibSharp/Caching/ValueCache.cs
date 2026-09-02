@@ -9,7 +9,14 @@ namespace LibSharp.Caching;
 /// Value cache with ThreadSafetyMode.ExecutionAndPublication.
 /// </summary>
 /// <typeparam name="T">Value type.</typeparam>
-/// <remarks>Should not be used with IDisposable value types since it does not dispose of expired values.</remarks>
+/// <remarks>
+/// Should not be used with IDisposable value types since it does not dispose of expired values.
+/// <para>
+/// The value factory must not call <see cref="GetValue"/> on this same cache. The lock is held
+/// across the factory call; because it is a monitor it is re-entrant on the calling thread, so a
+/// re-entrant call does not deadlock — it invokes the factory a second time and publishes twice.
+/// </para>
+/// </remarks>
 public sealed class ValueCache<T> : IValueCache<T>
 {
     /// <summary>

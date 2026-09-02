@@ -16,6 +16,17 @@ namespace LibSharp.Caching;
 /// Entries are never evicted from the cache.
 /// This is by design for bounded key spaces.
 /// Do not use with unbounded key spaces as memory will grow monotonically.
+/// <para>
+/// Should not be used with IDisposable value types since it does not dispose of expired values.
+/// Values are replaced in place as they expire, and entries are retained for the lifetime of the
+/// cache, so a disposable value leaks once per expiry per key.
+/// </para>
+/// <para>
+/// The value factory must not call <see cref="GetValue"/> on this same cache for the same key.
+/// The per-key lock is held across the factory call; because it is a monitor it is re-entrant on
+/// the calling thread, so a re-entrant call does not deadlock — it invokes the factory a second
+/// time and publishes twice. Re-entering for a <em>different</em> key is safe.
+/// </para>
 /// </remarks>
 public sealed class KeyValueCache<TKey, TValue> : IKeyValueCache<TKey, TValue>
     where TKey : notnull
