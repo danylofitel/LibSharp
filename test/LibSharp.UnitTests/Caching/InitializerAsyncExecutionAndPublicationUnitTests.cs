@@ -12,28 +12,6 @@ namespace LibSharp.UnitTests.Caching;
 [TestClass]
 public class InitializerAsyncExecutionAndPublicationUnitTests
 {
-    [TestMethod]
-    public void HasValue_ThrowsWhenDisposed()
-    {
-        // Arrange
-        InitializerAsyncExecutionAndPublication<int> initializer = new InitializerAsyncExecutionAndPublication<int>();
-        initializer.Dispose();
-
-        // Act
-        _ = Assert.ThrowsExactly<ObjectDisposedException>(() => _ = initializer.HasValue);
-    }
-
-    [TestMethod]
-    public async Task GetValueAsync_ThrowsWhenDisposed()
-    {
-        // Arrange
-        Func<CancellationToken, Task<int>> factory = Substitute.For<Func<CancellationToken, Task<int>>>();
-        InitializerAsyncExecutionAndPublication<int> initializer = new InitializerAsyncExecutionAndPublication<int>();
-        initializer.Dispose();
-
-        // Act
-        _ = await Assert.ThrowsExactlyAsync<ObjectDisposedException>(async () => await initializer.GetValueAsync(factory, CancellationToken.None).ConfigureAwait(false)).ConfigureAwait(false);
-    }
 
     [TestMethod]
     public async Task FromValueFactory()
@@ -43,29 +21,29 @@ public class InitializerAsyncExecutionAndPublicationUnitTests
 
         _ = factory(Arg.Any<CancellationToken>()).Returns(Task.FromResult(5));
 
-        using (InitializerAsyncExecutionAndPublication<int> initializer = new InitializerAsyncExecutionAndPublication<int>())
+        InitializerAsyncExecutionAndPublication<int> initializer = new InitializerAsyncExecutionAndPublication<int>();
+
+        using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
         {
-            using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
-            {
-                CancellationToken cancellationToken = cancellationTokenSource.Token;
+            CancellationToken cancellationToken = cancellationTokenSource.Token;
 
-                // Assert
-                Assert.IsFalse(initializer.HasValue);
-                _ = factory.DidNotReceive()(cancellationToken);
+            // Assert
+            Assert.IsFalse(initializer.HasValue);
+            _ = factory.DidNotReceive()(cancellationToken);
 
-                Assert.AreEqual(5, await initializer.GetValueAsync(factory, cancellationToken).ConfigureAwait(false));
+            Assert.AreEqual(5, await initializer.GetValueAsync(factory, cancellationToken).ConfigureAwait(false));
 
-                Assert.IsTrue(initializer.HasValue);
-                _ = factory.Received(1)(cancellationToken);
+            Assert.IsTrue(initializer.HasValue);
+            _ = factory.Received(1)(Arg.Any<CancellationToken>());
 
-                Assert.AreEqual(5, await initializer.GetValueAsync(factory, cancellationToken).ConfigureAwait(false));
-                Assert.AreEqual(5, await initializer.GetValueAsync(factory, cancellationToken).ConfigureAwait(false));
-                Assert.AreEqual(5, await initializer.GetValueAsync(factory, cancellationToken).ConfigureAwait(false));
+            Assert.AreEqual(5, await initializer.GetValueAsync(factory, cancellationToken).ConfigureAwait(false));
+            Assert.AreEqual(5, await initializer.GetValueAsync(factory, cancellationToken).ConfigureAwait(false));
+            Assert.AreEqual(5, await initializer.GetValueAsync(factory, cancellationToken).ConfigureAwait(false));
 
-                Assert.IsTrue(initializer.HasValue);
-                _ = factory.Received(1)(cancellationToken);
-            }
+            Assert.IsTrue(initializer.HasValue);
+            _ = factory.Received(1)(Arg.Any<CancellationToken>());
         }
+        
     }
 
     [TestMethod]
@@ -74,23 +52,23 @@ public class InitializerAsyncExecutionAndPublicationUnitTests
         // Arrange
         Func<CancellationToken, Task<int>> factory = Substitute.For<Func<CancellationToken, Task<int>>>();
 
-        using (InitializerAsyncExecutionAndPublication<int> initializer = new InitializerAsyncExecutionAndPublication<int>())
-        {
-            using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
-            {
-                cancellationTokenSource.Cancel();
+        InitializerAsyncExecutionAndPublication<int> initializer = new InitializerAsyncExecutionAndPublication<int>();
 
-                // Act
-                _ = await Assert.ThrowsExactlyAsync<TaskCanceledException>(async () => await initializer.GetValueAsync(factory, cancellationTokenSource.Token).ConfigureAwait(false)).ConfigureAwait(false);
-            }
+        using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
+        {
+            cancellationTokenSource.Cancel();
+
+            // Act
+            _ = await Assert.ThrowsExactlyAsync<TaskCanceledException>(async () => await initializer.GetValueAsync(factory, cancellationTokenSource.Token).ConfigureAwait(false)).ConfigureAwait(false);
         }
+        
     }
 
     [TestMethod]
     public async Task GetValueAsync_ConcurrentCallers_OnlyOneFactoryExecutes()
     {
         // Arrange
-        using InitializerAsyncExecutionAndPublication<int> initializer = new InitializerAsyncExecutionAndPublication<int>();
+        InitializerAsyncExecutionAndPublication<int> initializer = new InitializerAsyncExecutionAndPublication<int>();
         TaskCompletionSource<bool> factoryStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         TaskCompletionSource<bool> releaseFactory = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         int executionCount = 0;
@@ -125,7 +103,7 @@ public class InitializerAsyncExecutionAndPublicationUnitTests
     public async Task GetValueAsync_FactoryFailure_DoesNotCacheFailure()
     {
         // Arrange
-        using InitializerAsyncExecutionAndPublication<int> initializer = new InitializerAsyncExecutionAndPublication<int>();
+        InitializerAsyncExecutionAndPublication<int> initializer = new InitializerAsyncExecutionAndPublication<int>();
         int attemptCount = 0;
 
         async Task<int> Factory(CancellationToken cancellationToken)
@@ -153,36 +131,72 @@ public class InitializerAsyncExecutionAndPublicationUnitTests
     public async Task GetValueAsync_FactoryReturningNullTask_ThrowsInvalidOperationException()
     {
         // Arrange
-        using InitializerAsyncExecutionAndPublication<int> initializer = new InitializerAsyncExecutionAndPublication<int>();
+        InitializerAsyncExecutionAndPublication<int> initializer = new InitializerAsyncExecutionAndPublication<int>();
 
         // Act
         _ = await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () =>
             await initializer.GetValueAsync(_ => null!, CancellationToken.None).ConfigureAwait(false)).ConfigureAwait(false);
     }
 
-    [TestMethod]
-    public async Task GetValueAsync_DisposedWhileFactoryIsInFlight_ThrowsObjectDisposedException()
-    {
-        // Arrange
-        using InitializerAsyncExecutionAndPublication<int> initializer = new InitializerAsyncExecutionAndPublication<int>();
-        TaskCompletionSource<bool> factoryStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        TaskCompletionSource<int> factoryTcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+    // ── Shared-initialization contract ────────────────────────────────────
 
-        Task<int> getTask = initializer.GetValueAsync(
+    [TestMethod]
+    public async Task GetValueAsync_ValueFactoryDoesNotReceiveTheCallersToken()
+    {
+        // Arrange — the initialization is shared, so it must not be cancellable by whichever
+        // caller happened to trigger it.
+        CancellationToken observed = default;
+        using CancellationTokenSource callerCts = new CancellationTokenSource();
+
+        InitializerAsyncExecutionAndPublication<int> initializer = new InitializerAsyncExecutionAndPublication<int>();
+
+        // Act
+        _ = await initializer.GetValueAsync(
             cancellationToken =>
             {
-                _ = factoryStarted.TrySetResult(true);
-                return factoryTcs.Task;
+                observed = cancellationToken;
+                return Task.FromResult(42);
             },
-            CancellationToken.None).AsTask();
+            callerCts.Token).ConfigureAwait(false);
+
+        // Assert
+        Assert.AreNotEqual(callerCts.Token, observed, "The value factory must not receive the caller's token.");
+
+        await callerCts.CancelAsync().ConfigureAwait(false);
+        Assert.IsFalse(observed.IsCancellationRequested, "Cancelling the caller must not cancel the factory's token.");
+    }
+
+    [TestMethod]
+    public async Task GetValueAsync_OneCallerCancelling_LeavesTheSharedInitializationRunning()
+    {
+        // Arrange
+        TaskCompletionSource<bool> factoryStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource<int> factoryTcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        int calls = 0;
+
+        Task<int> Factory(CancellationToken cancellationToken)
+        {
+            _ = Interlocked.Increment(ref calls);
+            _ = factoryStarted.TrySetResult(true);
+            return factoryTcs.Task;
+        }
+
+        InitializerAsyncExecutionAndPublication<int> initializer = new InitializerAsyncExecutionAndPublication<int>();
+
+        using CancellationTokenSource impatientCts = new CancellationTokenSource();
+        Task<int> impatient = initializer.GetValueAsync(Factory, impatientCts.Token).AsTask();
+        Task<int> patient = initializer.GetValueAsync(Factory, CancellationToken.None).AsTask();
 
         _ = await factoryStarted.Task.WaitAsync(CancellationToken.None).ConfigureAwait(false);
 
-        // Act
-        initializer.Dispose();
-        factoryTcs.SetResult(42);
+        // Act — the first caller gives up waiting.
+        await impatientCts.CancelAsync().ConfigureAwait(false);
+        _ = await Assert.ThrowsExactlyAsync<TaskCanceledException>(() => impatient).ConfigureAwait(false);
 
-        // Assert
-        _ = await Assert.ThrowsExactlyAsync<ObjectDisposedException>(() => getTask).ConfigureAwait(false);
+        // Assert — the initialization survived and still serves the caller that waited.
+        factoryTcs.SetResult(42);
+        Assert.AreEqual(42, await patient.ConfigureAwait(false));
+        Assert.AreEqual(1, Volatile.Read(ref calls), "Both callers must share a single factory execution.");
+        Assert.IsTrue(initializer.HasValue);
     }
 }

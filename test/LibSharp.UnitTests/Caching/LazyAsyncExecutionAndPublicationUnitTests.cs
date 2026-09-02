@@ -12,40 +12,17 @@ namespace LibSharp.UnitTests.Caching;
 [TestClass]
 public class LazyAsyncExecutionAndPublicationUnitTests
 {
-    [TestMethod]
-    public void HasValue_ThrowsWhenDisposed()
-    {
-        // Arrange
-        Func<CancellationToken, Task<int>> factory = Substitute.For<Func<CancellationToken, Task<int>>>();
-        LazyAsyncExecutionAndPublication<int> lazy = new LazyAsyncExecutionAndPublication<int>(factory);
-        lazy.Dispose();
-
-        // Act
-        _ = Assert.ThrowsExactly<ObjectDisposedException>(() => _ = lazy.HasValue);
-    }
-
-    [TestMethod]
-    public async Task GetValueAsync_ThrowsWhenDisposed()
-    {
-        // Arrange
-        Func<CancellationToken, Task<int>> factory = Substitute.For<Func<CancellationToken, Task<int>>>();
-        LazyAsyncExecutionAndPublication<int> lazy = new LazyAsyncExecutionAndPublication<int>(factory);
-        lazy.Dispose();
-
-        // Act
-        _ = await Assert.ThrowsExactlyAsync<ObjectDisposedException>(async () => await lazy.GetValueAsync(CancellationToken.None).ConfigureAwait(false)).ConfigureAwait(false);
-    }
 
     [TestMethod]
     public async Task FromValue()
     {
         // Arrange
-        using (LazyAsyncExecutionAndPublication<int> lazy = new LazyAsyncExecutionAndPublication<int>(5))
-        {
-            // Assert
-            Assert.IsTrue(lazy.HasValue);
-            Assert.AreEqual(5, await lazy.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false));
-        }
+        LazyAsyncExecutionAndPublication<int> lazy = new LazyAsyncExecutionAndPublication<int>(5);
+
+        // Assert
+        Assert.IsTrue(lazy.HasValue);
+        Assert.AreEqual(5, await lazy.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false));
+        
     }
 
     [TestMethod]
@@ -53,42 +30,42 @@ public class LazyAsyncExecutionAndPublicationUnitTests
     {
         // Arrange — null is a legitimate value to cache; HasValue reflects whether the
         // lazy has been initialised, not whether the contained value is non-null.
-        using (LazyAsyncExecutionAndPublication<string> lazy = new LazyAsyncExecutionAndPublication<string>((string)null!))
-        {
-            // Assert
-            Assert.IsTrue(lazy.HasValue);
-            Assert.IsNull(await lazy.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false));
-        }
+        LazyAsyncExecutionAndPublication<string> lazy = new LazyAsyncExecutionAndPublication<string>((string)null!);
+
+        // Assert
+        Assert.IsTrue(lazy.HasValue);
+        Assert.IsNull(await lazy.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false));
+        
     }
 
     [TestMethod]
     public async Task FromFactory_NullResult_HasValueIsTrue_ReturnsNull()
     {
         // Arrange
-        using (LazyAsyncExecutionAndPublication<string> lazy = new LazyAsyncExecutionAndPublication<string>(_ => Task.FromResult<string>(null!)))
-        {
-            // Assert
-            Assert.IsFalse(lazy.HasValue);
-            Assert.IsNull(await lazy.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false));
-            Assert.IsTrue(lazy.HasValue);
-        }
+        LazyAsyncExecutionAndPublication<string> lazy = new LazyAsyncExecutionAndPublication<string>(_ => Task.FromResult<string>(null!));
+
+        // Assert
+        Assert.IsFalse(lazy.HasValue);
+        Assert.IsNull(await lazy.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false));
+        Assert.IsTrue(lazy.HasValue);
+        
     }
 
     [TestMethod]
     public async Task FromValue_CanceledToken_Succeeds()
     {
         // Arrange
-        using (LazyAsyncExecutionAndPublication<int> lazy = new LazyAsyncExecutionAndPublication<int>(5))
-        {
-            using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
-            {
-                cancellationTokenSource.Cancel();
+        LazyAsyncExecutionAndPublication<int> lazy = new LazyAsyncExecutionAndPublication<int>(5);
 
-                // Assert
-                Assert.IsTrue(lazy.HasValue);
-                Assert.AreEqual(5, await lazy.GetValueAsync(cancellationTokenSource.Token).ConfigureAwait(false));
-            }
+        using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
+        {
+            cancellationTokenSource.Cancel();
+
+            // Assert
+            Assert.IsTrue(lazy.HasValue);
+            Assert.AreEqual(5, await lazy.GetValueAsync(cancellationTokenSource.Token).ConfigureAwait(false));
         }
+        
     }
 
     [TestMethod]
@@ -99,29 +76,29 @@ public class LazyAsyncExecutionAndPublicationUnitTests
 
         _ = factory(Arg.Any<CancellationToken>()).Returns(Task.FromResult(5));
 
-        using (LazyAsyncExecutionAndPublication<int> lazy = new LazyAsyncExecutionAndPublication<int>(factory))
+        LazyAsyncExecutionAndPublication<int> lazy = new LazyAsyncExecutionAndPublication<int>(factory);
+
+        using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
         {
-            using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
-            {
-                CancellationToken cancellationToken = cancellationTokenSource.Token;
+            CancellationToken cancellationToken = cancellationTokenSource.Token;
 
-                // Assert
-                Assert.IsFalse(lazy.HasValue);
-                _ = factory.DidNotReceive()(cancellationToken);
+            // Assert
+            Assert.IsFalse(lazy.HasValue);
+            _ = factory.DidNotReceive()(cancellationToken);
 
-                Assert.AreEqual(5, await lazy.GetValueAsync(cancellationToken).ConfigureAwait(false));
+            Assert.AreEqual(5, await lazy.GetValueAsync(cancellationToken).ConfigureAwait(false));
 
-                Assert.IsTrue(lazy.HasValue);
-                _ = factory.Received(1)(cancellationToken);
+            Assert.IsTrue(lazy.HasValue);
+            _ = factory.Received(1)(Arg.Any<CancellationToken>());
 
-                Assert.AreEqual(5, await lazy.GetValueAsync(cancellationToken).ConfigureAwait(false));
-                Assert.AreEqual(5, await lazy.GetValueAsync(cancellationToken).ConfigureAwait(false));
-                Assert.AreEqual(5, await lazy.GetValueAsync(cancellationToken).ConfigureAwait(false));
+            Assert.AreEqual(5, await lazy.GetValueAsync(cancellationToken).ConfigureAwait(false));
+            Assert.AreEqual(5, await lazy.GetValueAsync(cancellationToken).ConfigureAwait(false));
+            Assert.AreEqual(5, await lazy.GetValueAsync(cancellationToken).ConfigureAwait(false));
 
-                Assert.IsTrue(lazy.HasValue);
-                _ = factory.Received(1)(cancellationToken);
-            }
+            Assert.IsTrue(lazy.HasValue);
+            _ = factory.Received(1)(Arg.Any<CancellationToken>());
         }
+        
     }
 
     [TestMethod]
@@ -130,16 +107,16 @@ public class LazyAsyncExecutionAndPublicationUnitTests
         // Arrange
         Func<CancellationToken, Task<int>> factory = Substitute.For<Func<CancellationToken, Task<int>>>();
 
-        using (LazyAsyncExecutionAndPublication<int> lazy = new LazyAsyncExecutionAndPublication<int>(factory))
-        {
-            using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
-            {
-                cancellationTokenSource.Cancel();
+        LazyAsyncExecutionAndPublication<int> lazy = new LazyAsyncExecutionAndPublication<int>(factory);
 
-                // Act
-                _ = await Assert.ThrowsExactlyAsync<TaskCanceledException>(async () => await lazy.GetValueAsync(cancellationTokenSource.Token).ConfigureAwait(false)).ConfigureAwait(false);
-            }
+        using (CancellationTokenSource cancellationTokenSource = new CancellationTokenSource())
+        {
+            cancellationTokenSource.Cancel();
+
+            // Act
+            _ = await Assert.ThrowsExactlyAsync<TaskCanceledException>(async () => await lazy.GetValueAsync(cancellationTokenSource.Token).ConfigureAwait(false)).ConfigureAwait(false);
         }
+        
     }
 
     [TestMethod]
@@ -150,7 +127,7 @@ public class LazyAsyncExecutionAndPublicationUnitTests
         TaskCompletionSource<bool> releaseFactory = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         int executionCount = 0;
 
-        using LazyAsyncExecutionAndPublication<int> lazy = new LazyAsyncExecutionAndPublication<int>(
+        LazyAsyncExecutionAndPublication<int> lazy = new LazyAsyncExecutionAndPublication<int>(
             async cancellationToken =>
             {
                 _ = Interlocked.Increment(ref executionCount);
@@ -178,35 +155,10 @@ public class LazyAsyncExecutionAndPublicationUnitTests
     }
 
     [TestMethod]
-    public async Task GetValueAsync_DisposedWhileFactoryIsInFlight_ThrowsObjectDisposedException()
-    {
-        // Arrange
-        TaskCompletionSource<bool> factoryStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        TaskCompletionSource<int> factoryTcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
-
-        using LazyAsyncExecutionAndPublication<int> lazy = new LazyAsyncExecutionAndPublication<int>(
-            cancellationToken =>
-            {
-                _ = factoryStarted.TrySetResult(true);
-                return factoryTcs.Task;
-            });
-
-        Task<int> getTask = lazy.GetValueAsync(CancellationToken.None).AsTask();
-        _ = await factoryStarted.Task.WaitAsync(CancellationToken.None).ConfigureAwait(false);
-
-        // Act
-        lazy.Dispose();
-        factoryTcs.SetResult(42);
-
-        // Assert
-        _ = await Assert.ThrowsExactlyAsync<ObjectDisposedException>(() => getTask).ConfigureAwait(false);
-    }
-
-    [TestMethod]
     public async Task FromFactory_NullTask_ThrowsInvalidOperationException()
     {
         // Arrange
-        using LazyAsyncExecutionAndPublication<int> lazy = new LazyAsyncExecutionAndPublication<int>(_ => null!);
+        LazyAsyncExecutionAndPublication<int> lazy = new LazyAsyncExecutionAndPublication<int>(_ => null!);
 
         // Act
         _ = await Assert.ThrowsExactlyAsync<InvalidOperationException>(async () =>
@@ -214,4 +166,64 @@ public class LazyAsyncExecutionAndPublicationUnitTests
     }
 
     public TestContext TestContext { get; set; }
+
+    // ── Shared-initialization contract ────────────────────────────────────
+
+    [TestMethod]
+    public async Task GetValueAsync_ValueFactoryDoesNotReceiveTheCallersToken()
+    {
+        // Arrange — the initialization is shared, so it must not be cancellable by whichever
+        // caller happened to trigger it.
+        CancellationToken observed = default;
+        using CancellationTokenSource callerCts = new CancellationTokenSource();
+
+        LazyAsyncExecutionAndPublication<int> lazy = new LazyAsyncExecutionAndPublication<int>(
+            cancellationToken =>
+            {
+                observed = cancellationToken;
+                return Task.FromResult(42);
+            });
+
+        // Act
+        _ = await lazy.GetValueAsync(callerCts.Token).ConfigureAwait(false);
+
+        // Assert
+        Assert.AreNotEqual(callerCts.Token, observed, "The value factory must not receive the caller's token.");
+
+        await callerCts.CancelAsync().ConfigureAwait(false);
+        Assert.IsFalse(observed.IsCancellationRequested, "Cancelling the caller must not cancel the factory's token.");
+    }
+
+    [TestMethod]
+    public async Task GetValueAsync_OneCallerCancelling_LeavesTheSharedInitializationRunning()
+    {
+        // Arrange
+        TaskCompletionSource<bool> factoryStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource<int> factoryTcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        int calls = 0;
+
+        LazyAsyncExecutionAndPublication<int> lazy = new LazyAsyncExecutionAndPublication<int>(
+            cancellationToken =>
+            {
+                _ = Interlocked.Increment(ref calls);
+                _ = factoryStarted.TrySetResult(true);
+                return factoryTcs.Task;
+            });
+
+        using CancellationTokenSource impatientCts = new CancellationTokenSource();
+        Task<int> impatient = lazy.GetValueAsync(impatientCts.Token).AsTask();
+        Task<int> patient = lazy.GetValueAsync(CancellationToken.None).AsTask();
+
+        _ = await factoryStarted.Task.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+
+        // Act — the first caller gives up waiting.
+        await impatientCts.CancelAsync().ConfigureAwait(false);
+        _ = await Assert.ThrowsExactlyAsync<TaskCanceledException>(() => impatient).ConfigureAwait(false);
+
+        // Assert — the initialization survived and still serves the caller that waited.
+        factoryTcs.SetResult(42);
+        Assert.AreEqual(42, await patient.ConfigureAwait(false));
+        Assert.AreEqual(1, Volatile.Read(ref calls), "Both callers must share a single factory execution.");
+        Assert.IsTrue(lazy.HasValue);
+    }
 }

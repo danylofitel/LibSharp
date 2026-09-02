@@ -17,6 +17,13 @@
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:LibSharp.Caching.InitializerAsyncExecutionAndPublication`1.Dispose</Target>
+    <Left>lib/net10.0/LibSharp.dll</Left>
+    <Right>lib/net10.0/LibSharp.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
     <Target>M:LibSharp.Caching.InitializerAsyncExecutionAndPublication`1.GetValueAsync(System.Func{System.Threading.CancellationToken,System.Threading.Tasks.Task{`0}},System.Threading.CancellationToken)</Target>
     <Left>lib/net10.0/LibSharp.dll</Left>
     <Right>lib/net10.0/LibSharp.dll</Right>
@@ -39,6 +46,13 @@
   <Suppression>
     <DiagnosticId>CP0002</DiagnosticId>
     <Target>M:LibSharp.Caching.KeyValueCacheAsync`2.GetValueAsync(`0,System.Threading.CancellationToken)</Target>
+    <Left>lib/net10.0/LibSharp.dll</Left>
+    <Right>lib/net10.0/LibSharp.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:LibSharp.Caching.LazyAsyncExecutionAndPublication`1.Dispose</Target>
     <Left>lib/net10.0/LibSharp.dll</Left>
     <Right>lib/net10.0/LibSharp.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
@@ -101,6 +115,13 @@
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:LibSharp.Caching.InitializerAsyncExecutionAndPublication`1.Dispose</Target>
+    <Left>lib/net8.0/LibSharp.dll</Left>
+    <Right>lib/net8.0/LibSharp.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
     <Target>M:LibSharp.Caching.InitializerAsyncExecutionAndPublication`1.GetValueAsync(System.Func{System.Threading.CancellationToken,System.Threading.Tasks.Task{`0}},System.Threading.CancellationToken)</Target>
     <Left>lib/net8.0/LibSharp.dll</Left>
     <Right>lib/net8.0/LibSharp.dll</Right>
@@ -123,6 +144,13 @@
   <Suppression>
     <DiagnosticId>CP0002</DiagnosticId>
     <Target>M:LibSharp.Caching.KeyValueCacheAsync`2.GetValueAsync(`0,System.Threading.CancellationToken)</Target>
+    <Left>lib/net8.0/LibSharp.dll</Left>
+    <Right>lib/net8.0/LibSharp.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:LibSharp.Caching.LazyAsyncExecutionAndPublication`1.Dispose</Target>
     <Left>lib/net8.0/LibSharp.dll</Left>
     <Right>lib/net8.0/LibSharp.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
@@ -185,6 +213,13 @@
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:LibSharp.Caching.InitializerAsyncExecutionAndPublication`1.Dispose</Target>
+    <Left>lib/net9.0/LibSharp.dll</Left>
+    <Right>lib/net9.0/LibSharp.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
     <Target>M:LibSharp.Caching.InitializerAsyncExecutionAndPublication`1.GetValueAsync(System.Func{System.Threading.CancellationToken,System.Threading.Tasks.Task{`0}},System.Threading.CancellationToken)</Target>
     <Left>lib/net9.0/LibSharp.dll</Left>
     <Right>lib/net9.0/LibSharp.dll</Right>
@@ -207,6 +242,13 @@
   <Suppression>
     <DiagnosticId>CP0002</DiagnosticId>
     <Target>M:LibSharp.Caching.KeyValueCacheAsync`2.GetValueAsync(`0,System.Threading.CancellationToken)</Target>
+    <Left>lib/net9.0/LibSharp.dll</Left>
+    <Right>lib/net9.0/LibSharp.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:LibSharp.Caching.LazyAsyncExecutionAndPublication`1.Dispose</Target>
     <Left>lib/net9.0/LibSharp.dll</Left>
     <Right>lib/net9.0/LibSharp.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
@@ -312,6 +354,48 @@
   <Suppression>
     <DiagnosticId>CP0006</DiagnosticId>
     <Target>M:LibSharp.Caching.IValueCacheAsync`1.GetValueAsync(System.Threading.CancellationToken)</Target>
+    <Left>lib/net9.0/LibSharp.dll</Left>
+    <Right>lib/net9.0/LibSharp.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0008</DiagnosticId>
+    <Target>T:LibSharp.Caching.InitializerAsyncExecutionAndPublication`1</Target>
+    <Left>lib/net10.0/LibSharp.dll</Left>
+    <Right>lib/net10.0/LibSharp.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0008</DiagnosticId>
+    <Target>T:LibSharp.Caching.LazyAsyncExecutionAndPublication`1</Target>
+    <Left>lib/net10.0/LibSharp.dll</Left>
+    <Right>lib/net10.0/LibSharp.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0008</DiagnosticId>
+    <Target>T:LibSharp.Caching.InitializerAsyncExecutionAndPublication`1</Target>
+    <Left>lib/net8.0/LibSharp.dll</Left>
+    <Right>lib/net8.0/LibSharp.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0008</DiagnosticId>
+    <Target>T:LibSharp.Caching.LazyAsyncExecutionAndPublication`1</Target>
+    <Left>lib/net8.0/LibSharp.dll</Left>
+    <Right>lib/net8.0/LibSharp.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0008</DiagnosticId>
+    <Target>T:LibSharp.Caching.InitializerAsyncExecutionAndPublication`1</Target>
+    <Left>lib/net9.0/LibSharp.dll</Left>
+    <Right>lib/net9.0/LibSharp.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0008</DiagnosticId>
+    <Target>T:LibSharp.Caching.LazyAsyncExecutionAndPublication`1</Target>
     <Left>lib/net9.0/LibSharp.dll</Left>
     <Right>lib/net9.0/LibSharp.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>

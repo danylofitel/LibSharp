@@ -4,7 +4,6 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using LibSharp.Common;
-using LibSharp.Threading;
 
 namespace LibSharp.Caching;
 
@@ -15,30 +14,40 @@ namespace LibSharp.Caching;
 /// <remarks>
 /// Should not be used with IDisposable or IAsyncDisposable value types since it does not dispose of values.
 /// A successful initialization is cached permanently. Faulted or canceled attempts are not cached and may be retried by later callers.
+/// <para>
+/// Concurrent callers share a single factory execution rather than queueing behind a lock: the
+/// initialization task is published before the factory runs, and each caller awaits it with its own
+/// cancellation token. A caller that gives up cancels only its own wait, never the shared work.
+/// Because the work is shared, the factory runs with <see cref="CancellationToken.None"/> — no one
+/// caller's token may cancel an initialization the others are waiting on.
+/// </para>
+/// <para>
+/// When callers race, the factory supplied by whichever caller starts the initialization is the one
+/// that runs; the others receive its result without their own factory being invoked.
+/// </para>
 /// </remarks>
-public sealed class InitializerAsyncExecutionAndPublication<T> : IInitializerAsync<T>, IDisposable
+public sealed class InitializerAsyncExecutionAndPublication<T> : IInitializerAsync<T>
 {
     /// <inheritdoc/>
-    public bool HasValue
-    {
-        get
-        {
-            ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
-
-            return m_hasValue;
-        }
-    }
+    public bool HasValue => m_hasValue;
 
     /// <inheritdoc/>
     public ValueTask<T> GetValueAsync(Func<CancellationToken, Task<T>> factory, CancellationToken cancellationToken = default)
     {
         Argument.NotNull(factory);
 
-        ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
-
         if (m_hasValue)
         {
+            // Initialized: not async, so the common path costs no allocation and no state machine.
             return new ValueTask<T>(m_value);
+        }
+
+        // This call has to wait, so an already-cancelled token cancels it here. The wait below
+        // cannot be relied on for it: a shared initialization that already completed hands back its
+        // result without consulting the token.
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return ValueTask.FromCanceled<T>(cancellationToken);
         }
 
         return InitializeAsync(factory, cancellationToken);
@@ -46,37 +55,75 @@ public sealed class InitializerAsyncExecutionAndPublication<T> : IInitializerAsy
 
     private async ValueTask<T> InitializeAsync(Func<CancellationToken, Task<T>> factory, CancellationToken cancellationToken)
     {
-        using (await m_lock.AcquireAsync(cancellationToken).ConfigureAwait(false))
+        // WaitAsync binds this caller's cancellation to this caller's wait only.
+        return await GetOrCreateInitializationTask(factory).WaitAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    // Returns a task for an in-progress or newly started initialization. Exactly one factory
+    // execution runs at a time; concurrent callers join it.
+    private Task<T> GetOrCreateInitializationTask(Func<CancellationToken, Task<T>> factory)
+    {
+        TaskCompletionSource<T> tcs;
+
+        lock (m_lock)
         {
-            if (!m_hasValue)
+            if (m_pendingInitialization is not null && !m_pendingInitialization.IsCompleted)
             {
-                Task<T> factoryTask = factory(cancellationToken)
-                    ?? throw new InvalidOperationException("The value factory returned a null task.");
-                m_value = await factoryTask.ConfigureAwait(false);
-                m_hasValue = true;
+                return m_pendingInitialization;
             }
 
-            ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
+            // Observe a completed faulted attempt so UnobservedTaskException never fires. A faulted
+            // attempt is not cached, so the next caller starts a fresh one.
+            if (m_pendingInitialization?.IsFaulted == true)
+            {
+                _ = m_pendingInitialization!.Exception;
+            }
 
-            return m_value;
+            if (m_hasValue)
+            {
+                return Task.FromResult(m_value);
+            }
+
+            tcs = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
+            m_pendingInitialization = tcs.Task;
+
+            _ = m_pendingInitialization.ContinueWith(
+                static t => _ = t.Exception,
+                CancellationToken.None,
+                TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
         }
+
+        // Invoke the factory outside the lock, so it is never held across user code.
+        _ = CompleteAsync(factory, tcs);
+
+        return tcs.Task;
     }
 
-    /// <inheritdoc/>
-    public void Dispose()
+    private async Task CompleteAsync(Func<CancellationToken, Task<T>> factory, TaskCompletionSource<T> tcs)
     {
-        if (Interlocked.Exchange(ref m_isDisposed, 1) != 0)
+        try
         {
-            return;
-        }
+            Task<T> factoryTask = factory(CancellationToken.None)
+                ?? throw new InvalidOperationException("The value factory returned a null task.");
+            T value = await factoryTask.ConfigureAwait(false);
 
-        m_lock.Dispose();
+            m_value = value;
+            m_hasValue = true;
+            _ = tcs.TrySetResult(value);
+        }
+        catch (Exception ex)
+        {
+            _ = tcs.TrySetException(ex);
+        }
     }
 
-    private readonly AsyncLock m_lock = new AsyncLock();
+    private readonly object m_lock = new object();
     private volatile bool m_hasValue;
 
     // Assigned before m_hasValue is set to true; only ever read after observing m_hasValue == true.
     private T m_value = default!;
-    private int m_isDisposed;
+
+    // Written and read only under m_lock.
+    private Task<T>? m_pendingInitialization;
 }

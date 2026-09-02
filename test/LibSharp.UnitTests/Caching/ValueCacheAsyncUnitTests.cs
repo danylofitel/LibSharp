@@ -167,7 +167,7 @@ public class ValueCacheAsyncUnitTests
                 Assert.IsTrue(cache.Expiration <= DateTime.UtcNow);
             }
 
-            _ = factory.Received(5)(cancellationToken);
+            _ = factory.Received(5)(Arg.Any<CancellationToken>());
         }
     }
 
@@ -203,7 +203,7 @@ public class ValueCacheAsyncUnitTests
                 Assert.IsTrue(cache.Expiration <= DateTime.UtcNow);
             }
 
-            _ = factory.Received(5)(cancellationToken);
+            _ = factory.Received(5)(Arg.Any<CancellationToken>());
         }
     }
 
@@ -243,8 +243,8 @@ public class ValueCacheAsyncUnitTests
                 Assert.IsTrue(cache.Expiration <= DateTime.UtcNow);
             }
 
-            _ = createFactory.Received(1)(cancellationToken);
-            _ = updateFactory.Received(4)(Arg.Any<int>(), cancellationToken);
+            _ = createFactory.Received(1)(Arg.Any<CancellationToken>());
+            _ = updateFactory.Received(4)(Arg.Any<int>(), Arg.Any<CancellationToken>());
         }
     }
 
@@ -284,8 +284,8 @@ public class ValueCacheAsyncUnitTests
                 Assert.IsTrue(cache.Expiration <= DateTime.UtcNow);
             }
 
-            _ = createFactory.Received(1)(cancellationToken);
-            _ = updateFactory.Received(4)(Arg.Any<int>(), cancellationToken);
+            _ = createFactory.Received(1)(Arg.Any<CancellationToken>());
+            _ = updateFactory.Received(4)(Arg.Any<int>(), Arg.Any<CancellationToken>());
         }
     }
 
@@ -321,7 +321,7 @@ public class ValueCacheAsyncUnitTests
                 Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
             }
 
-            _ = factory.Received(1)(cancellationToken);
+            _ = factory.Received(1)(Arg.Any<CancellationToken>());
         }
     }
 
@@ -357,7 +357,7 @@ public class ValueCacheAsyncUnitTests
                 Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
             }
 
-            _ = factory.Received(1)(cancellationToken);
+            _ = factory.Received(1)(Arg.Any<CancellationToken>());
         }
     }
 
@@ -395,7 +395,7 @@ public class ValueCacheAsyncUnitTests
                 Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
             }
 
-            _ = createFactory.Received(1)(cancellationToken);
+            _ = createFactory.Received(1)(Arg.Any<CancellationToken>());
             _ = updateFactory.DidNotReceive()(Arg.Any<int>(), cancellationToken);
         }
     }
@@ -434,7 +434,7 @@ public class ValueCacheAsyncUnitTests
                 Assert.IsTrue(cache.Expiration >= DateTime.UtcNow);
             }
 
-            _ = createFactory.Received(1)(cancellationToken);
+            _ = createFactory.Received(1)(Arg.Any<CancellationToken>());
             _ = updateFactory.DidNotReceive()(Arg.Any<int>(), cancellationToken);
         }
     }
@@ -533,5 +533,100 @@ public class ValueCacheAsyncUnitTests
         timeProvider.Advance(TimeSpan.FromSeconds(1));
         Assert.AreEqual(2, await cache.GetValueAsync(CancellationToken.None).ConfigureAwait(false));
         Assert.AreEqual(2, calls);
+    }
+
+    // ── Shared-refresh cancellation contract ──────────────────────────────
+
+    [TestMethod]
+    public async Task GetValueAsync_ValueFactoryDoesNotReceiveTheCallersToken()
+    {
+        // Arrange — the refresh is shared between callers, so it must not be cancellable by
+        // whichever caller happened to trigger it.
+        CancellationToken observed = default;
+        using CancellationTokenSource callerCts = new CancellationTokenSource();
+
+        using ValueCacheAsync<int> cache = new ValueCacheAsync<int>(
+            cancellationToken =>
+            {
+                observed = cancellationToken;
+                return Task.FromResult(42);
+            },
+            TimeSpan.FromHours(1));
+
+        // Act
+        _ = await cache.GetValueAsync(callerCts.Token).ConfigureAwait(false);
+
+        // Assert
+        Assert.AreNotEqual(callerCts.Token, observed, "The value factory must not receive the caller's token.");
+
+        await callerCts.CancelAsync().ConfigureAwait(false);
+        Assert.IsFalse(observed.IsCancellationRequested, "Cancelling the caller must not cancel the factory's token.");
+    }
+
+    [TestMethod]
+    public async Task GetValueAsync_OneCallerCancelling_LeavesTheSharedRefreshRunning()
+    {
+        // Arrange — two callers join one refresh; the factory blocks until released.
+        TaskCompletionSource<bool> factoryStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource<int> factoryTcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        int calls = 0;
+
+        using ValueCacheAsync<int> cache = new ValueCacheAsync<int>(
+            cancellationToken =>
+            {
+                _ = Interlocked.Increment(ref calls);
+                _ = factoryStarted.TrySetResult(true);
+                return factoryTcs.Task;
+            },
+            TimeSpan.FromHours(1));
+
+        using CancellationTokenSource impatientCts = new CancellationTokenSource();
+        Task<int> impatient = cache.GetValueAsync(impatientCts.Token).AsTask();
+        Task<int> patient = cache.GetValueAsync(CancellationToken.None).AsTask();
+
+        _ = await factoryStarted.Task.WaitAsync(CancellationToken.None).ConfigureAwait(false);
+
+        // Act — the first caller gives up waiting.
+        await impatientCts.CancelAsync().ConfigureAwait(false);
+        _ = await Assert.ThrowsExactlyAsync<TaskCanceledException>(() => impatient).ConfigureAwait(false);
+
+        // Assert — the refresh survived and still serves the caller that waited.
+        factoryTcs.SetResult(42);
+        Assert.AreEqual(42, await patient.ConfigureAwait(false));
+        Assert.AreEqual(1, Volatile.Read(ref calls), "Both callers must share a single factory invocation.");
+        Assert.AreEqual(42, await cache.GetValueAsync(CancellationToken.None).ConfigureAwait(false));
+    }
+
+    [TestMethod]
+    public async Task GetValueAsync_ConcurrentCallers_ShareASingleFactoryInvocation()
+    {
+        // Arrange
+        TaskCompletionSource<int> factoryTcs = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        int calls = 0;
+
+        using ValueCacheAsync<int> cache = new ValueCacheAsync<int>(
+            cancellationToken =>
+            {
+                _ = Interlocked.Increment(ref calls);
+                return factoryTcs.Task;
+            },
+            TimeSpan.FromHours(1));
+
+        // Act
+        Task<int>[] callers = new Task<int>[8];
+        for (int i = 0; i < callers.Length; i++)
+        {
+            callers[i] = cache.GetValueAsync(CancellationToken.None).AsTask();
+        }
+
+        factoryTcs.SetResult(7);
+        int[] results = await Task.WhenAll(callers).ConfigureAwait(false);
+
+        // Assert
+        Assert.AreEqual(1, Volatile.Read(ref calls), "Concurrent callers must not each invoke the factory.");
+        foreach (int result in results)
+        {
+            Assert.AreEqual(7, result);
+        }
     }
 }

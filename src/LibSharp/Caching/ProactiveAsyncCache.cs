@@ -147,6 +147,15 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
             return new ValueTask<T>(snapshot.Value);
         }
 
+        // Miss: this call has to wait for a refresh, so an already-cancelled token cancels it here.
+        // WaitAsync in the slow path cannot be relied on for this — when the shared refresh has
+        // already completed it hands back its result without ever consulting the token. Checked
+        // after the fast path above, because a hit does no waiting and so has nothing to cancel.
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return ValueTask.FromCanceled<T>(cancellationToken);
+        }
+
         return FetchValueAsync(snapshot, cancellationToken);
     }
 
