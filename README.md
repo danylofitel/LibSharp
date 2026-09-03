@@ -334,9 +334,9 @@ Quick selection guide:
 
 #### Lazy
 
-Two different implementations of async lazy values are available — `LazyAsyncPublicationOnly` and `LazyAsyncExecutionAndPublication`. Those are async versions of `System.Lazy` class with `LazyThreadSafetyMode.PublicationOnly` and `LazyThreadSafetyMode.ExecutionAndPublication` modes respectively. The reason that async lazy implementations are separate classes is that `LazyAsyncExecutionAndPublication` implements `IDisposable` due to its usage of an instance of `SemaphoreSlim` whereas `LazyAsyncPublicationOnly` does not need to implement `IDisposable`.
+Two different implementations of async lazy values are available — `LazyAsyncPublicationOnly` and `LazyAsyncExecutionAndPublication`. Those are async versions of `System.Lazy` class with `LazyThreadSafetyMode.PublicationOnly` and `LazyThreadSafetyMode.ExecutionAndPublication` modes respectively. They differ in how concurrent callers are handled: `ExecutionAndPublication` shares a single factory execution between them, while `PublicationOnly` lets each run its own and keeps whichever value is published first. Neither is `IDisposable`.
 
-`LazyAsyncExecutionAndPublication` runs at most one in-flight factory and retries after failed or canceled attempts. `LazyAsyncPublicationOnly` may execute multiple concurrent factories, but only the first successfully published value is retained.
+`LazyAsyncExecutionAndPublication` runs at most one in-flight factory and retries after failed or canceled attempts. `LazyAsyncPublicationOnly` may execute multiple concurrent factories, but only the first successfully published value is retained — so it should not be used with `IDisposable` values, since every losing racer's value is dropped without being disposed.
 
 ```csharp
     using LibSharp.Caching;
@@ -354,7 +354,7 @@ Two different implementations of async lazy values are available — `LazyAsyncP
 
     public static async Task LazyAsyncExecutionAndPublicationExample(Func<CancellationToken, Task<int>> factory, CancellationToken cancellationToken)
     {
-        using LazyAsyncExecutionAndPublication<int> lazy = new LazyAsyncExecutionAndPublication<int>(factory);
+        LazyAsyncExecutionAndPublication<int> lazy = new LazyAsyncExecutionAndPublication<int>(factory);
 
         bool hasValue = lazy.HasValue;                              // false
         int value = await lazy.GetValueAsync(cancellationToken);    // factory invoked
@@ -397,7 +397,7 @@ Initializers in LibSharp are equivalents of lazy types, with the only difference
 
     public static async Task InitializerAsyncExecutionAndPublicationExample(Func<CancellationToken, Task<int>> factory, CancellationToken cancellationToken)
     {
-        using InitializerAsyncExecutionAndPublication<int> initializer = new InitializerAsyncExecutionAndPublication<int>();
+        InitializerAsyncExecutionAndPublication<int> initializer = new InitializerAsyncExecutionAndPublication<int>();
 
         bool hasValue = initializer.HasValue;                                       // false
         int value = await initializer.GetValueAsync(factory, cancellationToken);    // factory invoked
@@ -496,22 +496,67 @@ Key-value caches allow caching and automatically refreshing multiple values with
 
     public static async Task ProactiveAsyncCacheWithOptionsExample(Func<CancellationToken, Task<int>> factory, CancellationToken cancellationToken)
     {
+        // Anything beyond the two intervals is configured through the options object, so new
+        // settings can be added later without breaking existing callers.
         await using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
             factory,
-            refreshInterval: TimeSpan.FromMinutes(5),
-            preFetchOffset: TimeSpan.FromSeconds(30),
-            allowStaleReads: true);                                 // return the previous value while a refresh is in progress
+            new ProactiveAsyncCacheOptions
+            {
+                RefreshInterval = TimeSpan.FromMinutes(5),
+                PreFetchOffset = TimeSpan.FromSeconds(30),
+
+                // Serve the previous value while a refresh runs, but only for up to two minutes
+                // past its expiration. Beyond that readers wait, so a dependency that stays down
+                // surfaces as an exception instead of an ever-older value.
+                StaleReads = StaleReadPolicy.ServeStaleUpTo(TimeSpan.FromMinutes(2)),
+
+                // Bound a single factory call. Also bounds DisposeAsync, which otherwise waits as
+                // long as the factory takes.
+                FetchTimeout = TimeSpan.FromSeconds(10),
+            });
 
         int value = await cache.GetValueAsync(cancellationToken);
+
+        // A failing background refresh is otherwise invisible when stale reads are enabled:
+        // callers keep receiving a value and see no error. These report what is actually going on.
+        Exception? lastError = cache.LastRefreshException;   // null while healthy
+        int failures = cache.ConsecutiveRefreshFailures;     // 0 while healthy
+        DateTime? producedAt = cache.LastSuccessfulRefresh;  // age of what is being served
+    }
+
+    public static async Task ProactiveAsyncCacheStaleReadPolicyExample(Func<CancellationToken, Task<int>> factory, CancellationToken cancellationToken)
+    {
+        // Three choices for what happens when a read arrives and the value has expired:
+        //
+        //   StaleReadPolicy.Wait                  wait for a fresh value (the default)
+        //   StaleReadPolicy.ServeStale            serve the old value however old it is
+        //   StaleReadPolicy.ServeStaleUpTo(span)  serve it up to `span` past expiration, then wait
+        //
+        // The bound is measured from expiration, so the oldest value a reader can receive is
+        // RefreshInterval + the bound.
+        await using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            factory,
+            new ProactiveAsyncCacheOptions
+            {
+                RefreshInterval = TimeSpan.FromMinutes(5),
+                StaleReads = StaleReadPolicy.ServeStale,
+            });
+
+        int value = await cache.GetValueAsync(cancellationToken);   // never blocks after the first fetch
     }
 
     public static async Task ProactiveAsyncCacheWithIdleTimeoutExample(Func<CancellationToken, Task<int>> factory, CancellationToken cancellationToken)
     {
         await using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
             factory,
-            refreshInterval: TimeSpan.FromMinutes(5),
-            preFetchOffset: TimeSpan.FromSeconds(30),
-            idleTimeout: TimeSpan.FromHours(1));           // stop refreshing in the background once the cache falls out of use
+            new ProactiveAsyncCacheOptions
+            {
+                RefreshInterval = TimeSpan.FromMinutes(5),
+                PreFetchOffset = TimeSpan.FromSeconds(30),
+
+                // Stop refreshing in the background once the cache falls out of use.
+                IdleTimeout = TimeSpan.FromHours(1),
+            });
 
         int value = await cache.GetValueAsync(cancellationToken);
 
