@@ -114,7 +114,7 @@ public sealed class AsyncLock : IDisposable
         catch (OperationCanceledException) when (m_disposalToken.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
         {
             // Disposal cancelled the wait — translate to ObjectDisposedException to match
-            // the contract established by the check at the top of this method.
+            // the contract established by the disposal check in AcquireAsync.
             throw new ObjectDisposedException(GetType().Name);
         }
         catch (ObjectDisposedException) when (Volatile.Read(ref m_isDisposed) != 0 && !cancellationToken.IsCancellationRequested)

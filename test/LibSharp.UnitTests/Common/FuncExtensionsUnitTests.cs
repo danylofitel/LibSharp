@@ -177,4 +177,48 @@ public class FuncExtensionsUnitTests
 
         _ = never.TrySetResult();
     }
+
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task RunWithTimeout_AbandonedWork_KeepsAUsableToken()
+    {
+        // The work outlives the call, so it still holds the linked token. Releasing the token
+        // source when the caller stops waiting would make WaitHandle throw underneath it.
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
+        TaskCompletionSource never = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        CancellationToken captured = default;
+
+        Func<CancellationToken, Task> task = cancellationToken =>
+        {
+            captured = cancellationToken;
+            return never.Task;
+        };
+
+        Task call = task.RunWithTimeout(TimeSpan.FromSeconds(30), timeProvider);
+        timeProvider.Advance(TimeSpan.FromSeconds(31));
+
+        _ = await Assert.ThrowsExactlyAsync<TimeoutException>(() => call).ConfigureAwait(false);
+
+        Assert.IsTrue(captured.IsCancellationRequested);
+        Assert.IsNotNull(captured.WaitHandle, "The abandoned work must still be able to use its token.");
+
+        // Registering must not throw either; the registration itself is a struct, so there is
+        // nothing to assert about it beyond the call completing.
+        captured.Register(static () => { }).Dispose();
+
+        _ = never.TrySetResult();
+    }
+
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task RunWithTimeout_WorkCompletingSynchronously_Succeeds()
+    {
+        // A synchronously completed task makes any completion continuation run the moment it is
+        // attached, which must not disturb the token this call is still using.
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
+
+        Func<CancellationToken, Task<int>> task = _ => Task.FromResult(7);
+
+        Assert.AreEqual(7, await task.RunWithTimeout(TimeSpan.FromSeconds(30), timeProvider).ConfigureAwait(false));
+    }
 }
