@@ -39,6 +39,8 @@ BenchmarkDotNet setup and benchmark scripts are available in <https://github.com
 
 ```csharp
     using LibSharp.Common;
+    using System.Net;
+    using System.Text.RegularExpressions;
 
     public static async Task CommonExamples(string stringParam, long longParam, object objectParam, CancellationToken cancellationToken)
     {
@@ -105,7 +107,9 @@ BenchmarkDotNet setup and benchmark scripts are available in <https://github.com
             return 99;
         };
 
-        int taskResult = await task.RunWithTimeout(TimeSpan.FromSeconds(1), cancellationToken);
+        // The caller is released when the timeout elapses whether or not the operation cooperates.
+        // An elapsed timeout throws TimeoutException; a cancelled token throws OperationCanceledException.
+        int taskResult = await task.RunWithTimeout(TimeSpan.FromSeconds(1), cancellationToken: cancellationToken);
 
         // Int extensions
         bool convertedFromInt = 200.TryConvertToEnum<HttpStatusCode>(out HttpStatusCode statusCode);

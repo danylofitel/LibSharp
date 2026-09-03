@@ -1299,7 +1299,7 @@ public class ProactiveAsyncCacheUnitTests
 
         // Assert - a timeout, not a bare cancellation, and recorded as a failure.
         _ = await Assert.ThrowsExactlyAsync<TimeoutException>(() => read).ConfigureAwait(false);
-        Assert.IsInstanceOfType<TimeoutException>(cache.LastRefreshException);
+        _ = Assert.IsInstanceOfType<TimeoutException>(cache.LastRefreshException);
         Assert.IsGreaterThan(0, cache.ConsecutiveRefreshFailures);
     }
 

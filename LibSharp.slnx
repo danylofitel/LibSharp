@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="benchmarks/LibSharp.Benchmarks/LibSharp.Benchmarks.csproj" />
   <Project Path="src/LibSharp/LibSharp.csproj" />
+  <Project Path="test/LibSharp.ReadmeSamples/LibSharp.ReadmeSamples.csproj" />
   <Project Path="test/LibSharp.UnitTests/LibSharp.UnitTests.csproj" />
 </Solution>
