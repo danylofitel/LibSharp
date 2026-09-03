@@ -19,6 +19,11 @@
     - `KeyValueCache<TKey, TValue>` and `KeyValueCacheAsync<TKey, TValue>` no longer allocate a delegate on every read. The `GetOrAdd` factory captured `this`, and Roslyn only caches closure-free lambdas, so one was allocated per call rather than per insert
   - `Collections`
     - `MinPriorityQueue<T>` and `MaxPriorityQueue<T>` now throw `InvalidOperationException` when `Current` is read before the first `MoveNext`, instead of silently returning `default(T)` from the heap's unused slot
+  - `Common`
+    - **Breaking:** `FuncExtensions.RunWithTimeout` now actually enforces its timeout. It previously handed the work a token that fired at the deadline and then awaited the work unconditionally, so work that ignored the token ran on and the call never returned. The caller is now released when the deadline passes regardless, and abandoned work is left running with its faults observed
+    - **Breaking:** `RunWithTimeout` reports an elapsed timeout as `TimeoutException` rather than `OperationCanceledException`, so a timeout can be told apart from the caller cancelling. This holds even when the work honours its token and throws on the way out
+    - **Breaking:** `RunWithTimeout` takes an optional `TimeProvider`, so the timeout can be driven deterministically like every other timing-sensitive type in the library. `CancellationToken` moved to last to keep the conventional parameter order, which is a compile-time break for positional callers
+    - `RunWithTimeout` rejects a null task from the factory with `InvalidOperationException` instead of failing with `NullReferenceException`
   - `Threading`
     - **Breaking:** `AsyncLock.AcquireAsync` now returns `ValueTask<Handle>` instead of `Task<Handle>`; an uncontended acquisition no longer allocates
 

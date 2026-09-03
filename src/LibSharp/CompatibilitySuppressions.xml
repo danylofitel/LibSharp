@@ -94,6 +94,20 @@
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:LibSharp.Common.FuncExtensions.RunWithTimeout(System.Func{System.Threading.CancellationToken,System.Threading.Tasks.Task},System.TimeSpan,System.Threading.CancellationToken)</Target>
+    <Left>lib/net10.0/LibSharp.dll</Left>
+    <Right>lib/net10.0/LibSharp.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:LibSharp.Common.FuncExtensions.RunWithTimeout``1(System.Func{System.Threading.CancellationToken,System.Threading.Tasks.Task{``0}},System.TimeSpan,System.Threading.CancellationToken)</Target>
+    <Left>lib/net10.0/LibSharp.dll</Left>
+    <Right>lib/net10.0/LibSharp.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
     <Target>M:LibSharp.Threading.AsyncLock.AcquireAsync(System.Threading.CancellationToken)</Target>
     <Left>lib/net10.0/LibSharp.dll</Left>
     <Right>lib/net10.0/LibSharp.dll</Right>
@@ -192,6 +206,20 @@
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:LibSharp.Common.FuncExtensions.RunWithTimeout(System.Func{System.Threading.CancellationToken,System.Threading.Tasks.Task},System.TimeSpan,System.Threading.CancellationToken)</Target>
+    <Left>lib/net8.0/LibSharp.dll</Left>
+    <Right>lib/net8.0/LibSharp.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:LibSharp.Common.FuncExtensions.RunWithTimeout``1(System.Func{System.Threading.CancellationToken,System.Threading.Tasks.Task{``0}},System.TimeSpan,System.Threading.CancellationToken)</Target>
+    <Left>lib/net8.0/LibSharp.dll</Left>
+    <Right>lib/net8.0/LibSharp.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
     <Target>M:LibSharp.Threading.AsyncLock.AcquireAsync(System.Threading.CancellationToken)</Target>
     <Left>lib/net8.0/LibSharp.dll</Left>
     <Right>lib/net8.0/LibSharp.dll</Right>
@@ -284,6 +312,20 @@
   <Suppression>
     <DiagnosticId>CP0002</DiagnosticId>
     <Target>M:LibSharp.Caching.ValueCacheAsync`1.GetValueAsync(System.Threading.CancellationToken)</Target>
+    <Left>lib/net9.0/LibSharp.dll</Left>
+    <Right>lib/net9.0/LibSharp.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:LibSharp.Common.FuncExtensions.RunWithTimeout(System.Func{System.Threading.CancellationToken,System.Threading.Tasks.Task},System.TimeSpan,System.Threading.CancellationToken)</Target>
+    <Left>lib/net9.0/LibSharp.dll</Left>
+    <Right>lib/net9.0/LibSharp.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:LibSharp.Common.FuncExtensions.RunWithTimeout``1(System.Func{System.Threading.CancellationToken,System.Threading.Tasks.Task{``0}},System.TimeSpan,System.Threading.CancellationToken)</Target>
     <Left>lib/net9.0/LibSharp.dll</Left>
     <Right>lib/net9.0/LibSharp.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
