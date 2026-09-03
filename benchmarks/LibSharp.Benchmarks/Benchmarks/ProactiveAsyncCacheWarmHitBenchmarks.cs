@@ -20,9 +20,11 @@ public class ProactiveAsyncCacheWarmHitBenchmarks
     {
         m_proactiveAsyncCache = new ProactiveAsyncCache<int>(
             s_valueFactory,
-            s_largeRefreshInterval,
-            preFetchOffset: s_largeRefreshInterval / 2,
-            allowStaleReads: false);
+            new ProactiveAsyncCacheOptions
+            {
+                RefreshInterval = s_largeRefreshInterval,
+                PreFetchOffset = s_largeRefreshInterval / 2,
+            });
 
         _ = await m_proactiveAsyncCache.GetValueAsync(CancellationToken.None).ConfigureAwait(false);
     }

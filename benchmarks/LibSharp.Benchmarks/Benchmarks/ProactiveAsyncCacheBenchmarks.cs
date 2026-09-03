@@ -21,9 +21,11 @@ public class ProactiveAsyncCacheBenchmarks
 
         m_proactiveAsyncCache = new ProactiveAsyncCache<int>(
             s_valueFactory,
-            refreshInterval,
-            preFetchOffset: refreshInterval / 2,
-            allowStaleReads: false);
+            new ProactiveAsyncCacheOptions
+            {
+                RefreshInterval = refreshInterval,
+                PreFetchOffset = refreshInterval / 2,
+            });
 
         _ = await m_proactiveAsyncCache.GetValueAsync(CancellationToken.None).ConfigureAwait(false);
     }

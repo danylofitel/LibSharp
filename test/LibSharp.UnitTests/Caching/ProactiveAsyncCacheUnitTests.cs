@@ -358,9 +358,12 @@ public class ProactiveAsyncCacheUnitTests
 
                 return secondFetchTcs.Task;
             },
-            TimeSpan.FromMinutes(1),
-            TimeSpan.Zero,
-            timeProvider: timeProvider);
+            new ProactiveAsyncCacheOptions
+            {
+                RefreshInterval = TimeSpan.FromMinutes(1),
+                PreFetchOffset = TimeSpan.Zero,
+                TimeProvider = timeProvider,
+            });
         await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
@@ -438,10 +441,13 @@ public class ProactiveAsyncCacheUnitTests
 
                 return Task.FromResult(42);
             },
-            TimeSpan.FromMinutes(1),
-            TimeSpan.Zero,
-            allowStaleReads: true,
-            timeProvider: timeProvider);
+            new ProactiveAsyncCacheOptions
+            {
+                RefreshInterval = TimeSpan.FromMinutes(1),
+                PreFetchOffset = TimeSpan.Zero,
+                StaleReads = StaleReadPolicy.ServeStale,
+                TimeProvider = timeProvider,
+            });
         await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         int first = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
@@ -473,10 +479,13 @@ public class ProactiveAsyncCacheUnitTests
 
                 return Task.FromResult(count * 10);
             },
-            TimeSpan.FromMilliseconds(100),
-            TimeSpan.FromMilliseconds(50),
-            allowStaleReads: true,
-            timeProvider: timeProvider);
+            new ProactiveAsyncCacheOptions
+            {
+                RefreshInterval = TimeSpan.FromMilliseconds(100),
+                PreFetchOffset = TimeSpan.FromMilliseconds(50),
+                StaleReads = StaleReadPolicy.ServeStale,
+                TimeProvider = timeProvider,
+            });
 
         try
         {
@@ -694,10 +703,12 @@ public class ProactiveAsyncCacheUnitTests
         int calls = 0;
         ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
             _ => Task.FromResult(Interlocked.Increment(ref calls)),
-            TimeSpan.FromMinutes(5),
-            TimeSpan.FromSeconds(30),
-            allowStaleReads: false,
-            timeProvider: timeProvider);
+            new ProactiveAsyncCacheOptions
+            {
+                RefreshInterval = TimeSpan.FromMinutes(5),
+                PreFetchOffset = TimeSpan.FromSeconds(30),
+                TimeProvider = timeProvider,
+            });
         await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         int value = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
@@ -714,11 +725,15 @@ public class ProactiveAsyncCacheUnitTests
         TaskCompletionSource<int> refreshGate = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
-            _ => Interlocked.Increment(ref calls) == 1 ? Task.FromResult(1) : refreshGate.Task, // First fetch is fast; later fetches block.
+            _ => Interlocked.Increment(ref calls) == 1 ? Task.FromResult(1) : refreshGate.Task,
+            new ProactiveAsyncCacheOptions
+            {
+                RefreshInterval = // First fetch is fast; later fetches block.
             TimeSpan.FromMinutes(1),
-            TimeSpan.FromSeconds(10),
-            allowStaleReads: true,
-            timeProvider);
+                PreFetchOffset = TimeSpan.FromSeconds(10),
+                StaleReads = StaleReadPolicy.ServeStale,
+                TimeProvider = timeProvider,
+            });
         await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         // Initial fetch completes and serves value 1.
@@ -760,9 +775,12 @@ public class ProactiveAsyncCacheUnitTests
     {
         ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
             _ => Task.FromResult(42),
-            TimeSpan.FromHours(1),
-            TimeSpan.Zero,
-            idleTimeout: TimeSpan.FromMinutes(5));
+            new ProactiveAsyncCacheOptions
+            {
+                RefreshInterval = TimeSpan.FromHours(1),
+                PreFetchOffset = TimeSpan.Zero,
+                IdleTimeout = TimeSpan.FromMinutes(5),
+            });
         await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         Assert.IsNotNull(GetIdleTracker(cache));
@@ -774,11 +792,13 @@ public class ProactiveAsyncCacheUnitTests
         FakeTimeProvider timeProvider = new FakeTimeProvider();
         ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
             _ => Task.FromResult(42),
-            TimeSpan.FromHours(1),
-            TimeSpan.Zero,
-            allowStaleReads: false,
-            timeProvider,
-            idleTimeout: TimeSpan.FromMinutes(5));
+            new ProactiveAsyncCacheOptions
+            {
+                RefreshInterval = TimeSpan.FromHours(1),
+                PreFetchOffset = TimeSpan.Zero,
+                TimeProvider = timeProvider,
+                IdleTimeout = TimeSpan.FromMinutes(5),
+            });
         await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         _ = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
@@ -821,21 +841,27 @@ public class ProactiveAsyncCacheUnitTests
         {
             _ = new ProactiveAsyncCache<int>(
                 _ => Task.FromResult(42),
-                TimeSpan.FromMinutes(1),
-                TimeSpan.Zero,
-                idleTimeout: TimeSpan.Zero);
+                new ProactiveAsyncCacheOptions
+                {
+                    RefreshInterval = TimeSpan.FromMinutes(1),
+                    PreFetchOffset = TimeSpan.Zero,
+                    IdleTimeout = TimeSpan.Zero,
+                });
         });
-        Assert.AreEqual("idleTimeout", zero.ParamName);
+        Assert.AreEqual(nameof(ProactiveAsyncCacheOptions.IdleTimeout), zero.ParamName);
 
         ArgumentOutOfRangeException negative = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
         {
             _ = new ProactiveAsyncCache<int>(
                 _ => Task.FromResult(42),
-                TimeSpan.FromMinutes(1),
-                TimeSpan.Zero,
-                idleTimeout: TimeSpan.FromSeconds(-1));
+                new ProactiveAsyncCacheOptions
+                {
+                    RefreshInterval = TimeSpan.FromMinutes(1),
+                    PreFetchOffset = TimeSpan.Zero,
+                    IdleTimeout = TimeSpan.FromSeconds(-1),
+                });
         });
-        Assert.AreEqual("idleTimeout", negative.ParamName);
+        Assert.AreEqual(nameof(ProactiveAsyncCacheOptions.IdleTimeout), negative.ParamName);
     }
 
     public TestContext TestContext { get; set; }
@@ -857,10 +883,12 @@ public class ProactiveAsyncCacheUnitTests
                 _ = Interlocked.Increment(ref calls);
                 throw new InvalidTimeZoneException("dependency down");
             },
-            TimeSpan.FromMinutes(10),
-            TimeSpan.Zero,
-            allowStaleReads: false,
-            timeProvider);
+            new ProactiveAsyncCacheOptions
+            {
+                RefreshInterval = TimeSpan.FromMinutes(10),
+                PreFetchOffset = TimeSpan.Zero,
+                TimeProvider = timeProvider,
+            });
         await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         // Act — the first read fails and records the failure.
@@ -894,10 +922,12 @@ public class ProactiveAsyncCacheUnitTests
                     ? throw new InvalidTimeZoneException("transient")
                     : Task.FromResult(42);
             },
-            TimeSpan.FromMinutes(10),
-            TimeSpan.Zero,
-            allowStaleReads: false,
-            timeProvider);
+            new ProactiveAsyncCacheOptions
+            {
+                RefreshInterval = TimeSpan.FromMinutes(10),
+                PreFetchOffset = TimeSpan.Zero,
+                TimeProvider = timeProvider,
+            });
         await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         _ = await Assert.ThrowsExactlyAsync<InvalidTimeZoneException>(
@@ -928,10 +958,13 @@ public class ProactiveAsyncCacheUnitTests
                     ? Task.FromResult(1)
                     : throw new InvalidTimeZoneException("dependency down");
             },
-            TimeSpan.FromMinutes(10),
-            TimeSpan.Zero,
-            allowStaleReads: true,
-            timeProvider);
+            new ProactiveAsyncCacheOptions
+            {
+                RefreshInterval = TimeSpan.FromMinutes(10),
+                PreFetchOffset = TimeSpan.Zero,
+                StaleReads = StaleReadPolicy.ServeStale,
+                TimeProvider = timeProvider,
+            });
         await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         Assert.AreEqual(1, await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false));
@@ -966,10 +999,12 @@ public class ProactiveAsyncCacheUnitTests
                     ? throw new InvalidTimeZoneException("transient")
                     : Task.FromResult(call);
             },
-            TimeSpan.FromMinutes(10),
-            TimeSpan.Zero,
-            allowStaleReads: false,
-            timeProvider);
+            new ProactiveAsyncCacheOptions
+            {
+                RefreshInterval = TimeSpan.FromMinutes(10),
+                PreFetchOffset = TimeSpan.Zero,
+                TimeProvider = timeProvider,
+            });
         await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         _ = await Assert.ThrowsExactlyAsync<InvalidTimeZoneException>(
@@ -995,10 +1030,12 @@ public class ProactiveAsyncCacheUnitTests
         FakeTimeProvider timeProvider = new FakeTimeProvider();
         ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
             _ => Task.FromResult(42),
-            TimeSpan.FromMinutes(10),
-            TimeSpan.Zero,
-            allowStaleReads: false,
-            timeProvider);
+            new ProactiveAsyncCacheOptions
+            {
+                RefreshInterval = TimeSpan.FromMinutes(10),
+                PreFetchOffset = TimeSpan.Zero,
+                TimeProvider = timeProvider,
+            });
         await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         // Before any fetch there is neither a value nor a failure.
@@ -1020,10 +1057,12 @@ public class ProactiveAsyncCacheUnitTests
         FakeTimeProvider timeProvider = new FakeTimeProvider();
         ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
             _ => throw new InvalidTimeZoneException("dependency down"),
-            TimeSpan.FromMinutes(10),
-            TimeSpan.Zero,
-            allowStaleReads: false,
-            timeProvider);
+            new ProactiveAsyncCacheOptions
+            {
+                RefreshInterval = TimeSpan.FromMinutes(10),
+                PreFetchOffset = TimeSpan.Zero,
+                TimeProvider = timeProvider,
+            });
         await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         // Each attempt must clear the backoff window, or the factory is never reached again.
@@ -1050,10 +1089,12 @@ public class ProactiveAsyncCacheUnitTests
             _ => Interlocked.Increment(ref calls) == 1
                 ? throw new InvalidTimeZoneException("transient")
                 : Task.FromResult(42),
-            TimeSpan.FromMinutes(10),
-            TimeSpan.Zero,
-            allowStaleReads: false,
-            timeProvider);
+            new ProactiveAsyncCacheOptions
+            {
+                RefreshInterval = TimeSpan.FromMinutes(10),
+                PreFetchOffset = TimeSpan.Zero,
+                TimeProvider = timeProvider,
+            });
         await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         _ = await Assert.ThrowsExactlyAsync<InvalidTimeZoneException>(
@@ -1083,10 +1124,13 @@ public class ProactiveAsyncCacheUnitTests
             _ => Interlocked.Increment(ref calls) == 1
                 ? Task.FromResult(1)
                 : throw new InvalidTimeZoneException("dependency down"),
-            TimeSpan.FromMinutes(10),
-            TimeSpan.Zero,
-            allowStaleReads: true,
-            timeProvider);
+            new ProactiveAsyncCacheOptions
+            {
+                RefreshInterval = TimeSpan.FromMinutes(10),
+                PreFetchOffset = TimeSpan.Zero,
+                StaleReads = StaleReadPolicy.ServeStale,
+                TimeProvider = timeProvider,
+            });
         await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         DateTime producedAt = timeProvider.GetUtcNow().UtcDateTime;
@@ -1114,5 +1158,186 @@ public class ProactiveAsyncCacheUnitTests
         _ = Assert.ThrowsExactly<ObjectDisposedException>(() => _ = cache.LastRefreshException);
         _ = Assert.ThrowsExactly<ObjectDisposedException>(() => _ = cache.ConsecutiveRefreshFailures);
         _ = Assert.ThrowsExactly<ObjectDisposedException>(() => _ = cache.LastSuccessfulRefresh);
+    }
+
+    [TestMethod]
+    public void Constructor_ThrowsOnNonPositiveFetchTimeout()
+    {
+        ArgumentOutOfRangeException zero = Assert.ThrowsExactly<ArgumentOutOfRangeException>(() =>
+        {
+            _ = new ProactiveAsyncCache<int>(
+                _ => Task.FromResult(42),
+                new ProactiveAsyncCacheOptions
+                {
+                    RefreshInterval = TimeSpan.FromMinutes(1),
+                    FetchTimeout = TimeSpan.Zero,
+                });
+        });
+        Assert.AreEqual(nameof(ProactiveAsyncCacheOptions.FetchTimeout), zero.ParamName);
+    }
+
+    // -- Stale read policy -------------------------------------------------
+
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task ServeStaleUpTo_ServesTheStaleValueWhileWithinTheBound()
+    {
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
+        TaskCompletionSource<int> refreshGate = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        int calls = 0;
+
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            _ => Interlocked.Increment(ref calls) == 1 ? Task.FromResult(1) : refreshGate.Task,
+            new ProactiveAsyncCacheOptions
+            {
+                RefreshInterval = TimeSpan.FromMinutes(10),
+                StaleReads = StaleReadPolicy.ServeStaleUpTo(TimeSpan.FromMinutes(5)),
+                TimeProvider = timeProvider,
+            });
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
+
+        Assert.AreEqual(1, await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false));
+
+        // Four minutes past expiration is inside the five-minute bound.
+        timeProvider.Advance(TimeSpan.FromMinutes(14));
+
+        Assert.AreEqual(1, await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false));
+
+        _ = refreshGate.TrySetResult(2);
+    }
+
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task ServeStaleUpTo_BlocksOnceTheValueAgesPastTheBound()
+    {
+        // Past the bound the cache behaves as Wait does, so a persistent failure reaches the caller
+        // instead of hiding behind an ever-older value.
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
+        int calls = 0;
+
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            _ => Interlocked.Increment(ref calls) == 1
+                ? Task.FromResult(1)
+                : throw new InvalidTimeZoneException("dependency down"),
+            new ProactiveAsyncCacheOptions
+            {
+                RefreshInterval = TimeSpan.FromMinutes(10),
+                StaleReads = StaleReadPolicy.ServeStaleUpTo(TimeSpan.FromMinutes(5)),
+                TimeProvider = timeProvider,
+            });
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
+
+        Assert.AreEqual(1, await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false));
+
+        // Six minutes past expiration is beyond the five-minute bound.
+        timeProvider.Advance(TimeSpan.FromMinutes(16));
+
+        _ = await Assert.ThrowsExactlyAsync<InvalidTimeZoneException>(
+            () => cache.GetValueAsync(TestContext.CancellationToken).AsTask()).ConfigureAwait(false);
+    }
+
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task StaleReads_DefaultPolicyMakesReadersWait()
+    {
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
+        int calls = 0;
+
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            _ => Interlocked.Increment(ref calls) == 1
+                ? Task.FromResult(1)
+                : throw new InvalidTimeZoneException("dependency down"),
+            new ProactiveAsyncCacheOptions
+            {
+                RefreshInterval = TimeSpan.FromMinutes(10),
+                TimeProvider = timeProvider,
+            });
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
+
+        Assert.AreEqual(1, await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false));
+
+        timeProvider.Advance(TimeSpan.FromMinutes(11));
+
+        _ = await Assert.ThrowsExactlyAsync<InvalidTimeZoneException>(
+            () => cache.GetValueAsync(TestContext.CancellationToken).AsTask()).ConfigureAwait(false);
+    }
+
+    // -- Fetch timeout -----------------------------------------------------
+
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task FetchTimeout_AFactoryThatOverrunsFailsWithTimeoutException()
+    {
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
+
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            async cancellationToken =>
+            {
+                // Honours the token, as the timeout requires to have any effect.
+                await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false);
+                return 42;
+            },
+            new ProactiveAsyncCacheOptions
+            {
+                RefreshInterval = TimeSpan.FromMinutes(10),
+                FetchTimeout = TimeSpan.FromSeconds(30),
+                TimeProvider = timeProvider,
+            });
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
+
+        Task<int> read = cache.GetValueAsync(TestContext.CancellationToken).AsTask();
+
+        // Act - drive the timeout on the cache own clock.
+        await PollUntilAsync(
+            () =>
+            {
+                timeProvider.Advance(TimeSpan.FromSeconds(31));
+                return read.IsCompleted;
+            },
+            TestContext.CancellationToken,
+            "The fetch timeout never fired.").ConfigureAwait(false);
+
+        // Assert - a timeout, not a bare cancellation, and recorded as a failure.
+        _ = await Assert.ThrowsExactlyAsync<TimeoutException>(() => read).ConfigureAwait(false);
+        Assert.IsInstanceOfType<TimeoutException>(cache.LastRefreshException);
+        Assert.IsGreaterThan(0, cache.ConsecutiveRefreshFailures);
+    }
+
+    [TestMethod]
+    [Timeout(30_000, CooperativeCancellation = true)]
+    public async Task FetchTimeout_AFactoryThatCompletesInTimeIsUnaffected()
+    {
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
+
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            _ => Task.FromResult(42),
+            new ProactiveAsyncCacheOptions
+            {
+                RefreshInterval = TimeSpan.FromMinutes(10),
+                FetchTimeout = TimeSpan.FromSeconds(30),
+                TimeProvider = timeProvider,
+            });
+        await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
+
+        Assert.AreEqual(42, await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false));
+        Assert.IsNull(cache.LastRefreshException);
+    }
+
+    // Polls until the condition holds, waiting on real time between attempts so a continuation
+    // scheduled on the thread pool actually gets to run. The caller cancellation token and the
+    // test timeout bound the total wait.
+    private static async Task PollUntilAsync(Func<bool> condition, CancellationToken cancellationToken, string failureMessage)
+    {
+        for (int i = 0; i < 2000; i++)
+        {
+            if (condition())
+            {
+                return;
+            }
+
+            await Task.Delay(TimeSpan.FromMilliseconds(5), cancellationToken).ConfigureAwait(false);
+        }
+
+        Assert.Fail(failureMessage);
     }
 }
