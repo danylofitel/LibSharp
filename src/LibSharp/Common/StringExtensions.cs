@@ -3,7 +3,6 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Text;
 
 namespace LibSharp.Common;
@@ -50,17 +49,26 @@ public static class StringExtensions
     {
         Argument.NotNull(input);
 
-        int[] characterIndexes = StringInfo.ParseCombiningCharacters(input);
-
-        StringBuilder builder = new StringBuilder(input.Length);
-        for (int i = characterIndexes.Length - 1; i >= 0; --i)
+        if (input.Length <= 1)
         {
-            int start = characterIndexes[i];
-            int end = i + 1 < characterIndexes.Length ? characterIndexes[i + 1] : input.Length;
-            _ = builder.Append(input, start, end - start);
+            return input;
         }
 
-        return builder.ToString();
+        // Reversing text elements preserves the total number of chars, so the result length is
+        // known up front and each element can be copied straight into its final position.
+        return string.Create(input.Length, input, static (destination, source) =>
+        {
+            ReadOnlySpan<char> remaining = source;
+            int written = 0;
+
+            while (!remaining.IsEmpty)
+            {
+                int length = StringInfo.GetNextTextElementLength(remaining);
+                remaining[..length].CopyTo(destination[(destination.Length - written - length)..]);
+                written += length;
+                remaining = remaining[length..];
+            }
+        });
     }
 
     /// <summary>
@@ -122,12 +130,23 @@ public static class StringExtensions
             return string.Empty;
         }
 
-        int[] characterIndexes = StringInfo.ParseCombiningCharacters(input);
-        if (characterIndexes.Length <= maxTextElements)
+        // Walk only as far as the limit rather than indexing every element: a string within the
+        // limit is recognised without scanning the remainder.
+        ReadOnlySpan<char> remaining = input;
+        int offset = 0;
+
+        for (int i = 0; i < maxTextElements; ++i)
         {
-            return input;
+            if (remaining.IsEmpty)
+            {
+                return input;
+            }
+
+            int length = StringInfo.GetNextTextElementLength(remaining);
+            offset += length;
+            remaining = remaining[length..];
         }
 
-        return input[..characterIndexes[maxTextElements]];
+        return remaining.IsEmpty ? input : input[..offset];
     }
 }

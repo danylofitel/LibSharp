@@ -23,20 +23,17 @@ public sealed class AsyncLock : IDisposable
         /// <inheritdoc/>
         public void Dispose()
         {
-            m_releaser?.Release();
+            m_owner?.Release(m_version);
         }
 
-        private Handle(Releaser releaser)
+        internal Handle(AsyncLock owner, long version)
         {
-            m_releaser = releaser;
+            m_owner = owner;
+            m_version = version;
         }
 
-        internal static Handle Create(SemaphoreSlim semaphore)
-        {
-            return new Handle(new Releaser(semaphore));
-        }
-
-        private readonly Releaser m_releaser;
+        private readonly AsyncLock? m_owner;
+        private readonly long m_version;
     }
 
     /// <summary>
@@ -67,8 +64,8 @@ public sealed class AsyncLock : IDisposable
             return ValueTask.FromCanceled<Handle>(cancellationToken);
         }
 
-        // Uncontended fast path. Wait(0) never blocks, so when the lock is free this method costs no
-        // allocation and builds no state machine. The semaphore is never disposed by this class, so
+        // Uncontended fast path. Wait(0) never blocks, so when the lock is free this method
+        // allocates nothing and builds no state machine. The semaphore is never disposed by this class, so
         // this cannot throw ObjectDisposedException.
         // CancellationToken.None is deliberate: a zero timeout cannot block, so there is nothing for
         // a token to interrupt. Caller cancellation is already handled by the check above.
@@ -80,7 +77,7 @@ public sealed class AsyncLock : IDisposable
                 throw new ObjectDisposedException(GetType().Name);
             }
 
-            return new ValueTask<Handle>(Handle.Create(m_semaphore));
+            return new ValueTask<Handle>(CreateHandle());
         }
 
         return AcquireContendedAsync(cancellationToken);
@@ -109,7 +106,7 @@ public sealed class AsyncLock : IDisposable
                 throw new ObjectDisposedException(GetType().Name);
             }
 
-            return Handle.Create(m_semaphore);
+            return CreateHandle();
         }
         catch (OperationCanceledException) when (m_disposalToken.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
         {
@@ -141,30 +138,30 @@ public sealed class AsyncLock : IDisposable
         m_disposalCts.Dispose();
     }
 
-    private sealed class Releaser
+    // Stamps each acquisition with a version the handle carries, so a handle can be matched against
+    // the acquisition it came from. This is what keeps release idempotent without giving every
+    // acquisition its own heap-allocated releaser.
+    private Handle CreateHandle()
     {
-        public Releaser(SemaphoreSlim semaphore)
+        long version = Interlocked.Increment(ref m_versionCounter);
+        Volatile.Write(ref m_activeVersion, version);
+        return new Handle(this, version);
+    }
+
+    private void Release(long version)
+    {
+        // Only the handle for the acquisition still in force may release it, and only once. A copy
+        // disposed a second time, or a handle left over from an earlier acquisition, no longer
+        // matches and does nothing.
+        if (Interlocked.CompareExchange(ref m_activeVersion, 0L, version) != version)
         {
-            m_semaphore = semaphore;
+            return;
         }
 
-        public void Release()
-        {
-            // Keep release idempotent across copied Handle structs.
-            if (Interlocked.Exchange(ref m_isReleased, 1) != 0)
-            {
-                return;
-            }
-
-            // Suppress ObjectDisposedException if a future implementation disposes semaphore
-            // while critical sections are still unwinding.
-            try { _ = m_semaphore.Release(); }
-            catch (ObjectDisposedException) { }
-        }
-
-        private readonly SemaphoreSlim m_semaphore;
-
-        private int m_isReleased;
+        // Suppress ObjectDisposedException if a future implementation disposes semaphore
+        // while critical sections are still unwinding.
+        try { _ = m_semaphore.Release(); }
+        catch (ObjectDisposedException) { }
     }
 
     private readonly SemaphoreSlim m_semaphore = new SemaphoreSlim(1, 1);
@@ -172,4 +169,8 @@ public sealed class AsyncLock : IDisposable
     private readonly CancellationToken m_disposalToken;
 
     private int m_isDisposed;
+
+    // Version 0 means no acquisition is in force, so the counter starts issuing at 1.
+    private long m_versionCounter;
+    private long m_activeVersion;
 }
