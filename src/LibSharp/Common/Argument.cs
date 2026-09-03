@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Danylo Fitel
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 
 namespace LibSharp.Common;
@@ -17,7 +18,7 @@ public static class Argument
     /// <param name="equalValue">Required argument value.</param>
     /// <param name="name">Argument name. Captured automatically from the argument expression when omitted.</param>
     /// <typeparam name="T">Argument type.</typeparam>
-    public static void EqualTo<T>(T value, T equalValue, [CallerArgumentExpression(nameof(value))] string? name = null)
+    public static void EqualTo<T>(T? value, T? equalValue, [CallerArgumentExpression(nameof(value))] string? name = null)
     {
         if (value is null && equalValue is null)
         {
@@ -47,7 +48,7 @@ public static class Argument
     /// <param name="value">Argument value.</param>
     /// <param name="minValueExclusive">Minimal value exclusive.</param>
     /// <param name="name">Argument name. Captured automatically from the argument expression when omitted.</param>
-    public static void GreaterThan<T>(T value, T minValueExclusive, [CallerArgumentExpression(nameof(value))] string? name = null)
+    public static void GreaterThan<T>([NotNull] T? value, T minValueExclusive, [CallerArgumentExpression(nameof(value))] string? name = null)
         where T : IComparable<T>
     {
         if (value is null)
@@ -73,7 +74,7 @@ public static class Argument
     /// <param name="value">Argument value.</param>
     /// <param name="minValueInclusive">Minimal value inclusive.</param>
     /// <param name="name">Argument name. Captured automatically from the argument expression when omitted.</param>
-    public static void GreaterThanOrEqualTo<T>(T value, T minValueInclusive, [CallerArgumentExpression(nameof(value))] string? name = null)
+    public static void GreaterThanOrEqualTo<T>([NotNull] T? value, T minValueInclusive, [CallerArgumentExpression(nameof(value))] string? name = null)
         where T : IComparable<T>
     {
         if (value is null)
@@ -99,7 +100,7 @@ public static class Argument
     /// <param name="value">Argument value.</param>
     /// <param name="maxValueExclusive">Maximal value exclusive.</param>
     /// <param name="name">Argument name. Captured automatically from the argument expression when omitted.</param>
-    public static void LessThan<T>(T value, T maxValueExclusive, [CallerArgumentExpression(nameof(value))] string? name = null)
+    public static void LessThan<T>([NotNull] T? value, T maxValueExclusive, [CallerArgumentExpression(nameof(value))] string? name = null)
         where T : IComparable<T>
     {
         if (value is null)
@@ -125,7 +126,7 @@ public static class Argument
     /// <param name="value">Argument value.</param>
     /// <param name="maxValueInclusive">Maximal value inclusive.</param>
     /// <param name="name">Argument name. Captured automatically from the argument expression when omitted.</param>
-    public static void LessThanOrEqualTo<T>(T value, T maxValueInclusive, [CallerArgumentExpression(nameof(value))] string? name = null)
+    public static void LessThanOrEqualTo<T>([NotNull] T? value, T maxValueInclusive, [CallerArgumentExpression(nameof(value))] string? name = null)
         where T : IComparable<T>
     {
         if (value is null)
@@ -151,7 +152,7 @@ public static class Argument
     /// <param name="notEqualValue">Prohibited argument value.</param>
     /// <param name="name">Argument name. Captured automatically from the argument expression when omitted.</param>
     /// <typeparam name="T">Argument type.</typeparam>
-    public static void NotEqualTo<T>(T value, T notEqualValue, [CallerArgumentExpression(nameof(value))] string? name = null)
+    public static void NotEqualTo<T>(T? value, T? notEqualValue, [CallerArgumentExpression(nameof(value))] string? name = null)
     {
         if (value is null && notEqualValue is null)
         {
@@ -175,7 +176,7 @@ public static class Argument
     /// <typeparam name="T">Argument type.</typeparam>
     /// <param name="value">Argument value.</param>
     /// <param name="name">Argument name. Captured automatically from the argument expression when omitted.</param>
-    public static void NotNull<T>(T value, [CallerArgumentExpression(nameof(value))] string? name = null)
+    public static void NotNull<T>([NotNull] T? value, [CallerArgumentExpression(nameof(value))] string? name = null)
         where T : class
     {
         if (value is null)
@@ -189,7 +190,7 @@ public static class Argument
     /// </summary>
     /// <param name="value">Argument value.</param>
     /// <param name="name">Argument name. Captured automatically from the argument expression when omitted.</param>
-    public static void NotNullOrEmpty(string value, [CallerArgumentExpression(nameof(value))] string? name = null)
+    public static void NotNullOrEmpty([NotNull] string? value, [CallerArgumentExpression(nameof(value))] string? name = null)
     {
         if (value is null)
         {
@@ -207,7 +208,7 @@ public static class Argument
     /// </summary>
     /// <param name="value">Argument value.</param>
     /// <param name="name">Argument name. Captured automatically from the argument expression when omitted.</param>
-    public static void NotNullOrWhiteSpace(string value, [CallerArgumentExpression(nameof(value))] string? name = null)
+    public static void NotNullOrWhiteSpace([NotNull] string? value, [CallerArgumentExpression(nameof(value))] string? name = null)
     {
         if (value is null)
         {
@@ -226,7 +227,7 @@ public static class Argument
     /// <param name="value">Argument value.</param>
     /// <param name="type">Required argument type.</param>
     /// <param name="name">Argument name. Captured automatically from the argument expression when omitted.</param>
-    public static void OfType(object value, Type type, [CallerArgumentExpression(nameof(value))] string? name = null)
+    public static void OfType([NotNull] object? value, Type type, [CallerArgumentExpression(nameof(value))] string? name = null)
     {
         NotNull(value, name);
         NotNull(type, nameof(type));

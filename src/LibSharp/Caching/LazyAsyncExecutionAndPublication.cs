@@ -103,9 +103,9 @@ public sealed class LazyAsyncExecutionAndPublication<T>
 
             // Observe a completed faulted attempt so UnobservedTaskException never fires. A faulted
             // attempt is not cached, so the next caller starts a fresh one.
-            if (m_pendingInitialization?.IsFaulted == true)
+            if (m_pendingInitialization is { IsFaulted: true })
             {
-                _ = m_pendingInitialization!.Exception;
+                _ = m_pendingInitialization.Exception;
             }
 
             if (m_hasValue)

@@ -192,9 +192,9 @@ public sealed class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
 
             // Observe a completed faulted refresh so UnobservedTaskException never fires. The
             // continuation below covers the common case; this covers any gap.
-            if (m_pendingRefresh?.IsFaulted == true)
+            if (m_pendingRefresh is { IsFaulted: true })
             {
-                _ = m_pendingRefresh!.Exception;
+                _ = m_pendingRefresh.Exception;
             }
 
             // Re-check freshness under the lock — a concurrent caller may have completed a refresh

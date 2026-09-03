@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Danylo Fitel
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using LibSharp.Common;
 
 namespace LibSharp.Caching;
@@ -137,8 +138,7 @@ public sealed class ValueCache<T> : IValueCache<T>
                     boxed = m_boxed;
                 }
 
-                // Refresh guarantees m_boxed is non-null on return.
-                return boxed!.Value;
+                return boxed.Value;
             }
         }
 
@@ -155,6 +155,7 @@ public sealed class ValueCache<T> : IValueCache<T>
             : now.Add(timeToLive);
     }
 
+    [MemberNotNull(nameof(m_boxed))]
     private void Refresh()
     {
         T newValue;

@@ -40,9 +40,12 @@ public static class XmlSerializationExtensions
         using StringReader stringReader = new StringReader(xmlString);
         using XmlReader xmlReader = XmlReader.Create(stringReader, xmlReaderSettings ?? s_xmlReaderSettings);
 
-        // XmlSerializer.Deserialize is typed as object? but only yields null for content that cannot
-        // represent T (e.g. an empty document); the cast then surfaces that as the caller's error.
-        return (T)GetSerializer(typeof(T)).Deserialize(xmlReader)!;
+        // Deserialize yields null for content that cannot represent T, such as an empty document.
+        // A reference-typed T would accept that null into a non-nullable return, so reject it here.
+        object? deserialized = GetSerializer(typeof(T)).Deserialize(xmlReader);
+        return deserialized is null
+            ? throw new InvalidOperationException($"The XML did not contain a value of type {typeof(T)}.")
+            : (T)deserialized;
     }
 
     /// <summary>

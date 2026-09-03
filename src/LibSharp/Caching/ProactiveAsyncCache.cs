@@ -363,9 +363,9 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
 
             // Observe any completed faulted fetch to suppress UnobservedTaskException.
             // (The ContinueWith below handles the common case; this covers any gap.)
-            if (m_pendingFetch?.IsFaulted == true)
+            if (m_pendingFetch is { IsFaulted: true })
             {
-                _ = m_pendingFetch!.Exception;
+                _ = m_pendingFetch.Exception;
             }
 
             // Re-check freshness under lock — a concurrent thread may have completed a
