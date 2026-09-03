@@ -159,7 +159,16 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
         return HashCode.Combine(HasValue, m_value);
     }
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Returns the string representation of the value, or an empty string when there is none.
+    /// </summary>
+    /// <returns>The string representation.</returns>
+    /// <remarks>
+    /// An empty optional and one holding <c>null</c> both render as an empty string, so this cannot
+    /// tell them apart even though they are distinct states that compare unequal. Use
+    /// <see cref="HasValue"/> for that. The empty case follows <see cref="Nullable{T}"/>, which also
+    /// renders as an empty string.
+    /// </remarks>
     public override string ToString()
     {
         return HasValue ? (m_value?.ToString() ?? string.Empty) : string.Empty;

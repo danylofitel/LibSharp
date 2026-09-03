@@ -157,11 +157,11 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
         Argument.NotNull(other);
 
         HashSet<T> otherSet = new HashSet<T>(other, m_comparer);
-        foreach (T key in m_dictionary.Keys)
+        foreach (KeyValuePair<T, byte> entry in m_dictionary)
         {
-            if (!otherSet.Contains(key))
+            if (!otherSet.Contains(entry.Key))
             {
-                _ = m_dictionary.TryRemove(key, out _);
+                _ = m_dictionary.TryRemove(entry.Key, out _);
             }
         }
     }
@@ -217,9 +217,9 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
         }
 
         HashSet<T> otherSet = new HashSet<T>(other, m_comparer);
-        foreach (T key in m_dictionary.Keys)
+        foreach (KeyValuePair<T, byte> entry in m_dictionary)
         {
-            if (!otherSet.Contains(key))
+            if (!otherSet.Contains(entry.Key))
             {
                 return false;
             }
@@ -265,9 +265,9 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
             return false;
         }
 
-        foreach (T key in m_dictionary.Keys)
+        foreach (KeyValuePair<T, byte> entry in m_dictionary)
         {
-            if (!otherSet.Contains(key))
+            if (!otherSet.Contains(entry.Key))
             {
                 return false;
             }
@@ -338,9 +338,9 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
             return false;
         }
 
-        foreach (T key in m_dictionary.Keys)
+        foreach (KeyValuePair<T, byte> entry in m_dictionary)
         {
-            if (!otherSet.Contains(key))
+            if (!otherSet.Contains(entry.Key))
             {
                 return false;
             }
@@ -349,10 +349,22 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
         return true;
     }
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Returns an enumerator over the elements of the set.
+    /// </summary>
+    /// <returns>An enumerator over the elements.</returns>
+    /// <remarks>
+    /// Enumerates the underlying dictionary directly, which is lock-free.
+    /// This is a live view rather than a snapshot: elements added or removed
+    /// after enumeration begins may or may not be observed, exactly as
+    /// <see cref="ConcurrentDictionary{TKey, TValue}"/> behaves.
+    /// </remarks>
     public IEnumerator<T> GetEnumerator()
     {
-        return m_dictionary.Keys.GetEnumerator();
+        foreach (KeyValuePair<T, byte> entry in m_dictionary)
+        {
+            yield return entry.Key;
+        }
     }
 
     /// <inheritdoc/>

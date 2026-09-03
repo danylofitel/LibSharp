@@ -247,7 +247,14 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
         return HashCode.Combine(false, m_error);
     }
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Returns the string representation of the value on success, or of the error on failure.
+    /// </summary>
+    /// <returns>The string representation.</returns>
+    /// <remarks>
+    /// A success carrying <c>null</c> and a failure carrying <c>null</c> both render as an empty
+    /// string, so this cannot tell them apart. Use <see cref="IsSuccess"/> for that.
+    /// </remarks>
     public override string ToString()
     {
         if (IsSuccess)
