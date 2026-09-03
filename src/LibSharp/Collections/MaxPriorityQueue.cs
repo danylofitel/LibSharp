@@ -13,6 +13,12 @@ namespace LibSharp.Collections;
 /// A binary heap implementation of a maximum priority queue.
 /// This implementation is not thread-safe.
 /// </summary>
+/// <remarks>
+/// Enumeration yields every element exactly once, but in an unspecified order — the heap's internal
+/// layout, not descending order. Only <see cref="Peek"/> and <see cref="Dequeue"/> observe priority.
+/// The distinction is easy to miss because the heap's first element is always the largest, so a
+/// short example can look sorted when it is not. Sort the results explicitly if order matters.
+/// </remarks>
 /// <typeparam name="T">Comparable type of queue items.</typeparam>
 public sealed class MaxPriorityQueue<T> : IPriorityQueue<T>, ICollection
 {
@@ -200,7 +206,14 @@ public sealed class MaxPriorityQueue<T> : IPriorityQueue<T>, ICollection
         return m_minPriorityQueue.Remove(item);
     }
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Returns an enumerator over every element in the queue.
+    /// </summary>
+    /// <returns>An enumerator that yields each element exactly once, in an unspecified order.</returns>
+    /// <remarks>
+    /// The order is the heap's internal layout, not priority order. Use <see cref="Dequeue"/> to
+    /// consume elements by priority, or sort the enumerated results.
+    /// </remarks>
     public IEnumerator<T> GetEnumerator()
     {
         return m_minPriorityQueue.GetEnumerator();

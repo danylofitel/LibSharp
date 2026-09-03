@@ -13,6 +13,12 @@ namespace LibSharp.Collections;
 /// A binary heap implementation of a minimum priority queue.
 /// This implementation is not thread-safe.
 /// </summary>
+/// <remarks>
+/// Enumeration yields every element exactly once, but in an unspecified order — the heap's internal
+/// layout, not ascending order. Only <see cref="Peek"/> and <see cref="Dequeue"/> observe priority.
+/// The distinction is easy to miss because the heap's first element is always the smallest, so a
+/// short example can look sorted when it is not. Sort the results explicitly if order matters.
+/// </remarks>
 /// <typeparam name="T">Comparable type of queue items.</typeparam>
 public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
 {
@@ -281,7 +287,14 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
         return false;
     }
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Returns an enumerator over every element in the queue.
+    /// </summary>
+    /// <returns>An enumerator that yields each element exactly once, in an unspecified order.</returns>
+    /// <remarks>
+    /// The order is the heap's internal layout, not priority order. Use <see cref="Dequeue"/> to
+    /// consume elements by priority, or sort the enumerated results.
+    /// </remarks>
     public IEnumerator<T> GetEnumerator()
     {
         return new MinPriorityQueueEnumerator<T>(this);
@@ -458,6 +471,13 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
             get
             {
                 MinPriorityQueue<TItem> queue = Validate();
+
+                if (m_index < 0)
+                {
+                    // Index 0 of the heap is a deliberately unused slot, so without this the caller
+                    // would silently receive default(TItem) rather than an error.
+                    throw new InvalidOperationException("Enumeration has not started. Call MoveNext first.");
+                }
 
                 if (m_index >= queue.Count)
                 {

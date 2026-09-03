@@ -17,6 +17,8 @@
     - `ProactiveAsyncCache<T>` no longer retries a failing value factory on every read. A faulted fetch is a completed task, so previously each subsequent read started a fresh factory call with no delay at all: a dependency failing fast turned a multi-minute refresh interval into one call per read, against a service already under strain. The last failure is now recorded, and reads within the retry window replay the stored exception instead of calling the factory. With `allowStaleReads` the stale value is served instead. A successful fetch clears the record. The background loop is exempt, since it already paces its own retries
     - `ValueCache<T>` and `KeyValueCache<TKey, TValue>` now throw `InvalidOperationException` when the value factory reads the cache it is refreshing, the way `Lazy<T>` reports recursive initialization. Previously the re-entrant read found no published value and called the factory again, recursing until the stack overflowed and took the process with it. Re-entering `KeyValueCache` for a different key is still allowed
     - `KeyValueCache<TKey, TValue>` and `KeyValueCacheAsync<TKey, TValue>` no longer allocate a delegate on every read. The `GetOrAdd` factory captured `this`, and Roslyn only caches closure-free lambdas, so one was allocated per call rather than per insert
+  - `Collections`
+    - `MinPriorityQueue<T>` and `MaxPriorityQueue<T>` now throw `InvalidOperationException` when `Current` is read before the first `MoveNext`, instead of silently returning `default(T)` from the heap's unused slot
   - `Threading`
     - **Breaking:** `AsyncLock.AcquireAsync` now returns `ValueTask<Handle>` instead of `Task<Handle>`; an uncontended acquisition no longer allocates
 
