@@ -135,6 +135,14 @@ public static class EnumerableExtensions
         {
             double currentItemWeight = itemWeight(item);
 
+            // NaN passes every comparison below - NaN < 0 and NaN > chunkWeight are both false - and
+            // then poisons the running total, after which no comparison against the budget is ever
+            // true again and chunking silently stops happening. Reject it up front.
+            if (!double.IsFinite(currentItemWeight))
+            {
+                throw new ArgumentException($"Weight of an item must be a finite number, but was {currentItemWeight}.", nameof(itemWeight));
+            }
+
             if (currentItemWeight < 0.0)
             {
                 throw new ArgumentException($"Weight of an item {currentItemWeight} must not be negative.", nameof(itemWeight));

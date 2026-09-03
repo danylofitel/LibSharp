@@ -191,9 +191,8 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
 
         // Record the access before looking at the snapshot, so the background loop's idle deadline
         // reflects this call whether or not the cached value turns out to be fresh. Skipped
-        // entirely when no idle timeout is configured, leaving the default hot path exactly as it
-        // was: a single volatile reference read, with no interlocked operation and no shared cache
-        // line to dirty.
+        // entirely when no idle timeout is configured, so the default read path stays a single
+        // volatile reference read with no interlocked operation and no shared cache line to dirty.
         if (m_idleTracker is not null)
         {
             m_idleTracker.RecordAccess(now);
@@ -379,11 +378,11 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
                 return Task.FromResult(snapshot);
             }
 
-            // Negative caching. Without this, a faulted fetch is IsCompleted, so the next read
-            // starts a fresh factory call with no delay at all: a dependency failing fast turns a
-            // multi-minute refresh interval into a retry per read, hammering a service that is very
-            // likely failing fast because it is already overloaded. Within m_retryDelay of a
-            // failure, replay the stored exception instead of calling the factory again.
+            // Negative caching. A faulted fetch is a completed task and so is never joined, which
+            // leaves every read free to start a fresh factory call: a dependency failing fast would
+            // then be retried once per read, hammering a service that is very likely failing fast
+            // because it is already overloaded. Within m_retryDelay of a failure the stored
+            // exception is replayed instead.
             FetchFailure? failure = state.Failure;
             if (!backgroundRefresh && failure is not null && UtcNow - failure.FailedAt < m_retryDelay)
             {
@@ -561,11 +560,9 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
                 {
                     TimeSpan delay = snapshot.ExpiresAt - m_preFetchOffset - UtcNow;
 
-                    // Never sleep past the moment the cache goes idle. Without this the loop would
-                    // hold its refresh timer for the rest of the interval after falling idle —
-                    // up to a full refreshInterval of staying scheduled for a pre-fetch it is
-                    // going to skip anyway. Waking at the earlier of the two deadlines lets the
-                    // idle check below park it and release the timer promptly.
+                    // Wake at the earlier of the pre-fetch point and the idle deadline, so the idle
+                    // check below can park the loop and release its timer the moment the cache falls
+                    // out of use rather than at the end of the interval.
                     // TimeUntilIdle is zero exactly when IsIdle is true, so clamping only to a
                     // strictly positive value keeps this from ever collapsing into a spin.
                     TimeSpan? untilIdle = m_idleTracker?.TimeUntilIdle();

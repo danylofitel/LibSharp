@@ -147,9 +147,8 @@ public sealed class KeyValueCacheAsync<TKey, TValue> : IKeyValueCacheAsync<TKey,
          *
          * This will not invoke the factory method yet.
          */
-        // The factory is static and takes `this` as state, so no delegate is allocated per call.
-        // A closure-capturing lambda would allocate one on every read, not just on insert, because
-        // Roslyn only caches lambdas that capture nothing.
+        // The factory is static and receives `this` as state, so a read allocates no delegate:
+        // Roslyn caches only lambdas that capture nothing.
         Lazy<ValueCacheAsync<TValue>> lazyValueCache = m_cache.GetOrAdd(
             key,
             static (cacheKey, self) => new Lazy<ValueCacheAsync<TValue>>(

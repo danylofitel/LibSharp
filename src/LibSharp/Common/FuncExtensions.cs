@@ -55,8 +55,8 @@ public static class FuncExtensions
 
         try
         {
-            // Waiting on the token rather than on the work itself is what bounds this call: it
-            // returns when the token fires even if the work never does.
+            // Waiting on the token is what bounds this call: it returns when the token fires, even
+            // if the work never does.
             await work.WaitAsync(linkedSource.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (IsTimeout(timeoutSource, cancellationToken))

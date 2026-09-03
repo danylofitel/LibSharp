@@ -123,9 +123,8 @@ public sealed class KeyValueCache<TKey, TValue> : IKeyValueCache<TKey, TValue>
             throw new ArgumentNullException(nameof(key));
         }
 
-        // The factory is static and takes `this` as state, so no delegate is allocated per call.
-        // A closure-capturing lambda would allocate one on every read, not just on insert, because
-        // Roslyn only caches lambdas that capture nothing.
+        // The factory is static and receives `this` as state, so a read allocates no delegate:
+        // Roslyn caches only lambdas that capture nothing.
         Lazy<ValueCache<TValue>> lazyValueCache = m_cache.GetOrAdd(
             key,
             static (cacheKey, self) => new Lazy<ValueCache<TValue>>(

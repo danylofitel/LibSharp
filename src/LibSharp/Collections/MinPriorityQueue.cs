@@ -139,7 +139,19 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
 
         foreach (T item in collection)
         {
-            Enqueue(item);
+            Enlarge();
+            m_heap[++Count] = item;
+        }
+
+        // Floyd's heapify: sinking every internal node bottom-up arranges the heap in O(n). Half the
+        // nodes are leaves and need no work, and only the root can travel the full depth.
+        //
+        // This is one of many valid arrangements for the same elements. Nothing depends on which:
+        // enumeration order is documented as unspecified, and a priority queue promises no
+        // particular order between equal elements.
+        for (int i = Count / 2; i >= 1; --i)
+        {
+            Sink(i);
         }
     }
 
@@ -474,8 +486,8 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
 
                 if (m_index < 0)
                 {
-                    // Index 0 of the heap is a deliberately unused slot, so without this the caller
-                    // would silently receive default(TItem) rather than an error.
+                    // Heap index 0 is a deliberately unused slot, so this guard is what separates
+                    // "enumeration has not started" from a real element.
                     throw new InvalidOperationException("Enumeration has not started. Call MoveNext first.");
                 }
 

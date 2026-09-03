@@ -1209,4 +1209,57 @@ public class MinPriorityQueueUnitTests
 
         CollectionAssert.AreEqual(new[] { 1, 3, 5, 7, 9 }, drained);
     }
+
+    // -- Construction from a collection -------------------------------------
+
+    [TestMethod]
+    public void Constructor_FromCollection_DequeuesInPriorityOrder()
+    {
+        // The collection constructor heapifies rather than enqueuing one at a time, so this pins
+        // that the resulting heap is still a valid one.
+        int[] items = new[] { 9, 4, 7, 1, 8, 2, 6, 3, 5, 0 };
+        MinPriorityQueue<int> queue = new MinPriorityQueue<int>(items);
+
+        List<int> drained = new List<int>();
+        while (queue.TryDequeue(out int next))
+        {
+            drained.Add(next);
+        }
+
+        CollectionAssert.AreEqual(Enumerable.Range(0, 10).ToArray(), drained);
+    }
+
+    [TestMethod]
+    public void Constructor_FromCollectionWithDuplicates_DequeuesInPriorityOrder()
+    {
+        int[] items = new[] { 3, 1, 3, 1, 2, 2 };
+        MinPriorityQueue<int> queue = new MinPriorityQueue<int>(items);
+
+        List<int> drained = new List<int>();
+        while (queue.TryDequeue(out int next))
+        {
+            drained.Add(next);
+        }
+
+        CollectionAssert.AreEqual(new[] { 1, 1, 2, 2, 3, 3 }, drained);
+        Assert.AreEqual(0, queue.Count);
+    }
+
+    [TestMethod]
+    public void Constructor_FromEmptyCollection_IsEmpty()
+    {
+        MinPriorityQueue<int> queue = new MinPriorityQueue<int>(Array.Empty<int>());
+
+        Assert.AreEqual(0, queue.Count);
+        Assert.IsFalse(queue.TryPeek(out int _));
+    }
+
+    [TestMethod]
+    public void Constructor_FromSingleElementCollection_Works()
+    {
+        MinPriorityQueue<int> queue = new MinPriorityQueue<int>(new[] { 42 });
+
+        Assert.AreEqual(1, queue.Count);
+        Assert.AreEqual(42, queue.Peek());
+    }
 }

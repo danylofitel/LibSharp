@@ -237,8 +237,12 @@ public sealed class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
             return;
         }
 
-        // Cancel before disposing: once cancellation has been requested a concurrent registration
-        // runs its callback inline instead of being stored, which is what makes this order safe.
+        // Cancel, but deliberately do not dispose. Dispose is synchronous and cannot drain a refresh
+        // that is still running, and the value factory holds this source's token: disposing it out
+        // from under a factory that then calls Register would throw ObjectDisposedException from
+        // inside state this library handed it. A cancelled source that never had CancelAfter called
+        // holds no timer and no unmanaged handle, so leaving it to the garbage collector costs
+        // nothing. AsyncLock leaves its semaphore undisposed for the same reason.
         try
         {
             m_cts.Cancel();
@@ -248,8 +252,6 @@ public sealed class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
             // A throwing cancellation callback registered by the value factory must not prevent
             // disposal from completing.
         }
-
-        m_cts.Dispose();
     }
 
     private DateTime UtcNow => m_timeProvider.GetUtcNow().UtcDateTime;

@@ -52,11 +52,15 @@ public static class StringExtensions
 
         int[] characterIndexes = StringInfo.ParseCombiningCharacters(input);
 
-        Array.Reverse(characterIndexes);
+        StringBuilder builder = new StringBuilder(input.Length);
+        for (int i = characterIndexes.Length - 1; i >= 0; --i)
+        {
+            int start = characterIndexes[i];
+            int end = i + 1 < characterIndexes.Length ? characterIndexes[i + 1] : input.Length;
+            _ = builder.Append(input, start, end - start);
+        }
 
-        IEnumerable<string> elements = characterIndexes.Select(i => StringInfo.GetNextTextElement(input, i));
-
-        return string.Concat(elements);
+        return builder.ToString();
     }
 
     /// <summary>
@@ -79,11 +83,16 @@ public static class StringExtensions
     }
 
     /// <summary>
-    /// Truncates the string to the specified maximum length.
+    /// Truncates the string to the specified maximum number of UTF-16 code units.
     /// </summary>
     /// <param name="input">The input string.</param>
     /// <param name="maxLength">The maximum length.</param>
     /// <returns>The string truncated to the maximum length.</returns>
+    /// <remarks>
+    /// Cuts at a code unit, so it can split a surrogate pair or separate a combining mark from the
+    /// character it modifies, leaving text that no longer renders correctly. Use
+    /// <see cref="TruncateTextElements"/> to cut on grapheme boundaries instead.
+    /// </remarks>
     public static string Truncate(this string input, int maxLength)
     {
         Argument.NotNull(input);

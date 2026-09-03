@@ -84,4 +84,48 @@ public class IntExtensionsUnitTests
         Assert.IsTrue(5.TryConvertToEnum<StringComparison>(out result));
         Assert.AreEqual(StringComparison.OrdinalIgnoreCase, result);
     }
+
+    // -- Non-int underlying types ------------------------------------------
+
+    private enum ByteBackedEnum : byte
+    {
+        First = 1,
+        Second = 2,
+    }
+
+    private enum LongBackedEnum : long
+    {
+        Big = 5_000_000_000L,
+        Small = 1L,
+    }
+
+    [TestMethod]
+    public void TryConvertToEnum_ByteBackedEnum_DoesNotThrow()
+    {
+        // Enum.IsDefined(Type, object) rejects an int for a byte-backed enum with ArgumentException,
+        // which a Try method must never surface.
+        Assert.IsTrue(1.TryConvertToEnum(out ByteBackedEnum defined));
+        Assert.AreEqual(ByteBackedEnum.First, defined);
+
+        Assert.IsFalse(99.TryConvertToEnum(out ByteBackedEnum _));
+    }
+
+    [TestMethod]
+    public void TryConvertToEnum_ValueOutsideTheUnderlyingTypeRange_ReturnsFalse()
+    {
+        // Enum.ToObject would truncate 300 to 44 for a byte-backed enum, which happens to be
+        // undefined here but would be a silent wrong answer for an enum that defined 44.
+        Assert.IsFalse(300.TryConvertToEnum(out ByteBackedEnum _));
+        Assert.IsFalse((-1).TryConvertToEnum(out ByteBackedEnum _));
+    }
+
+    [TestMethod]
+    public void TryConvertToEnum_LongBackedEnum_Converts()
+    {
+        Assert.IsTrue(1.TryConvertToEnum(out LongBackedEnum small));
+        Assert.AreEqual(LongBackedEnum.Small, small);
+
+        // The int cannot reach the large member, so it is simply not defined for this input.
+        Assert.IsFalse(42.TryConvertToEnum(out LongBackedEnum _));
+    }
 }
