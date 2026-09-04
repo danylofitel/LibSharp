@@ -23,7 +23,7 @@ namespace LibSharp.Caching;
 /// replaced values. This cache sheds values more readily than the others in this namespace: the
 /// background loop replaces the current value once per refresh interval whether or not anything
 /// ever reads it, so a disposable <typeparamref name="T"/> leaks on every refresh rather than only
-/// on demand.
+/// on demand. This type never disposes the value, so disposal remains the caller's responsibility.
 /// </para>
 /// </remarks>
 public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposable

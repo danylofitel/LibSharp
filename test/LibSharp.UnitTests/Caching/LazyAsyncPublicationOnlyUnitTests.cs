@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Danylo Fitel
 
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using LibSharp.Caching;
@@ -136,6 +137,188 @@ public class LazyAsyncPublicationOnlyUnitTests
         Assert.AreEqual(results[0], results[1]);
         Assert.AreEqual(results[0], published);
         Assert.IsTrue(lazy.HasValue);
+    }
+
+    [TestMethod]
+    public async Task DroppedValue_IsDisposed_AndPublishedValueIsNot()
+    {
+        // Arrange — both racers start before either can publish, so the race is forced, not timed.
+        List<Tracked> created = new List<Tracked>();
+        TaskCompletionSource gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        LazyAsyncPublicationOnly<Tracked> lazy = new LazyAsyncPublicationOnly<Tracked>(async _ =>
+        {
+            Tracked tracked = new Tracked();
+            lock (created)
+            {
+                created.Add(tracked);
+            }
+
+            await gate.Task.ConfigureAwait(false);
+            return tracked;
+        });
+
+        // Act — the factory runs synchronously up to the gate, so both have registered by now.
+        Task<Tracked> first = lazy.GetValueAsync(TestContext.CancellationToken).AsTask();
+        Task<Tracked> second = lazy.GetValueAsync(TestContext.CancellationToken).AsTask();
+        gate.SetResult();
+        Tracked firstValue = await first.ConfigureAwait(false);
+        Tracked secondValue = await second.ConfigureAwait(false);
+
+        // Assert — whichever won, exactly the other one is disposed.
+        Assert.AreEqual(2, created.Count);
+        Assert.AreSame(firstValue, secondValue);
+        Assert.IsFalse(firstValue.Disposed, "the published value must never be disposed");
+
+        Tracked dropped = created[0] == firstValue ? created[1] : created[0];
+        Assert.IsTrue(dropped.Disposed, "the dropped value must be disposed");
+    }
+
+    [TestMethod]
+    public async Task DroppedValue_DisposalDisabled_LeavesItAlone()
+    {
+        // Arrange
+        List<Tracked> created = new List<Tracked>();
+        TaskCompletionSource gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        LazyAsyncPublicationOnly<Tracked> lazy = new LazyAsyncPublicationOnly<Tracked>(
+            async _ =>
+            {
+                Tracked tracked = new Tracked();
+                lock (created)
+                {
+                    created.Add(tracked);
+                }
+
+                await gate.Task.ConfigureAwait(false);
+                return tracked;
+            },
+            disposeDroppedValues: false);
+
+        // Act
+        Task<Tracked> first = lazy.GetValueAsync(TestContext.CancellationToken).AsTask();
+        Task<Tracked> second = lazy.GetValueAsync(TestContext.CancellationToken).AsTask();
+        gate.SetResult();
+        _ = await first.ConfigureAwait(false);
+        _ = await second.ConfigureAwait(false);
+
+        // Assert
+        Assert.AreEqual(2, created.Count);
+        Assert.IsFalse(created[0].Disposed);
+        Assert.IsFalse(created[1].Disposed);
+    }
+
+    [TestMethod]
+    public async Task DroppedValue_SharedInstance_IsNeverDisposed()
+    {
+        // Arrange — a factory handing back one shared instance: the loser's value IS the winner's,
+        // so disposing it would destroy the published value.
+        // Disposed at scope exit, after the assertion: the point is that the library does not.
+        using Tracked shared = new Tracked();
+        TaskCompletionSource gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        LazyAsyncPublicationOnly<Tracked> lazy = new LazyAsyncPublicationOnly<Tracked>(async _ =>
+        {
+            await gate.Task.ConfigureAwait(false);
+            return shared;
+        });
+
+        // Act
+        Task<Tracked> first = lazy.GetValueAsync(TestContext.CancellationToken).AsTask();
+        Task<Tracked> second = lazy.GetValueAsync(TestContext.CancellationToken).AsTask();
+        gate.SetResult();
+        Tracked firstValue = await first.ConfigureAwait(false);
+        _ = await second.ConfigureAwait(false);
+
+        // Assert
+        Assert.AreSame(shared, firstValue);
+        Assert.IsFalse(shared.Disposed, "identity must be checked before disposing a dropped value");
+    }
+
+    [TestMethod]
+    public async Task DroppedValue_AsyncDisposable_IsPreferredOverDisposable()
+    {
+        // Arrange
+        List<BothDisposable> created = new List<BothDisposable>();
+        TaskCompletionSource gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        LazyAsyncPublicationOnly<BothDisposable> lazy = new LazyAsyncPublicationOnly<BothDisposable>(async _ =>
+        {
+            BothDisposable value = new BothDisposable();
+            lock (created)
+            {
+                created.Add(value);
+            }
+
+            await gate.Task.ConfigureAwait(false);
+            return value;
+        });
+
+        // Act
+        Task<BothDisposable> first = lazy.GetValueAsync(TestContext.CancellationToken).AsTask();
+        Task<BothDisposable> second = lazy.GetValueAsync(TestContext.CancellationToken).AsTask();
+        gate.SetResult();
+        BothDisposable firstValue = await first.ConfigureAwait(false);
+        _ = await second.ConfigureAwait(false);
+
+        // Assert
+        BothDisposable dropped = created[0] == firstValue ? created[1] : created[0];
+        Assert.IsTrue(dropped.AsyncDisposed);
+        Assert.IsFalse(dropped.SyncDisposed, "IAsyncDisposable must win when a type implements both");
+    }
+
+    [TestMethod]
+    public async Task DroppedValue_DisposalThrows_DoesNotSurfaceToCaller()
+    {
+        // Arrange — cleanup of a value the caller never saw must not fail the caller's own call.
+        TaskCompletionSource gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        LazyAsyncPublicationOnly<ThrowingDisposable> lazy = new LazyAsyncPublicationOnly<ThrowingDisposable>(async _ =>
+        {
+            ThrowingDisposable value = new ThrowingDisposable();
+            await gate.Task.ConfigureAwait(false);
+            return value;
+        });
+
+        // Act
+        Task<ThrowingDisposable> first = lazy.GetValueAsync(TestContext.CancellationToken).AsTask();
+        Task<ThrowingDisposable> second = lazy.GetValueAsync(TestContext.CancellationToken).AsTask();
+        gate.SetResult();
+
+        // Assert
+        Assert.IsNotNull(await first.ConfigureAwait(false));
+        Assert.IsNotNull(await second.ConfigureAwait(false));
+    }
+
+    private sealed class Tracked : IDisposable
+    {
+        public bool Disposed { get; private set; }
+
+        public void Dispose()
+        {
+            Disposed = true;
+        }
+    }
+
+    private sealed class BothDisposable : IDisposable, IAsyncDisposable
+    {
+        public bool SyncDisposed { get; private set; }
+
+        public bool AsyncDisposed { get; private set; }
+
+        public void Dispose()
+        {
+            SyncDisposed = true;
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            AsyncDisposed = true;
+            return default;
+        }
+    }
+
+    private sealed class ThrowingDisposable : IDisposable
+    {
+        public void Dispose()
+        {
+            throw new InvalidOperationException("disposal failed");
+        }
     }
 
     // MSTest assigns this by property injection after construction. The initializer states that

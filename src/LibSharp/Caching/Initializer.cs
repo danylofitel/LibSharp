@@ -6,6 +6,9 @@ using LibSharp.Common;
 namespace LibSharp.Caching;
 
 /// <inheritdoc/>
+/// <remarks>
+/// This type never disposes the value, so disposal remains the caller's responsibility.
+/// </remarks>
 public sealed class Initializer<T> : IInitializer<T>
 {
     /// <inheritdoc/>

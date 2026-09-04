@@ -23,11 +23,11 @@ namespace LibSharp.Caching;
 /// <para>
 /// Unlike the PublicationOnly variant, no value is ever produced and then dropped: exactly one
 /// factory execution succeeds, and its value is the one every caller receives. A disposable
-/// <typeparamref name="T"/> is therefore usable here. This type never disposes the value, but it
-/// never hides one from you either, so disposal remains the caller's responsibility.
+/// <typeparamref name="T"/> is therefore usable here. This type never disposes the value, so
+/// disposal remains the caller's responsibility.
 /// </para>
 /// </remarks>
-public sealed class LazyAsyncExecutionAndPublication<T>
+public sealed class LazyAsyncExecutionAndPublication<T> : ILazyAsync<T>
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="LazyAsyncExecutionAndPublication{T}"/> class from a value.

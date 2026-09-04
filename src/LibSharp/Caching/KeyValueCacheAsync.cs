@@ -20,8 +20,9 @@ namespace LibSharp.Caching;
 /// <para>
 /// Should not be used with IDisposable value types since it does not dispose of expired values.
 /// Values are replaced in place as they expire, and entries are retained for the lifetime of the
-/// cache, so a disposable value leaks once per expiry per key. (The internal per-key caches are
-/// disposed with this instance; the values they hold are not.)
+/// cache, so a disposable value leaks once per expiry per key. This type never disposes the value,
+/// so disposal remains the caller's responsibility. (The internal per-key caches are disposed with
+/// this instance; the values they hold are not.)
 /// </para>
 /// <para>
 /// The value factory must not call <see cref="GetValueAsync"/> on this same cache for the same key

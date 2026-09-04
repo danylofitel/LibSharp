@@ -13,6 +13,7 @@ namespace LibSharp.Caching;
 /// <typeparam name="T">Value type.</typeparam>
 /// <remarks>
 /// Should not be used with IDisposable value types since it does not dispose of expired values.
+/// This type never disposes the value, so disposal remains the caller's responsibility.
 /// <para>
 /// The value factory must not call <see cref="GetValueAsync"/> on this same cache and await the
 /// result. The refresh task is published before the factory runs, so a factory whose synchronous

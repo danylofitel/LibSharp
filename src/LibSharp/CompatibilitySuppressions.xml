@@ -52,6 +52,13 @@
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:LibSharp.Caching.InitializerAsyncPublicationOnly`1.#ctor</Target>
+    <Left>lib/net10.0/LibSharp.dll</Left>
+    <Right>lib/net10.0/LibSharp.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
     <Target>M:LibSharp.Caching.InitializerAsyncPublicationOnly`1.GetValueAsync(System.Func{System.Threading.CancellationToken,System.Threading.Tasks.Task{`0}},System.Threading.CancellationToken)</Target>
     <Left>lib/net10.0/LibSharp.dll</Left>
     <Right>lib/net10.0/LibSharp.dll</Right>
@@ -81,6 +88,13 @@
   <Suppression>
     <DiagnosticId>CP0002</DiagnosticId>
     <Target>M:LibSharp.Caching.LazyAsyncExecutionAndPublication`1.GetValueAsync(System.Threading.CancellationToken)</Target>
+    <Left>lib/net10.0/LibSharp.dll</Left>
+    <Right>lib/net10.0/LibSharp.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:LibSharp.Caching.LazyAsyncPublicationOnly`1.#ctor(System.Func{System.Threading.CancellationToken,System.Threading.Tasks.Task{`0}})</Target>
     <Left>lib/net10.0/LibSharp.dll</Left>
     <Right>lib/net10.0/LibSharp.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
@@ -206,6 +220,13 @@
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:LibSharp.Caching.InitializerAsyncPublicationOnly`1.#ctor</Target>
+    <Left>lib/net8.0/LibSharp.dll</Left>
+    <Right>lib/net8.0/LibSharp.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
     <Target>M:LibSharp.Caching.InitializerAsyncPublicationOnly`1.GetValueAsync(System.Func{System.Threading.CancellationToken,System.Threading.Tasks.Task{`0}},System.Threading.CancellationToken)</Target>
     <Left>lib/net8.0/LibSharp.dll</Left>
     <Right>lib/net8.0/LibSharp.dll</Right>
@@ -235,6 +256,13 @@
   <Suppression>
     <DiagnosticId>CP0002</DiagnosticId>
     <Target>M:LibSharp.Caching.LazyAsyncExecutionAndPublication`1.GetValueAsync(System.Threading.CancellationToken)</Target>
+    <Left>lib/net8.0/LibSharp.dll</Left>
+    <Right>lib/net8.0/LibSharp.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:LibSharp.Caching.LazyAsyncPublicationOnly`1.#ctor(System.Func{System.Threading.CancellationToken,System.Threading.Tasks.Task{`0}})</Target>
     <Left>lib/net8.0/LibSharp.dll</Left>
     <Right>lib/net8.0/LibSharp.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
@@ -360,6 +388,13 @@
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:LibSharp.Caching.InitializerAsyncPublicationOnly`1.#ctor</Target>
+    <Left>lib/net9.0/LibSharp.dll</Left>
+    <Right>lib/net9.0/LibSharp.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
     <Target>M:LibSharp.Caching.InitializerAsyncPublicationOnly`1.GetValueAsync(System.Func{System.Threading.CancellationToken,System.Threading.Tasks.Task{`0}},System.Threading.CancellationToken)</Target>
     <Left>lib/net9.0/LibSharp.dll</Left>
     <Right>lib/net9.0/LibSharp.dll</Right>
@@ -389,6 +424,13 @@
   <Suppression>
     <DiagnosticId>CP0002</DiagnosticId>
     <Target>M:LibSharp.Caching.LazyAsyncExecutionAndPublication`1.GetValueAsync(System.Threading.CancellationToken)</Target>
+    <Left>lib/net9.0/LibSharp.dll</Left>
+    <Right>lib/net9.0/LibSharp.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:LibSharp.Caching.LazyAsyncPublicationOnly`1.#ctor(System.Func{System.Threading.CancellationToken,System.Threading.Tasks.Task{`0}})</Target>
     <Left>lib/net9.0/LibSharp.dll</Left>
     <Right>lib/net9.0/LibSharp.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
@@ -500,7 +542,7 @@
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0006</DiagnosticId>
-    <Target>M:LibSharp.Caching.IValueCacheAsync`1.GetValueAsync(System.Threading.CancellationToken)</Target>
+    <Target>P:LibSharp.Collections.IPriorityQueue`1.Count</Target>
     <Left>lib/net10.0/LibSharp.dll</Left>
     <Right>lib/net10.0/LibSharp.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
@@ -521,7 +563,7 @@
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0006</DiagnosticId>
-    <Target>M:LibSharp.Caching.IValueCacheAsync`1.GetValueAsync(System.Threading.CancellationToken)</Target>
+    <Target>P:LibSharp.Collections.IPriorityQueue`1.Count</Target>
     <Left>lib/net8.0/LibSharp.dll</Left>
     <Right>lib/net8.0/LibSharp.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
@@ -542,7 +584,7 @@
   </Suppression>
   <Suppression>
     <DiagnosticId>CP0006</DiagnosticId>
-    <Target>M:LibSharp.Caching.IValueCacheAsync`1.GetValueAsync(System.Threading.CancellationToken)</Target>
+    <Target>P:LibSharp.Collections.IPriorityQueue`1.Count</Target>
     <Left>lib/net9.0/LibSharp.dll</Left>
     <Right>lib/net9.0/LibSharp.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
