@@ -12,14 +12,14 @@ public class ProactiveAsyncCacheBenchmarks
 {
     private static readonly Func<CancellationToken, Task<int>> s_valueFactory = _ => Task.FromResult(42);
 
-    private ProactiveAsyncCache<int> m_proactiveAsyncCache = null!;
+    private ProactiveAsyncCache<int> _proactiveAsyncCache = null!;
 
     [GlobalSetup]
     public async Task GlobalSetup()
     {
         TimeSpan refreshInterval = TimeSpan.FromSeconds(1);
 
-        m_proactiveAsyncCache = new ProactiveAsyncCache<int>(
+        _proactiveAsyncCache = new ProactiveAsyncCache<int>(
             s_valueFactory,
             new ProactiveAsyncCacheOptions
             {
@@ -27,18 +27,18 @@ public class ProactiveAsyncCacheBenchmarks
                 PreFetchOffset = refreshInterval / 2,
             });
 
-        _ = await m_proactiveAsyncCache.GetValueAsync(CancellationToken.None).ConfigureAwait(false);
+        _ = await _proactiveAsyncCache.GetValueAsync(CancellationToken.None).ConfigureAwait(false);
     }
 
     [GlobalCleanup]
     public async Task GlobalCleanup()
     {
-        await m_proactiveAsyncCache.DisposeAsync().ConfigureAwait(false);
+        await _proactiveAsyncCache.DisposeAsync().ConfigureAwait(false);
     }
 
     [Benchmark(Baseline = true)]
     public ValueTask<int> ProactiveAsyncCache_FreshHit()
     {
-        return m_proactiveAsyncCache.GetValueAsync(CancellationToken.None);
+        return _proactiveAsyncCache.GetValueAsync(CancellationToken.None);
     }
 }

@@ -25,8 +25,8 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// </summary>
     public ConcurrentHashSet()
     {
-        m_comparer = EqualityComparer<T>.Default;
-        m_dictionary = new ConcurrentDictionary<T, byte>(m_comparer);
+        _comparer = EqualityComparer<T>.Default;
+        _dictionary = new ConcurrentDictionary<T, byte>(_comparer);
     }
 
     /// <summary>
@@ -37,8 +37,8 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     {
         Argument.NotNull(comparer);
 
-        m_comparer = comparer;
-        m_dictionary = new ConcurrentDictionary<T, byte>(comparer);
+        _comparer = comparer;
+        _dictionary = new ConcurrentDictionary<T, byte>(comparer);
     }
 
     /// <summary>
@@ -50,11 +50,11 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     {
         Argument.NotNull(collection);
 
-        m_comparer = EqualityComparer<T>.Default;
-        m_dictionary = new ConcurrentDictionary<T, byte>(m_comparer);
+        _comparer = EqualityComparer<T>.Default;
+        _dictionary = new ConcurrentDictionary<T, byte>(_comparer);
         foreach (T item in collection)
         {
-            _ = m_dictionary.TryAdd(item, 0);
+            _ = _dictionary.TryAdd(item, 0);
         }
     }
 
@@ -69,16 +69,16 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
         Argument.NotNull(collection);
         Argument.NotNull(comparer);
 
-        m_comparer = comparer;
-        m_dictionary = new ConcurrentDictionary<T, byte>(comparer);
+        _comparer = comparer;
+        _dictionary = new ConcurrentDictionary<T, byte>(comparer);
         foreach (T item in collection)
         {
-            _ = m_dictionary.TryAdd(item, 0);
+            _ = _dictionary.TryAdd(item, 0);
         }
     }
 
     /// <inheritdoc/>
-    public int Count => m_dictionary.Count;
+    public int Count => _dictionary.Count;
 
     /// <inheritdoc/>
     public bool IsReadOnly => false;
@@ -90,13 +90,13 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// <returns><c>true</c> if the element was added; <c>false</c> if it was already present.</returns>
     public bool Add(T item)
     {
-        return m_dictionary.TryAdd(item, 0);
+        return _dictionary.TryAdd(item, 0);
     }
 
     /// <inheritdoc/>
     void ICollection<T>.Add(T item)
     {
-        _ = m_dictionary.TryAdd(item, 0);
+        _ = _dictionary.TryAdd(item, 0);
     }
 
     /// <summary>
@@ -106,7 +106,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// <returns><c>true</c> if the element was removed; <c>false</c> if it was not present.</returns>
     public bool Remove(T item)
     {
-        return m_dictionary.TryRemove(item, out _);
+        return _dictionary.TryRemove(item, out _);
     }
 
     /// <summary>
@@ -116,13 +116,13 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// <returns><c>true</c> if the element is in the set; otherwise <c>false</c>.</returns>
     public bool Contains(T item)
     {
-        return m_dictionary.ContainsKey(item);
+        return _dictionary.ContainsKey(item);
     }
 
     /// <inheritdoc/>
     public void Clear()
     {
-        m_dictionary.Clear();
+        _dictionary.Clear();
     }
 
     /// <inheritdoc/>
@@ -131,7 +131,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
         Argument.NotNull(array);
         Argument.GreaterThanOrEqualTo(arrayIndex, 0);
 
-        ((ICollection<T>)m_dictionary.Keys).CopyTo(array, arrayIndex);
+        ((ICollection<T>)_dictionary.Keys).CopyTo(array, arrayIndex);
     }
 
     /// <summary>
@@ -144,7 +144,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
 
         foreach (T item in other)
         {
-            _ = m_dictionary.TryAdd(item, 0);
+            _ = _dictionary.TryAdd(item, 0);
         }
     }
 
@@ -156,12 +156,12 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     {
         Argument.NotNull(other);
 
-        HashSet<T> otherSet = new HashSet<T>(other, m_comparer);
-        foreach (KeyValuePair<T, byte> entry in m_dictionary)
+        HashSet<T> otherSet = new HashSet<T>(other, _comparer);
+        foreach (KeyValuePair<T, byte> entry in _dictionary)
         {
             if (!otherSet.Contains(entry.Key))
             {
-                _ = m_dictionary.TryRemove(entry.Key, out _);
+                _ = _dictionary.TryRemove(entry.Key, out _);
             }
         }
     }
@@ -176,7 +176,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
 
         foreach (T item in other)
         {
-            _ = m_dictionary.TryRemove(item, out _);
+            _ = _dictionary.TryRemove(item, out _);
         }
     }
 
@@ -191,12 +191,12 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
         Argument.NotNull(other);
 
         // Deduplicate other first so that each element is toggled exactly once.
-        HashSet<T> otherSet = new HashSet<T>(other, m_comparer);
+        HashSet<T> otherSet = new HashSet<T>(other, _comparer);
         foreach (T item in otherSet)
         {
-            if (!m_dictionary.TryRemove(item, out _))
+            if (!_dictionary.TryRemove(item, out _))
             {
-                _ = m_dictionary.TryAdd(item, 0);
+                _ = _dictionary.TryAdd(item, 0);
             }
         }
     }
@@ -216,8 +216,8 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
             return true;
         }
 
-        HashSet<T> otherSet = new HashSet<T>(other, m_comparer);
-        foreach (KeyValuePair<T, byte> entry in m_dictionary)
+        HashSet<T> otherSet = new HashSet<T>(other, _comparer);
+        foreach (KeyValuePair<T, byte> entry in _dictionary)
         {
             if (!otherSet.Contains(entry.Key))
             {
@@ -240,7 +240,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
 
         foreach (T item in other)
         {
-            if (!m_dictionary.ContainsKey(item))
+            if (!_dictionary.ContainsKey(item))
             {
                 return false;
             }
@@ -259,13 +259,13 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     {
         Argument.NotNull(other);
 
-        HashSet<T> otherSet = new HashSet<T>(other, m_comparer);
+        HashSet<T> otherSet = new HashSet<T>(other, _comparer);
         if (Count >= otherSet.Count)
         {
             return false;
         }
 
-        foreach (KeyValuePair<T, byte> entry in m_dictionary)
+        foreach (KeyValuePair<T, byte> entry in _dictionary)
         {
             if (!otherSet.Contains(entry.Key))
             {
@@ -286,7 +286,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     {
         Argument.NotNull(other);
 
-        HashSet<T> otherSet = new HashSet<T>(other, m_comparer);
+        HashSet<T> otherSet = new HashSet<T>(other, _comparer);
         if (Count <= otherSet.Count)
         {
             return false;
@@ -294,7 +294,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
 
         foreach (T item in otherSet)
         {
-            if (!m_dictionary.ContainsKey(item))
+            if (!_dictionary.ContainsKey(item))
             {
                 return false;
             }
@@ -314,7 +314,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
 
         foreach (T item in other)
         {
-            if (m_dictionary.ContainsKey(item))
+            if (_dictionary.ContainsKey(item))
             {
                 return true;
             }
@@ -332,13 +332,13 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     {
         Argument.NotNull(other);
 
-        HashSet<T> otherSet = new HashSet<T>(other, m_comparer);
+        HashSet<T> otherSet = new HashSet<T>(other, _comparer);
         if (Count != otherSet.Count)
         {
             return false;
         }
 
-        foreach (KeyValuePair<T, byte> entry in m_dictionary)
+        foreach (KeyValuePair<T, byte> entry in _dictionary)
         {
             if (!otherSet.Contains(entry.Key))
             {
@@ -361,7 +361,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// </remarks>
     public IEnumerator<T> GetEnumerator()
     {
-        foreach (KeyValuePair<T, byte> entry in m_dictionary)
+        foreach (KeyValuePair<T, byte> entry in _dictionary)
         {
             yield return entry.Key;
         }
@@ -373,6 +373,6 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
         return GetEnumerator();
     }
 
-    private readonly IEqualityComparer<T> m_comparer;
-    private readonly ConcurrentDictionary<T, byte> m_dictionary;
+    private readonly IEqualityComparer<T> _comparer;
+    private readonly ConcurrentDictionary<T, byte> _dictionary;
 }

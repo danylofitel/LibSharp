@@ -37,9 +37,9 @@ public sealed class DebouncedAction : IDisposable
         Argument.NotNull(action);
         Argument.GreaterThan(delay, TimeSpan.Zero);
 
-        m_action = action;
-        m_delay = delay;
-        m_timer = (timeProvider ?? TimeProvider.System).CreateTimer(OnTimer, null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+        _action = action;
+        _delay = delay;
+        _timer = (timeProvider ?? TimeProvider.System).CreateTimer(OnTimer, null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
     }
 
     /// <summary>
@@ -49,11 +49,11 @@ public sealed class DebouncedAction : IDisposable
     /// <exception cref="ObjectDisposedException">Thrown if this instance has been disposed.</exception>
     public void Invoke()
     {
-        lock (m_lock)
+        lock (_lock)
         {
-            ObjectDisposedException.ThrowIf(m_isDisposed, this);
+            ObjectDisposedException.ThrowIf(_isDisposed, this);
 
-            _ = m_timer.Change(m_delay, Timeout.InfiniteTimeSpan);
+            _ = _timer.Change(_delay, Timeout.InfiniteTimeSpan);
         }
     }
 
@@ -67,15 +67,15 @@ public sealed class DebouncedAction : IDisposable
     /// </remarks>
     public void Dispose()
     {
-        lock (m_lock)
+        lock (_lock)
         {
-            if (m_isDisposed)
+            if (_isDisposed)
             {
                 return;
             }
 
-            m_isDisposed = true;
-            m_timer.Dispose();
+            _isDisposed = true;
+            _timer.Dispose();
         }
 
         // Disposing from inside the action would wait for the very callback making the call, which
@@ -83,25 +83,25 @@ public sealed class DebouncedAction : IDisposable
         // timer is stopped, so there is nothing left to wait for. The semaphore is then left to the
         // garbage collector, which costs nothing — its wait handle is never allocated, so it holds
         // no unmanaged resource.
-        if (Volatile.Read(ref m_callbackThreadId) == Environment.CurrentManagedThreadId)
+        if (Volatile.Read(ref _callbackThreadId) == Environment.CurrentManagedThreadId)
         {
             return;
         }
 
         // Wait for any in-flight callback to finish, then release ownership of the slot.
-        // m_callbackRunning starts at 1 (idle). OnTimer claims it to 0 while running;
+        // _callbackRunning starts at 1 (idle). OnTimer claims it to 0 while running;
         // waiting here blocks until the callback releases it back to 1.
-        m_callbackRunning.Wait();
-        m_callbackRunning.Dispose();
+        _callbackRunning.Wait();
+        _callbackRunning.Dispose();
     }
 
     private void OnTimer(object? state)
     {
         bool acquired;
 
-        lock (m_lock)
+        lock (_lock)
         {
-            if (m_isDisposed)
+            if (_isDisposed)
             {
                 return;
             }
@@ -109,7 +109,7 @@ public sealed class DebouncedAction : IDisposable
             // Claim the execution slot while holding the lock so that the disposed-check
             // and the slot-claim are atomic with respect to Dispose. With a one-shot timer
             // this always succeeds, but the guard is defensive against unexpected races.
-            acquired = m_callbackRunning.Wait(0);
+            acquired = _callbackRunning.Wait(0);
         }
 
         if (!acquired)
@@ -119,25 +119,25 @@ public sealed class DebouncedAction : IDisposable
 
         try
         {
-            Volatile.Write(ref m_callbackThreadId, Environment.CurrentManagedThreadId);
-            m_action();
+            Volatile.Write(ref _callbackThreadId, Environment.CurrentManagedThreadId);
+            _action();
         }
         finally
         {
-            Volatile.Write(ref m_callbackThreadId, 0);
-            _ = m_callbackRunning.Release();
+            Volatile.Write(ref _callbackThreadId, 0);
+            _ = _callbackRunning.Release();
         }
     }
 
-    private readonly Action m_action;
-    private readonly TimeSpan m_delay;
-    private readonly ITimer m_timer;
-    private readonly object m_lock = new object();
-    private readonly SemaphoreSlim m_callbackRunning = new SemaphoreSlim(1, 1);
+    private readonly Action _action;
+    private readonly TimeSpan _delay;
+    private readonly ITimer _timer;
+    private readonly object _lock = new object();
+    private readonly SemaphoreSlim _callbackRunning = new SemaphoreSlim(1, 1);
 
-    private bool m_isDisposed;
+    private bool _isDisposed;
 
     // Managed id of the thread running the callback, or 0 when none is. Lets Dispose tell a call
     // made from inside the action from an ordinary one.
-    private int m_callbackThreadId;
+    private int _callbackThreadId;
 }

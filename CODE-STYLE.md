@@ -20,8 +20,9 @@ A few key principles upheld:
 * Methods use PascalCase, e.g. MyMethod
 * Properties use PascalCase, e.g. MyProperty
 * Constants use PascalCase, e.g. MyConstant
+* Instance fields start with "_" prefix and use camelCase, e.g. _myField
 * Static fields start with "s_" prefix and use camelCase, e.g. s_myStaticField
-* Instance fields start with "m_" prefix and use camelCase, e.g. m_myField
+* Thread-static fields start with "t_" prefix and use camelCase, e.g. t_myThreadStaticField
 * Local variables use camelCase, e.g. myVariable
 * Method parameters use camelCase, e.g. myParameter
 

@@ -19,17 +19,17 @@ public sealed class ReverseComparer<TComparable> : IComparer<TComparable>
     {
         Argument.NotNull(comparer);
 
-        m_comparer = comparer;
+        _comparer = comparer;
     }
 
     /// <inheritdoc/>
     public int Compare(TComparable? x, TComparable? y)
     {
-        return m_comparer.Compare(y, x);
+        return _comparer.Compare(y, x);
     }
 
     /// <summary>
     /// The comparer.
     /// </summary>
-    private readonly IComparer<TComparable> m_comparer;
+    private readonly IComparer<TComparable> _comparer;
 }

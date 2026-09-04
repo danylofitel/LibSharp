@@ -34,17 +34,17 @@ namespace LibSharp.Caching;
 public sealed class InitializerAsyncExecutionAndPublication<T> : IInitializerAsync<T>
 {
     /// <inheritdoc/>
-    public bool HasValue => m_hasValue;
+    public bool HasValue => _hasValue;
 
     /// <inheritdoc/>
     public ValueTask<T> GetValueAsync(Func<CancellationToken, Task<T>> factory, CancellationToken cancellationToken = default)
     {
         Argument.NotNull(factory);
 
-        if (m_hasValue)
+        if (_hasValue)
         {
             // Initialized: not async, so the common path costs no allocation and no state machine.
-            return new ValueTask<T>(m_value);
+            return new ValueTask<T>(_value);
         }
 
         // This call has to wait, so an already-cancelled token cancels it here. The wait below
@@ -70,29 +70,29 @@ public sealed class InitializerAsyncExecutionAndPublication<T> : IInitializerAsy
     {
         TaskCompletionSource<T> tcs;
 
-        lock (m_lock)
+        lock (_lock)
         {
-            if (m_pendingInitialization is not null && !m_pendingInitialization.IsCompleted)
+            if (_pendingInitialization is not null && !_pendingInitialization.IsCompleted)
             {
-                return m_pendingInitialization;
+                return _pendingInitialization;
             }
 
             // Observe a completed faulted attempt so UnobservedTaskException never fires. A faulted
             // attempt is not cached, so the next caller starts a fresh one.
-            if (m_pendingInitialization is { IsFaulted: true })
+            if (_pendingInitialization is { IsFaulted: true })
             {
-                _ = m_pendingInitialization.Exception;
+                _ = _pendingInitialization.Exception;
             }
 
-            if (m_hasValue)
+            if (_hasValue)
             {
-                return Task.FromResult(m_value);
+                return Task.FromResult(_value);
             }
 
             tcs = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
-            m_pendingInitialization = tcs.Task;
+            _pendingInitialization = tcs.Task;
 
-            _ = m_pendingInitialization.ContinueWith(
+            _ = _pendingInitialization.ContinueWith(
                 static t => _ = t.Exception,
                 CancellationToken.None,
                 TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
@@ -113,8 +113,8 @@ public sealed class InitializerAsyncExecutionAndPublication<T> : IInitializerAsy
                 ?? throw new InvalidOperationException("The value factory returned a null task.");
             T value = await factoryTask.ConfigureAwait(false);
 
-            m_value = value;
-            m_hasValue = true;
+            _value = value;
+            _hasValue = true;
             _ = tcs.TrySetResult(value);
         }
         catch (Exception ex)
@@ -123,12 +123,12 @@ public sealed class InitializerAsyncExecutionAndPublication<T> : IInitializerAsy
         }
     }
 
-    private readonly object m_lock = new object();
-    private volatile bool m_hasValue;
+    private readonly object _lock = new object();
+    private volatile bool _hasValue;
 
-    // Assigned before m_hasValue is set to true; only ever read after observing m_hasValue == true.
-    private T m_value = default!;
+    // Assigned before _hasValue is set to true; only ever read after observing _hasValue == true.
+    private T _value = default!;
 
-    // Written and read only under m_lock.
-    private Task<T>? m_pendingInitialization;
+    // Written and read only under _lock.
+    private Task<T>? _pendingInitialization;
 }

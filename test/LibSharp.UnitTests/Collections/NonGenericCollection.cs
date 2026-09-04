@@ -10,10 +10,10 @@ internal class NonGenericCollection<T> : IEnumerable<T>, ICollection
 {
     public NonGenericCollection(List<T> collection)
     {
-        m_collection = collection;
+        _collection = collection;
     }
 
-    public int Count => m_collection.Count;
+    public int Count => _collection.Count;
 
     public bool IsSynchronized => false;
 
@@ -26,13 +26,13 @@ internal class NonGenericCollection<T> : IEnumerable<T>, ICollection
 
     public IEnumerator GetEnumerator()
     {
-        return m_collection.GetEnumerator();
+        return _collection.GetEnumerator();
     }
 
     IEnumerator<T> IEnumerable<T>.GetEnumerator()
     {
-        return m_collection.GetEnumerator();
+        return _collection.GetEnumerator();
     }
 
-    private readonly List<T> m_collection;
+    private readonly List<T> _collection;
 }

@@ -32,12 +32,12 @@ internal sealed class IdleTracker
     /// <param name="idleTimeout">How long without an access counts as idle. Must be positive.</param>
     public IdleTracker(TimeProvider timeProvider, TimeSpan idleTimeout)
     {
-        m_timeProvider = timeProvider;
-        m_idleTimeout = idleTimeout;
+        _timeProvider = timeProvider;
+        _idleTimeout = idleTimeout;
 
         // Construction counts as an access, so a tracker that is never touched still grants a full
         // idle window before it reports idle.
-        m_lastAccessTicks = timeProvider.GetUtcNow().UtcDateTime.Ticks;
+        _lastAccessTicks = timeProvider.GetUtcNow().UtcDateTime.Ticks;
     }
 
     /// <summary>
@@ -51,7 +51,7 @@ internal sealed class IdleTracker
     /// <returns><c>true</c> if the tracker is idle.</returns>
     public bool IsIdle()
     {
-        return UtcNow.Ticks - Interlocked.Read(ref m_lastAccessTicks) >= m_idleTimeout.Ticks;
+        return UtcNow.Ticks - Interlocked.Read(ref _lastAccessTicks) >= _idleTimeout.Ticks;
     }
 
     /// <summary>
@@ -68,7 +68,7 @@ internal sealed class IdleTracker
     /// The loop terminates promptly because <c>current</c> only ever moves forward.
     /// </para>
     /// <para>
-    /// The compare-exchange carries the full fence the handshake with <c>m_signal</c> needs. When it
+    /// The compare-exchange carries the full fence the handshake with <c>_signal</c> needs. When it
     /// is skipped, this call published nothing: the stored timestamp is already at least as recent
     /// as this access, and the caller that stored it ran the full fenced sequence itself, so there
     /// is nothing for a parked worker to miss.
@@ -77,10 +77,10 @@ internal sealed class IdleTracker
     public void RecordAccess(DateTime now)
     {
         long nowTicks = now.Ticks;
-        long current = Interlocked.Read(ref m_lastAccessTicks);
+        long current = Interlocked.Read(ref _lastAccessTicks);
         while (current < nowTicks)
         {
-            long observed = Interlocked.CompareExchange(ref m_lastAccessTicks, nowTicks, current);
+            long observed = Interlocked.CompareExchange(ref _lastAccessTicks, nowTicks, current);
             if (observed == current)
             {
                 break;
@@ -89,7 +89,7 @@ internal sealed class IdleTracker
             current = observed;
         }
 
-        TaskCompletionSource? signal = Volatile.Read(ref m_signal);
+        TaskCompletionSource? signal = Volatile.Read(ref _signal);
         if (signal is not null)
         {
             // Harmless if the signal has already been completed or abandoned.
@@ -108,14 +108,14 @@ internal sealed class IdleTracker
     /// <returns>The time remaining, or <see cref="TimeSpan.Zero"/> if the tracker is already idle.</returns>
     public TimeSpan TimeUntilIdle()
     {
-        long elapsed = UtcNow.Ticks - Interlocked.Read(ref m_lastAccessTicks);
+        long elapsed = UtcNow.Ticks - Interlocked.Read(ref _lastAccessTicks);
         if (elapsed <= 0)
         {
             // Clock stepped backwards; report a full window rather than overflowing the subtraction.
-            return m_idleTimeout;
+            return _idleTimeout;
         }
 
-        long remaining = m_idleTimeout.Ticks - elapsed;
+        long remaining = _idleTimeout.Ticks - elapsed;
         return remaining > 0 ? TimeSpan.FromTicks(remaining) : TimeSpan.Zero;
     }
 
@@ -144,7 +144,7 @@ internal sealed class IdleTracker
             // RecordAccess this guarantees at least one side observes the other: either the caller
             // sees this signal and completes it, or the re-check below sees the caller's timestamp
             // and abandons the wait. Never await without both steps.
-            _ = Interlocked.Exchange(ref m_signal, signal);
+            _ = Interlocked.Exchange(ref _signal, signal);
 
             try
             {
@@ -164,23 +164,23 @@ internal sealed class IdleTracker
                 // Unpublish so an active tracker never keeps a stale signal, and the continuation
                 // parked on it, alive. A caller still holding the old reference simply completes a
                 // signal nobody is waiting on; the fenced re-publish above covers the next round.
-                _ = Interlocked.Exchange(ref m_signal, null);
+                _ = Interlocked.Exchange(ref _signal, null);
             }
         }
 
         return true;
     }
 
-    private DateTime UtcNow => m_timeProvider.GetUtcNow().UtcDateTime;
+    private DateTime UtcNow => _timeProvider.GetUtcNow().UtcDateTime;
 
-    private readonly TimeProvider m_timeProvider;
-    private readonly TimeSpan m_idleTimeout;
+    private readonly TimeProvider _timeProvider;
+    private readonly TimeSpan _idleTimeout;
 
     // Ticks of the last recorded access, or of construction. Written by callers and read by the
     // parked worker without a lock; always through Interlocked, both to keep the 64-bit access
-    // atomic on 32-bit runtimes and to fence the handshake with m_signal.
-    private long m_lastAccessTicks;
+    // atomic on 32-bit runtimes and to fence the handshake with _signal.
+    private long _lastAccessTicks;
 
     // Non-null only while a worker is parked in WaitWhileIdleAsync.
-    private TaskCompletionSource? m_signal;
+    private TaskCompletionSource? _signal;
 }

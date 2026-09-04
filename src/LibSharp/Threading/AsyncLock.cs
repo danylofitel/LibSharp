@@ -23,17 +23,17 @@ public sealed class AsyncLock : IDisposable
         /// <inheritdoc/>
         public void Dispose()
         {
-            m_owner?.Release(m_version);
+            _owner?.Release(_version);
         }
 
         internal Handle(AsyncLock owner, long version)
         {
-            m_owner = owner;
-            m_version = version;
+            _owner = owner;
+            _version = version;
         }
 
-        private readonly AsyncLock? m_owner;
-        private readonly long m_version;
+        private readonly AsyncLock? _owner;
+        private readonly long _version;
     }
 
     /// <summary>
@@ -41,7 +41,7 @@ public sealed class AsyncLock : IDisposable
     /// </summary>
     public AsyncLock()
     {
-        m_disposalToken = m_disposalCts.Token;
+        _disposalToken = _disposalCts.Token;
     }
 
     /// <summary>
@@ -57,7 +57,7 @@ public sealed class AsyncLock : IDisposable
     /// </remarks>
     public ValueTask<Handle> AcquireAsync(CancellationToken cancellationToken = default)
     {
-        ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
 
         if (cancellationToken.IsCancellationRequested)
         {
@@ -69,11 +69,11 @@ public sealed class AsyncLock : IDisposable
         // this cannot throw ObjectDisposedException.
         // CancellationToken.None is deliberate: a zero timeout cannot block, so there is nothing for
         // a token to interrupt. Caller cancellation is already handled by the check above.
-        if (m_semaphore.Wait(0, CancellationToken.None))
+        if (_semaphore.Wait(0, CancellationToken.None))
         {
-            if (Volatile.Read(ref m_isDisposed) != 0)
+            if (Volatile.Read(ref _isDisposed) != 0)
             {
-                _ = m_semaphore.Release();
+                _ = _semaphore.Release();
                 throw new ObjectDisposedException(GetType().Name);
             }
 
@@ -90,31 +90,31 @@ public sealed class AsyncLock : IDisposable
             if (cancellationToken.CanBeCanceled)
             {
                 // Link caller cancellation with disposal cancellation so a blocked waiter wakes up for either signal.
-                using CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(m_disposalToken, cancellationToken);
-                await m_semaphore.WaitAsync(linked.Token).ConfigureAwait(false);
+                using CancellationTokenSource linked = CancellationTokenSource.CreateLinkedTokenSource(_disposalToken, cancellationToken);
+                await _semaphore.WaitAsync(linked.Token).ConfigureAwait(false);
             }
             else
             {
                 // Fast path for default/non-cancelable token avoids linked CTS allocation.
-                await m_semaphore.WaitAsync(m_disposalToken).ConfigureAwait(false);
+                await _semaphore.WaitAsync(_disposalToken).ConfigureAwait(false);
             }
 
             // If disposal raced with a successful wait, release immediately and report disposal.
-            if (Volatile.Read(ref m_isDisposed) != 0)
+            if (Volatile.Read(ref _isDisposed) != 0)
             {
-                _ = m_semaphore.Release();
+                _ = _semaphore.Release();
                 throw new ObjectDisposedException(GetType().Name);
             }
 
             return CreateHandle();
         }
-        catch (OperationCanceledException) when (m_disposalToken.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (_disposalToken.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
         {
             // Disposal cancelled the wait — translate to ObjectDisposedException to match
             // the contract established by the disposal check in AcquireAsync.
             throw new ObjectDisposedException(GetType().Name);
         }
-        catch (ObjectDisposedException) when (Volatile.Read(ref m_isDisposed) != 0 && !cancellationToken.IsCancellationRequested)
+        catch (ObjectDisposedException) when (Volatile.Read(ref _isDisposed) != 0 && !cancellationToken.IsCancellationRequested)
         {
             // The disposal token source may be torn down while creating the linked token source.
             throw new ObjectDisposedException(GetType().Name);
@@ -124,7 +124,7 @@ public sealed class AsyncLock : IDisposable
     /// <inheritdoc/>
     public void Dispose()
     {
-        if (Interlocked.Exchange(ref m_isDisposed, 1) != 0)
+        if (Interlocked.Exchange(ref _isDisposed, 1) != 0)
         {
             return;
         }
@@ -134,8 +134,8 @@ public sealed class AsyncLock : IDisposable
         // The semaphore is intentionally NOT disposed here: SemaphoreSlim.Dispose is not
         // safe to call concurrently with WaitAsync, and WaitAsync uses only managed
         // task-queue internals (no kernel handle), so GC reclamation is sufficient.
-        m_disposalCts.Cancel();
-        m_disposalCts.Dispose();
+        _disposalCts.Cancel();
+        _disposalCts.Dispose();
     }
 
     // Stamps each acquisition with a version the handle carries, so a handle can be matched against
@@ -143,8 +143,8 @@ public sealed class AsyncLock : IDisposable
     // acquisition its own heap-allocated releaser.
     private Handle CreateHandle()
     {
-        long version = Interlocked.Increment(ref m_versionCounter);
-        Volatile.Write(ref m_activeVersion, version);
+        long version = Interlocked.Increment(ref _versionCounter);
+        Volatile.Write(ref _activeVersion, version);
         return new Handle(this, version);
     }
 
@@ -153,24 +153,24 @@ public sealed class AsyncLock : IDisposable
         // Only the handle for the acquisition still in force may release it, and only once. A copy
         // disposed a second time, or a handle left over from an earlier acquisition, no longer
         // matches and does nothing.
-        if (Interlocked.CompareExchange(ref m_activeVersion, 0L, version) != version)
+        if (Interlocked.CompareExchange(ref _activeVersion, 0L, version) != version)
         {
             return;
         }
 
         // Suppress ObjectDisposedException if a future implementation disposes semaphore
         // while critical sections are still unwinding.
-        try { _ = m_semaphore.Release(); }
+        try { _ = _semaphore.Release(); }
         catch (ObjectDisposedException) { }
     }
 
-    private readonly SemaphoreSlim m_semaphore = new SemaphoreSlim(1, 1);
-    private readonly CancellationTokenSource m_disposalCts = new CancellationTokenSource();
-    private readonly CancellationToken m_disposalToken;
+    private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1, 1);
+    private readonly CancellationTokenSource _disposalCts = new CancellationTokenSource();
+    private readonly CancellationToken _disposalToken;
 
-    private int m_isDisposed;
+    private int _isDisposed;
 
     // Version 0 means no acquisition is in force, so the counter starts issuing at 1.
-    private long m_versionCounter;
-    private long m_activeVersion;
+    private long _versionCounter;
+    private long _activeVersion;
 }

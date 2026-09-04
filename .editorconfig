@@ -343,7 +343,7 @@ dotnet_naming_style.begins_with_i.required_suffix =
 dotnet_naming_style.begins_with_i.word_separator =
 dotnet_naming_style.begins_with_i.capitalization = pascal_case
 
-dotnet_naming_style.class_member.required_prefix = m_
+dotnet_naming_style.class_member.required_prefix = _
 dotnet_naming_style.class_member.required_suffix =
 dotnet_naming_style.class_member.word_separator =
 dotnet_naming_style.class_member.capitalization = camel_case
@@ -352,6 +352,9 @@ dotnet_naming_style.static_class_member.required_prefix = s_
 dotnet_naming_style.static_class_member.required_suffix =
 dotnet_naming_style.static_class_member.word_separator =
 dotnet_naming_style.static_class_member.capitalization = camel_case
+
+# Thread-static fields use a t_ prefix (e.g. t_buffer). Naming rules cannot match on an
+# attribute, so this convention is documented rather than enforced here.
 
 #### .NET diagnostics ####
 

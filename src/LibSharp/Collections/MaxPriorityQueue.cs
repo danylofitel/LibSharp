@@ -118,7 +118,7 @@ public sealed class MaxPriorityQueue<T> : IPriorityQueue<T>, ICollection
         Argument.NotNull(collection);
         Argument.NotNull(comparer);
 
-        m_minPriorityQueue = new MinPriorityQueue<T>(capacity, collection, new ReverseComparer<T>(comparer));
+        _minPriorityQueue = new MinPriorityQueue<T>(capacity, collection, new ReverseComparer<T>(comparer));
     }
 
     /// <summary>
@@ -126,10 +126,10 @@ public sealed class MaxPriorityQueue<T> : IPriorityQueue<T>, ICollection
     /// </summary>
     private const int InitialCapacity = 1;
 
-    private readonly MinPriorityQueue<T> m_minPriorityQueue;
+    private readonly MinPriorityQueue<T> _minPriorityQueue;
 
     /// <inheritdoc/>
-    public int Count => m_minPriorityQueue.Count;
+    public int Count => _minPriorityQueue.Count;
 
     /// <inheritdoc/>
     public bool IsReadOnly => false;
@@ -146,19 +146,19 @@ public sealed class MaxPriorityQueue<T> : IPriorityQueue<T>, ICollection
     /// <returns>Largest item in the queue.</returns>
     public T Peek()
     {
-        return m_minPriorityQueue.Peek();
+        return _minPriorityQueue.Peek();
     }
 
     /// <inheritdoc/>
     public bool TryPeek([MaybeNullWhen(false)] out T item)
     {
-        return m_minPriorityQueue.TryPeek(out item);
+        return _minPriorityQueue.TryPeek(out item);
     }
 
     /// <inheritdoc/>
     public void Enqueue(T item)
     {
-        m_minPriorityQueue.Enqueue(item);
+        _minPriorityQueue.Enqueue(item);
     }
 
     /// <summary>
@@ -167,43 +167,43 @@ public sealed class MaxPriorityQueue<T> : IPriorityQueue<T>, ICollection
     /// <returns>The largest item in the queue.</returns>
     public T Dequeue()
     {
-        return m_minPriorityQueue.Dequeue();
+        return _minPriorityQueue.Dequeue();
     }
 
     /// <inheritdoc/>
     public bool TryDequeue([MaybeNullWhen(false)] out T item)
     {
-        return m_minPriorityQueue.TryDequeue(out item);
+        return _minPriorityQueue.TryDequeue(out item);
     }
 
     /// <inheritdoc/>
     public void Add(T item)
     {
-        m_minPriorityQueue.Add(item);
+        _minPriorityQueue.Add(item);
     }
 
     /// <inheritdoc/>
     public void Clear()
     {
-        m_minPriorityQueue.Clear();
+        _minPriorityQueue.Clear();
     }
 
     /// <inheritdoc/>
     public bool Contains(T item)
     {
-        return m_minPriorityQueue.Contains(item);
+        return _minPriorityQueue.Contains(item);
     }
 
     /// <inheritdoc/>
     public void CopyTo(T[] array, int arrayIndex)
     {
-        m_minPriorityQueue.CopyTo(array, arrayIndex);
+        _minPriorityQueue.CopyTo(array, arrayIndex);
     }
 
     /// <inheritdoc/>
     public bool Remove(T item)
     {
-        return m_minPriorityQueue.Remove(item);
+        return _minPriorityQueue.Remove(item);
     }
 
     /// <summary>
@@ -216,18 +216,18 @@ public sealed class MaxPriorityQueue<T> : IPriorityQueue<T>, ICollection
     /// </remarks>
     public IEnumerator<T> GetEnumerator()
     {
-        return m_minPriorityQueue.GetEnumerator();
+        return _minPriorityQueue.GetEnumerator();
     }
 
     /// <inheritdoc/>
     public void CopyTo(Array array, int index)
     {
-        m_minPriorityQueue.CopyTo(array, index);
+        _minPriorityQueue.CopyTo(array, index);
     }
 
     /// <inheritdoc/>
     IEnumerator IEnumerable.GetEnumerator()
     {
-        return m_minPriorityQueue.GetEnumerator();
+        return _minPriorityQueue.GetEnumerator();
     }
 }

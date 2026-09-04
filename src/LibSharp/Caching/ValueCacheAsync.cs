@@ -33,10 +33,10 @@ public sealed class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
         Argument.NotNull(factory);
         Argument.GreaterThanOrEqualTo(timeToLive, TimeSpan.Zero);
 
-        m_timeProvider = timeProvider ?? TimeProvider.System;
-        m_disposalToken = m_cts.Token;
-        m_createFactory = factory;
-        m_expirationFunction = _ => GetExpiration(timeToLive);
+        _timeProvider = timeProvider ?? TimeProvider.System;
+        _disposalToken = _cts.Token;
+        _createFactory = factory;
+        _expirationFunction = _ => GetExpiration(timeToLive);
     }
 
     /// <summary>
@@ -50,10 +50,10 @@ public sealed class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
         Argument.NotNull(factory);
         Argument.NotNull(expirationFunction);
 
-        m_timeProvider = timeProvider ?? TimeProvider.System;
-        m_disposalToken = m_cts.Token;
-        m_createFactory = factory;
-        m_expirationFunction = expirationFunction;
+        _timeProvider = timeProvider ?? TimeProvider.System;
+        _disposalToken = _cts.Token;
+        _createFactory = factory;
+        _expirationFunction = expirationFunction;
     }
 
     /// <summary>
@@ -69,11 +69,11 @@ public sealed class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
         Argument.NotNull(updateFactory);
         Argument.GreaterThanOrEqualTo(timeToLive, TimeSpan.Zero);
 
-        m_timeProvider = timeProvider ?? TimeProvider.System;
-        m_disposalToken = m_cts.Token;
-        m_createFactory = createFactory;
-        m_updateFactory = updateFactory;
-        m_expirationFunction = _ => GetExpiration(timeToLive);
+        _timeProvider = timeProvider ?? TimeProvider.System;
+        _disposalToken = _cts.Token;
+        _createFactory = createFactory;
+        _updateFactory = updateFactory;
+        _expirationFunction = _ => GetExpiration(timeToLive);
     }
 
     /// <summary>
@@ -89,11 +89,11 @@ public sealed class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
         Argument.NotNull(updateFactory);
         Argument.NotNull(expirationFunction);
 
-        m_timeProvider = timeProvider ?? TimeProvider.System;
-        m_disposalToken = m_cts.Token;
-        m_createFactory = createFactory;
-        m_updateFactory = updateFactory;
-        m_expirationFunction = expirationFunction;
+        _timeProvider = timeProvider ?? TimeProvider.System;
+        _disposalToken = _cts.Token;
+        _createFactory = createFactory;
+        _updateFactory = updateFactory;
+        _expirationFunction = expirationFunction;
     }
 
     /// <inheritdoc/>
@@ -101,9 +101,9 @@ public sealed class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
     {
         get
         {
-            ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
 
-            return m_boxed is not null;
+            return _boxed is not null;
         }
     }
 
@@ -112,21 +112,21 @@ public sealed class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
     {
         get
         {
-            ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
 
-            return m_boxed?.Expiration;
+            return _boxed?.Expiration;
         }
     }
 
     /// <inheritdoc/>
     public ValueTask<T> GetValueAsync(CancellationToken cancellationToken = default)
     {
-        ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
 
         // Snapshot the volatile field once. ValueReference is immutable, so a non-null reference is
         // always a fully constructed, consistent object, and reading it once means the value returned
         // is the same one whose expiration was checked.
-        ValueReference<T>? boxed = m_boxed;
+        ValueReference<T>? boxed = _boxed;
         if (boxed is not null && UtcNow < boxed.Expiration)
         {
             // Hit: this method is deliberately not async, so the common path costs no allocation
@@ -160,11 +160,11 @@ public sealed class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
             // Never hand back a value produced after disposal. Dispose is synchronous and cannot
             // drain an in-flight refresh, and a factory that ignores its token can publish long
             // after Dispose returned.
-            ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
 
             return refreshed.Value;
         }
-        catch (OperationCanceledException) when (Volatile.Read(ref m_isDisposed) != 0 && !cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (Volatile.Read(ref _isDisposed) != 0 && !cancellationToken.IsCancellationRequested)
         {
             // The refresh was cancelled by disposal, not by this caller. Surface as
             // ObjectDisposedException so the two cases stay distinguishable.
@@ -178,42 +178,42 @@ public sealed class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
     {
         TaskCompletionSource<ValueReference<T>> tcs;
 
-        lock (m_lock)
+        lock (_lock)
         {
             // Re-check disposal under the lock — closes the window between the caller's initial
             // check and acquiring the lock.
-            ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
 
             // Join a refresh that is already running.
-            if (m_pendingRefresh is not null && !m_pendingRefresh.IsCompleted)
+            if (_pendingRefresh is not null && !_pendingRefresh.IsCompleted)
             {
-                return m_pendingRefresh;
+                return _pendingRefresh;
             }
 
             // Observe a completed faulted refresh so UnobservedTaskException never fires. The
             // continuation below covers the common case; this covers any gap.
-            if (m_pendingRefresh is { IsFaulted: true })
+            if (_pendingRefresh is { IsFaulted: true })
             {
-                _ = m_pendingRefresh.Exception;
+                _ = _pendingRefresh.Exception;
             }
 
             // Re-check freshness under the lock — a concurrent caller may have completed a refresh
             // between this caller's outer check and acquiring the lock.
-            ValueReference<T>? boxed = m_boxed;
+            ValueReference<T>? boxed = _boxed;
             if (boxed is not null && UtcNow < boxed.Expiration)
             {
                 return Task.FromResult(boxed);
             }
 
             // Publish the task before invoking the factory. The lock is re-entrant on this thread,
-            // so a factory whose synchronous prologue calls back in finds m_pendingRefresh already
+            // so a factory whose synchronous prologue calls back in finds _pendingRefresh already
             // set and joins it rather than recursing.
             tcs = new TaskCompletionSource<ValueReference<T>>(TaskCreationOptions.RunContinuationsAsynchronously);
-            m_pendingRefresh = tcs.Task;
+            _pendingRefresh = tcs.Task;
 
             // Proactively observe any fault, so a caller that abandoned its wait cannot leave an
             // unobserved exception behind.
-            _ = m_pendingRefresh.ContinueWith(
+            _ = _pendingRefresh.ContinueWith(
                 static t => _ = t.Exception,
                 CancellationToken.None,
                 TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
@@ -232,7 +232,7 @@ public sealed class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
     /// </summary>
     public void Dispose()
     {
-        if (Interlocked.Exchange(ref m_isDisposed, 1) != 0)
+        if (Interlocked.Exchange(ref _isDisposed, 1) != 0)
         {
             return;
         }
@@ -245,7 +245,7 @@ public sealed class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
         // nothing. AsyncLock leaves its semaphore undisposed for the same reason.
         try
         {
-            m_cts.Cancel();
+            _cts.Cancel();
         }
         catch
         {
@@ -254,7 +254,7 @@ public sealed class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
         }
     }
 
-    private DateTime UtcNow => m_timeProvider.GetUtcNow().UtcDateTime;
+    private DateTime UtcNow => _timeProvider.GetUtcNow().UtcDateTime;
 
     private DateTime GetExpiration(TimeSpan timeToLive)
     {
@@ -270,31 +270,31 @@ public sealed class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
         {
             // Snapshot once: the update factory must see the same previous value the decision to
             // use it was based on.
-            ValueReference<T>? previous = m_boxed;
+            ValueReference<T>? previous = _boxed;
 
             T newValue;
-            if (m_updateFactory is null || previous is null)
+            if (_updateFactory is null || previous is null)
             {
-                Task<T> createTask = m_createFactory(m_disposalToken)
+                Task<T> createTask = _createFactory(_disposalToken)
                     ?? throw new InvalidOperationException("The value factory returned a null task.");
                 newValue = await createTask.ConfigureAwait(false);
             }
             else
             {
-                Task<T> updateTask = m_updateFactory(previous.Value, m_disposalToken)
+                Task<T> updateTask = _updateFactory(previous.Value, _disposalToken)
                     ?? throw new InvalidOperationException("The update factory returned a null task.");
                 newValue = await updateTask.ConfigureAwait(false);
             }
 
-            ValueReference<T> refreshed = new ValueReference<T>(newValue, m_expirationFunction(newValue));
+            ValueReference<T> refreshed = new ValueReference<T>(newValue, _expirationFunction(newValue));
 
             // Volatile write — immediately visible to the lock-free read path.
-            m_boxed = refreshed;
+            _boxed = refreshed;
             _ = tcs.TrySetResult(refreshed);
         }
-        catch (OperationCanceledException) when (m_disposalToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (_disposalToken.IsCancellationRequested)
         {
-            _ = tcs.TrySetCanceled(m_disposalToken);
+            _ = tcs.TrySetCanceled(_disposalToken);
         }
         catch (Exception ex)
         {
@@ -302,22 +302,22 @@ public sealed class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
         }
     }
 
-    private readonly object m_lock = new object();
-    private readonly CancellationTokenSource m_cts = new CancellationTokenSource();
+    private readonly object _lock = new object();
+    private readonly CancellationTokenSource _cts = new CancellationTokenSource();
 
-    // Captured at construction: reading m_cts.Token after Dispose would throw, and the refresh path
+    // Captured at construction: reading _cts.Token after Dispose would throw, and the refresh path
     // is fire-and-forget so it can still be running then.
-    private readonly CancellationToken m_disposalToken;
+    private readonly CancellationToken _disposalToken;
 
-    private readonly TimeProvider m_timeProvider;
-    private readonly Func<CancellationToken, Task<T>> m_createFactory;
-    private readonly Func<T, CancellationToken, Task<T>>? m_updateFactory;
-    private readonly Func<T, DateTime> m_expirationFunction;
+    private readonly TimeProvider _timeProvider;
+    private readonly Func<CancellationToken, Task<T>> _createFactory;
+    private readonly Func<T, CancellationToken, Task<T>>? _updateFactory;
+    private readonly Func<T, DateTime> _expirationFunction;
 
-    private volatile ValueReference<T>? m_boxed;
+    private volatile ValueReference<T>? _boxed;
 
-    // Written and read only under m_lock.
-    private Task<ValueReference<T>>? m_pendingRefresh;
+    // Written and read only under _lock.
+    private Task<ValueReference<T>>? _pendingRefresh;
 
-    private int m_isDisposed;
+    private int _isDisposed;
 }

@@ -28,7 +28,7 @@ public sealed class LazyAsyncPublicationOnly<T>
     /// <param name="value">The value to hold.</param>
     public LazyAsyncPublicationOnly(T value)
     {
-        m_value = new ValueReference<T>(value);
+        _value = new ValueReference<T>(value);
     }
 
     /// <summary>
@@ -39,13 +39,13 @@ public sealed class LazyAsyncPublicationOnly<T>
     {
         Argument.NotNull(factory);
 
-        m_factory = factory;
+        _factory = factory;
     }
 
     /// <summary>
     /// Gets a value indicating whether the value has been initialized.
     /// </summary>
-    public bool HasValue => m_value is not null;
+    public bool HasValue => _value is not null;
 
     /// <summary>
     /// Gets the value.
@@ -56,7 +56,7 @@ public sealed class LazyAsyncPublicationOnly<T>
     /// <exception cref="InvalidOperationException">Thrown if the value factory returns a null task.</exception>
     public ValueTask<T> GetValueAsync(CancellationToken cancellationToken = default)
     {
-        ValueReference<T>? value = m_value;
+        ValueReference<T>? value = _value;
         if (value is not null)
         {
             return new ValueTask<T>(value.Value);
@@ -67,17 +67,17 @@ public sealed class LazyAsyncPublicationOnly<T>
 
     private async ValueTask<T> InitializeAsync(CancellationToken cancellationToken)
     {
-        // m_factory is non-null whenever m_value is null: the value constructor publishes
-        // m_value, and the factory constructor sets m_factory.
-        Task<T> factoryTask = m_factory!(cancellationToken)
+        // _factory is non-null whenever _value is null: the value constructor publishes
+        // _value, and the factory constructor sets _factory.
+        Task<T> factoryTask = _factory!(cancellationToken)
             ?? throw new InvalidOperationException("The value factory returned a null task.");
         T value = await factoryTask.ConfigureAwait(false);
-        _ = Interlocked.CompareExchange(ref m_value, new ValueReference<T>(value), null);
+        _ = Interlocked.CompareExchange(ref _value, new ValueReference<T>(value), null);
 
-        // m_value is non-null here: this call published it, or a concurrent caller won the race.
-        return m_value!.Value;
+        // _value is non-null here: this call published it, or a concurrent caller won the race.
+        return _value!.Value;
     }
 
-    private readonly Func<CancellationToken, Task<T>>? m_factory;
-    private volatile ValueReference<T>? m_value;
+    private readonly Func<CancellationToken, Task<T>>? _factory;
+    private volatile ValueReference<T>? _value;
 }

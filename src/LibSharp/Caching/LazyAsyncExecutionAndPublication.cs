@@ -35,8 +35,8 @@ public sealed class LazyAsyncExecutionAndPublication<T>
     /// <param name="value">The value to hold.</param>
     public LazyAsyncExecutionAndPublication(T value)
     {
-        m_hasValue = true;
-        m_value = value;
+        _hasValue = true;
+        _value = value;
     }
 
     /// <summary>
@@ -47,14 +47,14 @@ public sealed class LazyAsyncExecutionAndPublication<T>
     {
         Argument.NotNull(factory);
 
-        m_hasValue = false;
-        m_factory = factory;
+        _hasValue = false;
+        _factory = factory;
     }
 
     /// <summary>
     /// Gets a value indicating whether the value has been initialized.
     /// </summary>
-    public bool HasValue => m_hasValue;
+    public bool HasValue => _hasValue;
 
     /// <summary>
     /// Gets the value.
@@ -65,10 +65,10 @@ public sealed class LazyAsyncExecutionAndPublication<T>
     /// <exception cref="InvalidOperationException">Thrown if the value factory returns a null task.</exception>
     public ValueTask<T> GetValueAsync(CancellationToken cancellationToken = default)
     {
-        if (m_hasValue)
+        if (_hasValue)
         {
             // Initialized: not async, so the common path costs no allocation and no state machine.
-            return new ValueTask<T>(m_value);
+            return new ValueTask<T>(_value);
         }
 
         // This call has to wait, so an already-cancelled token cancels it here. The wait below
@@ -94,29 +94,29 @@ public sealed class LazyAsyncExecutionAndPublication<T>
     {
         TaskCompletionSource<T> tcs;
 
-        lock (m_lock)
+        lock (_lock)
         {
-            if (m_pendingInitialization is not null && !m_pendingInitialization.IsCompleted)
+            if (_pendingInitialization is not null && !_pendingInitialization.IsCompleted)
             {
-                return m_pendingInitialization;
+                return _pendingInitialization;
             }
 
             // Observe a completed faulted attempt so UnobservedTaskException never fires. A faulted
             // attempt is not cached, so the next caller starts a fresh one.
-            if (m_pendingInitialization is { IsFaulted: true })
+            if (_pendingInitialization is { IsFaulted: true })
             {
-                _ = m_pendingInitialization.Exception;
+                _ = _pendingInitialization.Exception;
             }
 
-            if (m_hasValue)
+            if (_hasValue)
             {
-                return Task.FromResult(m_value);
+                return Task.FromResult(_value);
             }
 
             tcs = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
-            m_pendingInitialization = tcs.Task;
+            _pendingInitialization = tcs.Task;
 
-            _ = m_pendingInitialization.ContinueWith(
+            _ = _pendingInitialization.ContinueWith(
                 static t => _ = t.Exception,
                 CancellationToken.None,
                 TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
@@ -133,14 +133,14 @@ public sealed class LazyAsyncExecutionAndPublication<T>
     {
         try
         {
-            // m_factory is non-null whenever m_hasValue is false: the value constructor sets
-            // m_hasValue to true, and the factory constructor sets m_factory.
-            Task<T> factoryTask = m_factory!(CancellationToken.None)
+            // _factory is non-null whenever _hasValue is false: the value constructor sets
+            // _hasValue to true, and the factory constructor sets _factory.
+            Task<T> factoryTask = _factory!(CancellationToken.None)
                 ?? throw new InvalidOperationException("The value factory returned a null task.");
             T value = await factoryTask.ConfigureAwait(false);
 
-            m_value = value;
-            m_hasValue = true;
+            _value = value;
+            _hasValue = true;
             _ = tcs.TrySetResult(value);
         }
         catch (Exception ex)
@@ -149,13 +149,13 @@ public sealed class LazyAsyncExecutionAndPublication<T>
         }
     }
 
-    private readonly object m_lock = new object();
-    private readonly Func<CancellationToken, Task<T>>? m_factory;
-    private volatile bool m_hasValue;
+    private readonly object _lock = new object();
+    private readonly Func<CancellationToken, Task<T>>? _factory;
+    private volatile bool _hasValue;
 
-    // Assigned before m_hasValue is set to true; only ever read after observing m_hasValue == true.
-    private T m_value = default!;
+    // Assigned before _hasValue is set to true; only ever read after observing _hasValue == true.
+    private T _value = default!;
 
-    // Written and read only under m_lock.
-    private Task<T>? m_pendingInitialization;
+    // Written and read only under _lock.
+    private Task<T>? _pendingInitialization;
 }

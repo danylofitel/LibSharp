@@ -23,14 +23,14 @@ namespace LibSharp.Caching;
 public sealed class InitializerAsyncPublicationOnly<T> : IInitializerAsync<T>
 {
     /// <inheritdoc/>
-    public bool HasValue => m_value is not null;
+    public bool HasValue => _value is not null;
 
     /// <inheritdoc/>
     public ValueTask<T> GetValueAsync(Func<CancellationToken, Task<T>> factory, CancellationToken cancellationToken = default)
     {
         Argument.NotNull(factory);
 
-        ValueReference<T>? value = m_value;
+        ValueReference<T>? value = _value;
         if (value is not null)
         {
             return new ValueTask<T>(value.Value);
@@ -44,11 +44,11 @@ public sealed class InitializerAsyncPublicationOnly<T> : IInitializerAsync<T>
         Task<T> factoryTask = factory(cancellationToken)
             ?? throw new InvalidOperationException("The value factory returned a null task.");
         T value = await factoryTask.ConfigureAwait(false);
-        _ = Interlocked.CompareExchange(ref m_value, new ValueReference<T>(value), null);
+        _ = Interlocked.CompareExchange(ref _value, new ValueReference<T>(value), null);
 
-        // m_value is non-null here: this call published it, or a concurrent caller won the race.
-        return m_value!.Value;
+        // _value is non-null here: this call published it, or a concurrent caller won the race.
+        return _value!.Value;
     }
 
-    private volatile ValueReference<T>? m_value;
+    private volatile ValueReference<T>? _value;
 }

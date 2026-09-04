@@ -63,8 +63,8 @@ public class ProactiveAsyncCacheUnitTests
             TimeSpan.FromTicks(1));
         await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
-        FieldInfo? retryDelayField = typeof(ProactiveAsyncCache<int>).GetField("m_retryDelay", BindingFlags.Instance | BindingFlags.NonPublic);
-        Assert.IsNotNull(retryDelayField, "Could not find m_retryDelay field.");
+        FieldInfo? retryDelayField = typeof(ProactiveAsyncCache<int>).GetField("_retryDelay", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.IsNotNull(retryDelayField, "Could not find _retryDelay field.");
         TimeSpan retryDelay = (TimeSpan)retryDelayField!.GetValue(cache)!;
 
         Assert.IsTrue(retryDelay > TimeSpan.Zero, $"Expected a positive retry delay, but got {retryDelay}.");
@@ -385,7 +385,7 @@ public class ProactiveAsyncCacheUnitTests
     {
         // Regression test: without the TCS early-publish fix, a factory that called
         // GetValueAsync in its synchronous prologue (before returning its Task) would
-        // find m_pendingFetch unset, start a second CompleteAsync, and recurse
+        // find _pendingFetch unset, start a second CompleteAsync, and recurse
         // until a StackOverflowException.
         //
         // This test only covers the non-awaiting reentrant case: the factory issues the
@@ -626,7 +626,7 @@ public class ProactiveAsyncCacheUnitTests
             {
                 _ = factoryStarted.Release();
                 // Deliberately ignore ct: the factory must complete after DisposeAsync
-                // is blocking on m_pendingFetch, regardless of CTS cancellation.
+                // is blocking on _pendingFetch, regardless of CTS cancellation.
                 int value = await factoryTcs.Task.ConfigureAwait(false);
                 _ = Interlocked.Increment(ref factoryCompleteCount);
                 return value;
@@ -657,8 +657,8 @@ public class ProactiveAsyncCacheUnitTests
             TimeSpan.Zero);
         await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
-        FieldInfo? backgroundTaskField = typeof(ProactiveAsyncCache<int>).GetField("m_backgroundTask", BindingFlags.Instance | BindingFlags.NonPublic);
-        Assert.IsNotNull(backgroundTaskField, "Could not find m_backgroundTask field.");
+        FieldInfo? backgroundTaskField = typeof(ProactiveAsyncCache<int>).GetField("_backgroundTask", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.IsNotNull(backgroundTaskField, "Could not find _backgroundTask field.");
 
         int value = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
         Task backgroundTask = (Task)backgroundTaskField!.GetValue(cache)!;
@@ -684,8 +684,8 @@ public class ProactiveAsyncCacheUnitTests
             TimeSpan.Zero);
         await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
-        FieldInfo? backgroundTaskField = typeof(ProactiveAsyncCache<int>).GetField("m_backgroundTask", BindingFlags.Instance | BindingFlags.NonPublic);
-        Assert.IsNotNull(backgroundTaskField, "Could not find m_backgroundTask field.");
+        FieldInfo? backgroundTaskField = typeof(ProactiveAsyncCache<int>).GetField("_backgroundTask", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.IsNotNull(backgroundTaskField, "Could not find _backgroundTask field.");
 
         bool initialFailureObserved = await fetchSignal.WaitAsync(TimeSpan.FromSeconds(5), TestContext.CancellationToken).ConfigureAwait(false);
         Task backgroundTask = (Task)backgroundTaskField!.GetValue(cache)!;
@@ -819,8 +819,8 @@ public class ProactiveAsyncCacheUnitTests
 
     private static object? GetIdleTracker<TValue>(ProactiveAsyncCache<TValue> cache)
     {
-        FieldInfo? trackerField = typeof(ProactiveAsyncCache<TValue>).GetField("m_idleTracker", BindingFlags.Instance | BindingFlags.NonPublic);
-        Assert.IsNotNull(trackerField, "Could not find m_idleTracker field.");
+        FieldInfo? trackerField = typeof(ProactiveAsyncCache<TValue>).GetField("_idleTracker", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.IsNotNull(trackerField, "Could not find _idleTracker field.");
         return trackerField!.GetValue(cache);
     }
 
@@ -829,8 +829,8 @@ public class ProactiveAsyncCacheUnitTests
         object? tracker = GetIdleTracker(cache);
         Assert.IsNotNull(tracker, "The cache under test was created without an idle timeout.");
 
-        FieldInfo? ticksField = tracker!.GetType().GetField("m_lastAccessTicks", BindingFlags.Instance | BindingFlags.NonPublic);
-        Assert.IsNotNull(ticksField, "Could not find IdleTracker.m_lastAccessTicks field.");
+        FieldInfo? ticksField = tracker!.GetType().GetField("_lastAccessTicks", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.IsNotNull(ticksField, "Could not find IdleTracker._lastAccessTicks field.");
         return (long)ticksField!.GetValue(tracker)!;
     }
 
@@ -933,7 +933,7 @@ public class ProactiveAsyncCacheUnitTests
         _ = await Assert.ThrowsExactlyAsync<InvalidTimeZoneException>(
             () => cache.GetValueAsync(TestContext.CancellationToken).AsTask()).ConfigureAwait(false);
 
-        // Act — step past the retry window. m_retryDelay is half the quiet window, so five minutes
+        // Act — step past the retry window. _retryDelay is half the quiet window, so five minutes
         // here against a ten-minute interval with no pre-fetch offset.
         timeProvider.Advance(TimeSpan.FromMinutes(6));
 

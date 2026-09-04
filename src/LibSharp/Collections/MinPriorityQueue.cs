@@ -132,15 +132,15 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
             initialCapacity = Math.Max(initialCapacity, nonGenericCollection.Count);
         }
 
-        m_comparer = comparer;
-        m_heap = new T[initialCapacity + 1];
-        m_version = 0L;
+        _comparer = comparer;
+        _heap = new T[initialCapacity + 1];
+        _version = 0L;
         Count = 0;
 
         foreach (T item in collection)
         {
             Enlarge();
-            m_heap[++Count] = item;
+            _heap[++Count] = item;
         }
 
         // Floyd's heapify: sinking every internal node bottom-up arranges the heap in O(n). Half the
@@ -178,7 +178,7 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
             throw new InvalidOperationException("Cannot peek into an empty queue.");
         }
 
-        return m_heap[1];
+        return _heap[1];
     }
 
     /// <inheritdoc/>
@@ -190,18 +190,18 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
             return false;
         }
 
-        item = m_heap[1];
+        item = _heap[1];
         return true;
     }
 
     /// <inheritdoc/>
     public void Enqueue(T item)
     {
-        ++m_version;
+        ++_version;
 
         Enlarge();
 
-        m_heap[++Count] = item;
+        _heap[++Count] = item;
         Swim(Count);
     }
 
@@ -216,14 +216,14 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
             throw new InvalidOperationException("Cannot dequeue from an empty queue.");
         }
 
-        ++m_version;
+        ++_version;
 
-        T min = m_heap[1];
+        T min = _heap[1];
 
         Exchange(1, Count--);
         Sink(1);
 
-        m_heap[Count + 1] = default!;
+        _heap[Count + 1] = default!;
         Shrink();
 
         return min;
@@ -253,9 +253,9 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     {
         if (Count != 0)
         {
-            ++m_version;
+            ++_version;
 
-            m_heap = new T[InitialCapacity + 1];
+            _heap = new T[InitialCapacity + 1];
             Count = 0;
         }
     }
@@ -274,7 +274,7 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
         Argument.LessThanOrEqualTo(arrayIndex, array.Length);
         Argument.GreaterThanOrEqualTo(array.Length - arrayIndex, Count, "Array offset");
 
-        Array.Copy(m_heap, 1, array, arrayIndex, Count);
+        Array.Copy(_heap, 1, array, arrayIndex, Count);
     }
 
     /// <inheritdoc/>
@@ -284,13 +284,13 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
 
         if (firstIndex > 0)
         {
-            ++m_version;
+            ++_version;
 
             Exchange(firstIndex, Count--);
             Sink(firstIndex);
             Swim(firstIndex);
 
-            m_heap[Count + 1] = default!;
+            _heap[Count + 1] = default!;
             Shrink();
 
             return true;
@@ -321,7 +321,7 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
         Argument.LessThanOrEqualTo(index, array.Length);
         Argument.GreaterThanOrEqualTo(array.Length - index, Count, "Array offset");
 
-        Array.Copy(m_heap, 1, array, index, Count);
+        Array.Copy(_heap, 1, array, index, Count);
     }
 
     /// <inheritdoc/>
@@ -342,7 +342,7 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     {
         for (int i = 1; i <= Count; ++i)
         {
-            if (s_equalityComparer.Equals(item, m_heap[i]))
+            if (s_equalityComparer.Equals(item, _heap[i]))
             {
                 return i;
             }
@@ -396,7 +396,7 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     /// <returns>True if the first item is larger than the second one.</returns>
     private bool Larger(int i, int j)
     {
-        return m_comparer.Compare(m_heap[i], m_heap[j]) > 0;
+        return _comparer.Compare(_heap[i], _heap[j]) > 0;
     }
 
     /// <summary>
@@ -406,7 +406,7 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     /// <param name="j">Index of the second item.</param>
     private void Exchange(int i, int j)
     {
-        (m_heap[j], m_heap[i]) = (m_heap[i], m_heap[j]);
+        (_heap[j], _heap[i]) = (_heap[i], _heap[j]);
     }
 
     /// <summary>
@@ -414,11 +414,11 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     /// </summary>
     private void Enlarge()
     {
-        if (Count == m_heap.Length - 1)
+        if (Count == _heap.Length - 1)
         {
-            T[] largerPQ = new T[2 * m_heap.Length];
-            Array.Copy(m_heap, 1, largerPQ, 1, Count);
-            m_heap = largerPQ;
+            T[] largerPQ = new T[2 * _heap.Length];
+            Array.Copy(_heap, 1, largerPQ, 1, Count);
+            _heap = largerPQ;
         }
     }
 
@@ -427,11 +427,11 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     /// </summary>
     private void Shrink()
     {
-        if (Count * 4 < m_heap.Length && m_heap.Length >= InitialCapacity * 2)
+        if (Count * 4 < _heap.Length && _heap.Length >= InitialCapacity * 2)
         {
-            T[] smallerPQ = new T[m_heap.Length / 2];
-            Array.Copy(m_heap, 1, smallerPQ, 1, Count);
-            m_heap = smallerPQ;
+            T[] smallerPQ = new T[_heap.Length / 2];
+            Array.Copy(_heap, 1, smallerPQ, 1, Count);
+            _heap = smallerPQ;
         }
     }
 
@@ -448,17 +448,17 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     /// <summary>
     /// The value comparer.
     /// </summary>
-    private readonly IComparer<T> m_comparer;
+    private readonly IComparer<T> _comparer;
 
     /// <summary>
     /// The binary heap organized as an array, indexing starts at 1.
     /// </summary>
-    private T[] m_heap;
+    private T[] _heap;
 
     /// <summary>
     /// Used to keep track of modifications by enumerators.
     /// </summary>
-    private long m_version;
+    private long _version;
 
     /// <summary>
     /// Implementation of a minimum priority queue enumerator.
@@ -472,9 +472,9 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
         /// <param name="queue">The queue instance.</param>
         public MinPriorityQueueEnumerator(MinPriorityQueue<TItem> queue)
         {
-            m_version = queue.m_version;
-            m_queue = queue;
-            m_index = -1;
+            _version = queue._version;
+            _queue = queue;
+            _index = -1;
         }
 
         /// <inheritdoc/>
@@ -484,19 +484,19 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
             {
                 MinPriorityQueue<TItem> queue = Validate();
 
-                if (m_index < 0)
+                if (_index < 0)
                 {
                     // Heap index 0 is a deliberately unused slot, so this guard is what separates
                     // "enumeration has not started" from a real element.
                     throw new InvalidOperationException("Enumeration has not started. Call MoveNext first.");
                 }
 
-                if (m_index >= queue.Count)
+                if (_index >= queue.Count)
                 {
                     throw new InvalidOperationException("Enumerator has enumerated all items and needs to be reset.");
                 }
 
-                return queue.m_heap[m_index + 1];
+                return queue._heap[_index + 1];
             }
         }
 
@@ -508,8 +508,8 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
         {
             MinPriorityQueue<TItem> queue = Validate();
 
-            ++m_index;
-            return m_index < queue.Count;
+            ++_index;
+            return _index < queue.Count;
         }
 
         /// <inheritdoc/>
@@ -517,13 +517,13 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
         {
             _ = Validate();
 
-            m_index = -1;
+            _index = -1;
         }
 
         /// <inheritdoc/>
         public void Dispose()
         {
-            m_queue = null;
+            _queue = null;
         }
 
         /// <summary>
@@ -532,31 +532,31 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
         /// <returns>The non-null queue being enumerated.</returns>
         private readonly MinPriorityQueue<TItem> Validate()
         {
-            if (m_queue is null)
+            if (_queue is null)
             {
                 throw new ObjectDisposedException(nameof(MinPriorityQueueEnumerator<TItem>));
             }
-            else if (m_version != m_queue.m_version)
+            else if (_version != _queue._version)
             {
                 throw new InvalidOperationException("Collection was modified; enumeration operation may not execute.");
             }
 
-            return m_queue;
+            return _queue;
         }
 
         /// <summary>
         /// Queue version at the time the enumerator was created. The enumerator is valid only for that version.
         /// </summary>
-        private readonly long m_version;
+        private readonly long _version;
 
         /// <summary>
         /// Reference to the queue being enumerated.
         /// </summary>
-        private MinPriorityQueue<TItem>? m_queue;
+        private MinPriorityQueue<TItem>? _queue;
 
         /// <summary>
         /// Current of the enumerator.
         /// </summary>
-        private int m_index;
+        private int _index;
     }
 }

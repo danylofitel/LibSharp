@@ -28,7 +28,7 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
     public Optional(T value)
     {
         HasValue = true;
-        m_value = value;
+        _value = value;
     }
 
     /// <summary>
@@ -48,7 +48,7 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
                 throw new InvalidOperationException("The optional does not hold a value.");
             }
 
-            return m_value;
+            return _value;
         }
     }
 
@@ -58,7 +58,7 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
     /// <param name="fallback">The fallback value. Defaults to <c>default(T)</c>.</param>
     public T? GetValueOrDefault(T? fallback = default)
     {
-        return HasValue ? m_value : fallback;
+        return HasValue ? _value : fallback;
     }
 
     /// <summary>
@@ -67,7 +67,7 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
     /// </summary>
     public bool TryGetValue([MaybeNullWhen(false)] out T value)
     {
-        value = m_value;
+        value = _value;
         return HasValue;
     }
 
@@ -84,7 +84,7 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
         Argument.NotNull(onValue);
         Argument.NotNull(onNone);
 
-        return HasValue ? onValue(m_value) : onNone();
+        return HasValue ? onValue(_value) : onNone();
     }
 
     /// <summary>
@@ -100,7 +100,7 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
 
         if (HasValue)
         {
-            onValue(m_value);
+            onValue(_value);
         }
         else
         {
@@ -119,7 +119,7 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
     {
         Argument.NotNull(selector);
 
-        return HasValue ? new Optional<TResult>(selector(m_value)) : default;
+        return HasValue ? new Optional<TResult>(selector(_value)) : default;
     }
 
     /// <summary>
@@ -133,7 +133,7 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
     {
         Argument.NotNull(selector);
 
-        return HasValue ? selector(m_value) : default;
+        return HasValue ? selector(_value) : default;
     }
 
     /// <inheritdoc/>
@@ -144,7 +144,7 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
             return false;
         }
 
-        return !HasValue || EqualityComparer<T>.Default.Equals(m_value, other.m_value);
+        return !HasValue || EqualityComparer<T>.Default.Equals(_value, other._value);
     }
 
     /// <inheritdoc/>
@@ -156,7 +156,7 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
     /// <inheritdoc/>
     public override int GetHashCode()
     {
-        return HashCode.Combine(HasValue, m_value);
+        return HashCode.Combine(HasValue, _value);
     }
 
     /// <summary>
@@ -171,7 +171,7 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
     /// </remarks>
     public override string ToString()
     {
-        return HasValue ? (m_value?.ToString() ?? string.Empty) : string.Empty;
+        return HasValue ? (_value?.ToString() ?? string.Empty) : string.Empty;
     }
 
     /// <summary>
@@ -209,5 +209,5 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
         return !(left == right);
     }
 
-    private readonly T m_value;
+    private readonly T _value;
 }
