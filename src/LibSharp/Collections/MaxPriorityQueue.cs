@@ -134,11 +134,13 @@ public sealed class MaxPriorityQueue<T> : IPriorityQueue<T>, ICollection
     /// <inheritdoc/>
     public bool IsReadOnly => false;
 
-    /// <inheritdoc/>
-    public bool IsSynchronized => false;
+    // The non-generic ICollection members are implemented explicitly, so they stay off the public
+    // surface while the interface is still available for legacy interop. SyncRoot and
+    // IsSynchronized are the .NET 1.x synchronization pattern, which is obsolete and which this
+    // type does not honour: nothing here takes a lock on SyncRoot. List<T> hides them the same way.
+    bool ICollection.IsSynchronized => false;
 
-    /// <inheritdoc/>
-    public object SyncRoot => this;
+    object ICollection.SyncRoot => this;
 
     /// <summary>
     /// Returns the largest item without removing it from the queue.
@@ -221,10 +223,10 @@ public sealed class MaxPriorityQueue<T> : IPriorityQueue<T>, ICollection
         return _minPriorityQueue.GetEnumerator();
     }
 
-    /// <inheritdoc/>
-    public void CopyTo(Array array, int index)
+    void ICollection.CopyTo(Array array, int index)
     {
-        _minPriorityQueue.CopyTo(array, index);
+        // The inner queue hides this member behind the interface too, so reach it the same way.
+        ((ICollection)_minPriorityQueue).CopyTo(array, index);
     }
 
     /// <inheritdoc/>

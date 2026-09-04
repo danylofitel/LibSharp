@@ -32,7 +32,7 @@ public class MaxPriorityQueueUnitTests
     public void Constructor_NoArguments_NonComparableType_Throws()
     {
         // Act
-        _ = Assert.ThrowsExactly<ArgumentException>(() => new MaxPriorityQueue<object>());
+        _ = Assert.ThrowsExactly<InvalidOperationException>(() => new MaxPriorityQueue<object>());
     }
 
     [TestMethod]
@@ -147,7 +147,7 @@ public class MaxPriorityQueueUnitTests
     public void Constructor_FromCollection_NonComparableType_Throws()
     {
         // Act
-        _ = Assert.ThrowsExactly<ArgumentException>(() => new MaxPriorityQueue<object>(new object[] { new object(), new object(), new object() }));
+        _ = Assert.ThrowsExactly<InvalidOperationException>(() => new MaxPriorityQueue<object>(new object[] { new object(), new object(), new object() }));
     }
 
     [TestMethod]
@@ -324,7 +324,7 @@ public class MaxPriorityQueueUnitTests
         MaxPriorityQueue<int> queue = new MaxPriorityQueue<int>();
 
         // Act
-        Assert.IsFalse(queue.IsSynchronized);
+        Assert.IsFalse(((ICollection)queue).IsSynchronized);
     }
 
     [TestMethod]
@@ -334,7 +334,7 @@ public class MaxPriorityQueueUnitTests
         MaxPriorityQueue<int> queue = new MaxPriorityQueue<int>();
 
         // Act
-        Assert.AreEqual(queue, queue.SyncRoot);
+        Assert.AreEqual(queue, ((ICollection)queue).SyncRoot);
     }
 
     [TestMethod]
@@ -767,7 +767,7 @@ public class MaxPriorityQueueUnitTests
         MaxPriorityQueue<int> queue = new MaxPriorityQueue<int>(items);
 
         // Act
-        queue.CopyTo(destination, 0);
+        ((ICollection)queue).CopyTo(destination, 0);
 
         // Assert
         CollectionAssert.AreEquivalent(items, destination);

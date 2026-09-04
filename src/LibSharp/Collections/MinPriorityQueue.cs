@@ -161,11 +161,13 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     /// <inheritdoc/>
     public bool IsReadOnly => false;
 
-    /// <inheritdoc/>
-    public bool IsSynchronized => false;
+    // The non-generic ICollection members are implemented explicitly, so they stay off the public
+    // surface while the interface is still available for legacy interop. SyncRoot and
+    // IsSynchronized are the .NET 1.x synchronization pattern, which is obsolete and which this
+    // type does not honour: nothing here takes a lock on SyncRoot. List<T> hides them the same way.
+    bool ICollection.IsSynchronized => false;
 
-    /// <inheritdoc/>
-    public object SyncRoot => this;
+    object ICollection.SyncRoot => this;
 
     /// <summary>
     /// Returns the smallest item without removing it from the queue.
@@ -274,7 +276,7 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
         Argument.NotNull(array);
         Argument.GreaterThanOrEqualTo(arrayIndex, 0);
         Argument.LessThanOrEqualTo(arrayIndex, array.Length);
-        Argument.GreaterThanOrEqualTo(array.Length - arrayIndex, Count, "Array offset");
+        Argument.GreaterThanOrEqualTo(array.Length - arrayIndex, Count, nameof(arrayIndex));
 
         Array.Copy(_heap, 1, array, arrayIndex, Count);
     }
@@ -314,14 +316,13 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
         return new MinPriorityQueueEnumerator<T>(this);
     }
 
-    /// <inheritdoc/>
-    public void CopyTo(Array array, int index)
+    void ICollection.CopyTo(Array array, int index)
     {
         Argument.NotNull(array);
         Argument.EqualTo(array.Rank, 1, nameof(array.Rank));
         Argument.GreaterThanOrEqualTo(index, 0);
         Argument.LessThanOrEqualTo(index, array.Length);
-        Argument.GreaterThanOrEqualTo(array.Length - index, Count, "Array offset");
+        Argument.GreaterThanOrEqualTo(array.Length - index, Count, nameof(index));
 
         Array.Copy(_heap, 1, array, index, Count);
     }
