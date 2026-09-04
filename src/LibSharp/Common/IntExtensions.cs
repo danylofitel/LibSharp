@@ -25,7 +25,7 @@ public static class IntExtensions
         // Each case writes exactly sizeof(T) bytes into the enum's own storage, so the value is
         // reinterpreted rather than boxed. The range checks come first because a narrowing
         // conversion wraps silently: 300 would become 44 for a byte-backed enum.
-        switch (EnumInfo<T>.UnderlyingTypeCode)
+        switch (EnumInfo<T>.s_underlyingTypeCode)
         {
             case TypeCode.SByte when value is >= sbyte.MinValue and <= sbyte.MaxValue:
                 Unsafe.As<T, sbyte>(ref converted) = (sbyte)value;
@@ -72,6 +72,6 @@ public static class IntExtensions
     private static class EnumInfo<T>
         where T : struct, Enum
     {
-        public static readonly TypeCode UnderlyingTypeCode = Type.GetTypeCode(Enum.GetUnderlyingType(typeof(T)));
+        public static readonly TypeCode s_underlyingTypeCode = Type.GetTypeCode(Enum.GetUnderlyingType(typeof(T)));
     }
 }

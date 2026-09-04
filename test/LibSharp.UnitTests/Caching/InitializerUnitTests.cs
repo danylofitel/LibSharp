@@ -55,4 +55,34 @@ public class InitializerUnitTests
         Assert.IsTrue(initializer.HasValue);
         _ = factory.Received(1)();
     }
+
+    [TestMethod]
+    public void GetValue_FactoryReadsInitializer_ThrowsInsteadOfRecursing()
+    {
+        // Arrange
+        Initializer<int> initializer = new Initializer<int>();
+        int Factory()
+        {
+            return initializer.GetValue(Factory);
+        }
+
+        // Act & Assert — without the guard this recurses until the stack overflows, which is
+        // process-fatal and cannot be caught.
+        _ = Assert.ThrowsExactly<InvalidOperationException>(() => initializer.GetValue(Factory));
+    }
+
+    [TestMethod]
+    public void GetValue_FactoryThrows_InitializerStaysUsable()
+    {
+        // Arrange
+        Initializer<int> initializer = new Initializer<int>();
+
+        // Act — a failed attempt must not leave the re-entrancy guard latched.
+        _ = Assert.ThrowsExactly<InvalidOperationException>(
+            () => initializer.GetValue(static () => throw new InvalidOperationException("boom")));
+
+        // Assert
+        Assert.AreEqual(7, initializer.GetValue(static () => 7));
+        Assert.IsTrue(initializer.HasValue);
+    }
 }

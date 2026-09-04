@@ -142,5 +142,39 @@ public class DebouncedActionUnitTests
         Assert.AreEqual(1, callCount);
     }
 
+    [TestMethod]
+    public void Dispose_CalledFromInsideAction_DoesNotDeadlock()
+    {
+        // Arrange
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
+        DebouncedAction? debounced = null;
+        bool completed = false;
+
+        try
+        {
+            debounced = new DebouncedAction(
+                () =>
+                {
+                    // Disposing here waits on the callback making the call unless Dispose detects it.
+                    debounced!.Dispose();
+                    completed = true;
+                },
+                TimeSpan.FromMilliseconds(50),
+                timeProvider);
+
+            // Act — FakeTimeProvider runs the timer callback inline, so a deadlock hangs Advance.
+            debounced.Invoke();
+            timeProvider.Advance(TimeSpan.FromMilliseconds(50));
+
+            // Assert
+            Assert.IsTrue(completed);
+        }
+        finally
+        {
+            // Idempotent; the action above has normally disposed it already.
+            debounced?.Dispose();
+        }
+    }
+
     public TestContext TestContext { get; set; }
 }

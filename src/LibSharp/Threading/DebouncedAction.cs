@@ -61,6 +61,10 @@ public sealed class DebouncedAction : IDisposable
     /// Disposes of the debounced action, cancelling any pending invocation.
     /// Blocks until any in-flight callback has completed.
     /// </summary>
+    /// <remarks>
+    /// Safe to call from inside the debounced action itself: that case returns without waiting,
+    /// since the callback being waited for is the caller.
+    /// </remarks>
     public void Dispose()
     {
         lock (m_lock)
@@ -72,6 +76,16 @@ public sealed class DebouncedAction : IDisposable
 
             m_isDisposed = true;
             m_timer.Dispose();
+        }
+
+        // Disposing from inside the action would wait for the very callback making the call, which
+        // never returns. Skip the drain in that case: that callback is already unwinding, and the
+        // timer is stopped, so there is nothing left to wait for. The semaphore is then left to the
+        // garbage collector, which costs nothing — its wait handle is never allocated, so it holds
+        // no unmanaged resource.
+        if (Volatile.Read(ref m_callbackThreadId) == Environment.CurrentManagedThreadId)
+        {
+            return;
         }
 
         // Wait for any in-flight callback to finish, then release ownership of the slot.
@@ -105,10 +119,12 @@ public sealed class DebouncedAction : IDisposable
 
         try
         {
+            Volatile.Write(ref m_callbackThreadId, Environment.CurrentManagedThreadId);
             m_action();
         }
         finally
         {
+            Volatile.Write(ref m_callbackThreadId, 0);
             _ = m_callbackRunning.Release();
         }
     }
@@ -120,4 +136,8 @@ public sealed class DebouncedAction : IDisposable
     private readonly SemaphoreSlim m_callbackRunning = new SemaphoreSlim(1, 1);
 
     private bool m_isDisposed;
+
+    // Managed id of the thread running the callback, or 0 when none is. Lets Dispose tell a call
+    // made from inside the action from an ordinary one.
+    private int m_callbackThreadId;
 }
