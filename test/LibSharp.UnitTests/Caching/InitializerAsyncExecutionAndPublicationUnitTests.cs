@@ -43,7 +43,7 @@ public class InitializerAsyncExecutionAndPublicationUnitTests
             Assert.IsTrue(initializer.HasValue);
             _ = factory.Received(1)(Arg.Any<CancellationToken>());
         }
-        
+
     }
 
     [TestMethod]
@@ -61,7 +61,7 @@ public class InitializerAsyncExecutionAndPublicationUnitTests
             // Act
             _ = await Assert.ThrowsExactlyAsync<TaskCanceledException>(async () => await initializer.GetValueAsync(factory, cancellationTokenSource.Token).ConfigureAwait(false)).ConfigureAwait(false);
         }
-        
+
     }
 
     [TestMethod]

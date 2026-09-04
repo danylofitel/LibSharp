@@ -22,7 +22,7 @@ public class LazyAsyncExecutionAndPublicationUnitTests
         // Assert
         Assert.IsTrue(lazy.HasValue);
         Assert.AreEqual(5, await lazy.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false));
-        
+
     }
 
     [TestMethod]
@@ -35,7 +35,7 @@ public class LazyAsyncExecutionAndPublicationUnitTests
         // Assert
         Assert.IsTrue(lazy.HasValue);
         Assert.IsNull(await lazy.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false));
-        
+
     }
 
     [TestMethod]
@@ -48,7 +48,7 @@ public class LazyAsyncExecutionAndPublicationUnitTests
         Assert.IsFalse(lazy.HasValue);
         Assert.IsNull(await lazy.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false));
         Assert.IsTrue(lazy.HasValue);
-        
+
     }
 
     [TestMethod]
@@ -65,7 +65,7 @@ public class LazyAsyncExecutionAndPublicationUnitTests
             Assert.IsTrue(lazy.HasValue);
             Assert.AreEqual(5, await lazy.GetValueAsync(cancellationTokenSource.Token).ConfigureAwait(false));
         }
-        
+
     }
 
     [TestMethod]
@@ -98,7 +98,7 @@ public class LazyAsyncExecutionAndPublicationUnitTests
             Assert.IsTrue(lazy.HasValue);
             _ = factory.Received(1)(Arg.Any<CancellationToken>());
         }
-        
+
     }
 
     [TestMethod]
@@ -116,7 +116,7 @@ public class LazyAsyncExecutionAndPublicationUnitTests
             // Act
             _ = await Assert.ThrowsExactlyAsync<TaskCanceledException>(async () => await lazy.GetValueAsync(cancellationTokenSource.Token).ConfigureAwait(false)).ConfigureAwait(false);
         }
-        
+
     }
 
     [TestMethod]
