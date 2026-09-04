@@ -536,17 +536,6 @@ public class ProactiveAsyncCacheUnitTests
     }
 
     [TestMethod]
-    public async Task DisposeAsync_WithBackgroundTaskRunning()
-    {
-        // Arrange
-        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(_ => Task.FromResult(42), TimeSpan.FromHours(1), TimeSpan.Zero);
-        _ = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
-
-        // Act — should stop the background task cleanly
-        await cache.DisposeAsync().ConfigureAwait(false);
-    }
-
-    [TestMethod]
     public async Task DisposeAsync_WithBackgroundTaskRunning_CompletesCleanly()
     {
         // Arrange — exercises the DisposeAsync() path with an active background task.
