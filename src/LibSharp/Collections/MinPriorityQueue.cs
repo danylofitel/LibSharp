@@ -171,6 +171,7 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     /// Returns the smallest item without removing it from the queue.
     /// </summary>
     /// <returns>Smallest item in the queue.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the queue is empty.</exception>
     public T Peek()
     {
         if (Count == 0)
@@ -209,6 +210,7 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     /// Returns the smallest item and removes it from the queue.
     /// </summary>
     /// <returns>The smallest item in the queue.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the queue is empty.</exception>
     public T Dequeue()
     {
         if (Count == 0)

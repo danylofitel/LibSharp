@@ -116,6 +116,11 @@ public sealed class KeyValueCache<TKey, TValue> : IKeyValueCache<TKey, TValue>
     public int Count => _cache.Count;
 
     /// <inheritdoc/>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when the value factory reads the cache it is refreshing. Re-entering from the
+    /// factory is not supported.
+    /// </exception>
+    /// <remarks>Re-entering for a different key is allowed.</remarks>
     public TValue GetValue(TKey key)
     {
         if (key is null)

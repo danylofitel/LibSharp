@@ -144,6 +144,7 @@ public sealed class MaxPriorityQueue<T> : IPriorityQueue<T>, ICollection
     /// Returns the largest item without removing it from the queue.
     /// </summary>
     /// <returns>Largest item in the queue.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the queue is empty.</exception>
     public T Peek()
     {
         return _minPriorityQueue.Peek();
@@ -165,6 +166,7 @@ public sealed class MaxPriorityQueue<T> : IPriorityQueue<T>, ICollection
     /// Returns the largest item and removes it from the queue.
     /// </summary>
     /// <returns>The largest item in the queue.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the queue is empty.</exception>
     public T Dequeue()
     {
         return _minPriorityQueue.Dequeue();

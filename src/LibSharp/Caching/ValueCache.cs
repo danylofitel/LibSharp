@@ -97,6 +97,10 @@ public sealed class ValueCache<T> : IValueCache<T>
     public DateTime? Expiration => _boxed?.Expiration;
 
     /// <inheritdoc/>
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when the value factory reads the cache it is refreshing. Re-entering from the
+    /// factory is not supported.
+    /// </exception>
     public T GetValue()
     {
         // Snapshot the volatile field once. ValueReference is immutable, so a non-null reference is

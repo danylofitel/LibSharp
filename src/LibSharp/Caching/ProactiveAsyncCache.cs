@@ -282,12 +282,13 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
             return;
         }
 
-        // Cancel runs any cancellation callbacks the factory registered on the token it was
-        // handed; a throwing callback is surfaced by Cancel as an AggregateException and must
-        // not prevent disposal from completing.
+        // Cancelling runs any cancellation callbacks the factory registered on the token it was
+        // handed. CancelAsync keeps them off the disposing thread, so a slow or re-entrant callback
+        // cannot stall the caller; a throwing one is surfaced as an AggregateException and must not
+        // prevent disposal from completing.
         try
         {
-            _cts.Cancel();
+            await _cts.CancelAsync().ConfigureAwait(false);
         }
         catch
         {

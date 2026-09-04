@@ -4,7 +4,7 @@
 
 A library of C# core components that enhance the standard library. Supports .NET 8.0, .NET 9.0, .NET 10.0.
 
-The public API ships nullable reference type annotations. The library is trim- and Native AOT-friendly, with the exception of the XML serialization helpers, which depend on `XmlSerializer` and are annotated with `[RequiresUnreferencedCode]` / `[RequiresDynamicCode]`.
+The public API ships nullable reference type annotations. The library is trim- and Native AOT-compatible in full: it is built with `IsAotCompatible`, so the trim and Native AOT analysers run over the whole assembly, and it emits no trimming or AOT warnings to consumers.
 
 * Source code: <https://github.com/danylofitel/LibSharp>.
 * NuGet package: <https://www.nuget.org/packages/LibSharp>.
@@ -61,7 +61,7 @@ BenchmarkDotNet setup and benchmark scripts are available in <https://github.com
         Argument.OfType(objectParam, typeof(List<string>));
 
         // Optional<T> — wraps a value that may or may not be present
-        Optional<int> empty = default;
+        Optional<int> empty = Optional<int>.Empty;  // same as default(Optional<int>)
         bool hasValue = empty.HasValue;             // false
         int fallback = empty.GetValueOrDefault(-1); // -1
 
@@ -133,11 +133,6 @@ BenchmarkDotNet setup and benchmark scripts are available in <https://github.com
 
         // Type extensions
         IComparer<int> intComparer = TypeExtensions.GetDefaultComparer<int>();
-
-        // XML serialization extensions
-        // Note: these rely on XmlSerializer and are not compatible with trimming or Native AOT.
-        string serializedToXml = objectParam.SerializeToXml();
-        List<string> deserializedFromXml = serializedToXml.DeserializeFromXml<List<string>>();
     }
 ```
 
@@ -320,6 +315,7 @@ BenchmarkDotNet setup and benchmark scripts are available in <https://github.com
 
 Notes:
 
+* Every `GetValueAsync` returns `ValueTask<T>` rather than `Task<T>`, so a cache hit costs no allocation. See [Awaiting a ValueTask](#awaiting-a-valuetask) below for the rules that come with it.
 * All caches accept an optional `TimeProvider` (defaulting to `TimeProvider.System`). Pass a `FakeTimeProvider` in tests to drive expiration and background refresh deterministically, without real delays.
 * Some of the classes implement `IDisposable` interface and should be correctly disposed.
 * Be cautious when caching types that implement `IDisposable` interface as the values will not be automatically disposed by the caches.
@@ -335,6 +331,29 @@ Quick selection guide:
 * Use `ValueCache<T>` / `ValueCacheAsync<T>` when you need one cached value that expires and refreshes over time.
 * Use `KeyValueCache<TKey, TValue>` / `KeyValueCacheAsync<TKey, TValue>` when you need the same expiration/refresh behavior per key, and the set of keys is limited.
 * Use `ProactiveAsyncCache<T>` when refresh should happen in the background before expiry instead of on-demand by the next reader.
+
+#### Awaiting a ValueTask
+
+Every asynchronous read in this namespace — on the caches, the lazies and the initializers — returns `ValueTask<T>`. A read that hits a cached value completes synchronously and allocates nothing, which is why the type is used; the cost is that a `ValueTask` is not as forgiving as a `Task`.
+
+Await the result **exactly once, and never concurrently**. To do anything else with it — store it, await it twice, or hand it to `Task.WhenAll` — call `AsTask()` first, which converts it into an ordinary `Task<T>` with none of those restrictions.
+
+```csharp
+    using LibSharp.Caching;
+
+    public static async Task ValueTaskUsageExample(IValueCacheAsync<int> cache, CancellationToken cancellationToken)
+    {
+        // Normal use: await the result once, immediately. No allocation when the value is cached.
+        int value = await cache.GetValueAsync(cancellationToken);
+
+        // Anything else needs AsTask() first: storing it, awaiting it twice, or combining it.
+        Task<int> first = cache.GetValueAsync(cancellationToken).AsTask();
+        Task<int> second = cache.GetValueAsync(cancellationToken).AsTask();
+        int[] values = await Task.WhenAll(first, second);
+    }
+```
+
+The factory delegates you supply still take and return `Task<T>`. They do the real work and never complete synchronously, so a `ValueTask` there would add friction for no benefit.
 
 #### Lazy
 
@@ -450,6 +469,8 @@ Note that `ValueCacheAsync` guarantees `LazyThreadSafetyMode.ExecutionAndPublica
 #### Key-Value Caches
 
 Key-value caches allow caching and automatically refreshing multiple values within a single data structure.
+
+Entries are never evicted, so a key-value cache is only suitable for a bounded key space. `Count` reports how many distinct keys are held, including those whose value has expired, which makes it the measure to watch when confirming that the key space really is bounded. Reading it takes every bucket lock of the underlying `ConcurrentDictionary`, so sample it periodically rather than per request. It is deliberately on the concrete types rather than the interfaces, following `MemoryCache`/`IMemoryCache`.
 
 ```csharp
     using LibSharp.Caching;

@@ -409,3 +409,19 @@ dotnet_diagnostic.IDE0032.severity = none
 
 # MSTEST0006: Avoid [ExpectedException]
 dotnet_diagnostic.MSTEST0006.severity = none
+
+#### Shipped library only ####
+# Stricter than the repository-wide set: these guard release quality in the library itself, where
+# an undisposed field, a synchronous block on an async path, or an unintended use of Random.Shared
+# all matter. Test code has different concerns and is deliberately not held to them.
+[src/**.cs]
+
+# CA2213: Disposable fields should be disposed. The deliberate exceptions are justified
+# individually in GlobalSuppressions, so a new undisposed field is a finding rather than noise.
+dotnet_diagnostic.CA2213.severity = error
+
+# CA1849: Call async methods when in an async method.
+dotnet_diagnostic.CA1849.severity = error
+
+# CA5394: Do not use insecure randomness.
+dotnet_diagnostic.CA5394.severity = error

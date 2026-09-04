@@ -32,6 +32,16 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
     }
 
     /// <summary>
+    /// Gets an optional that holds no value.
+    /// </summary>
+    /// <remarks>
+    /// The same thing as <c>default(Optional&lt;T&gt;)</c>, named so that the empty state is
+    /// discoverable and reads clearly at a call site. Note that an optional holding <c>null</c> is
+    /// a distinct state from this one and does not compare equal to it.
+    /// </remarks>
+    public static Optional<T> Empty => default;
+
+    /// <summary>
     /// Gets a value indicating whether the optional has a value.
     /// </summary>
     public bool HasValue { get; }
@@ -39,6 +49,7 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
     /// <summary>
     /// Gets the value if it exists, throws an exception if it doesn't.
     /// </summary>
+    /// <exception cref="InvalidOperationException">Thrown when the optional does not hold a value.</exception>
     public T Value
     {
         get

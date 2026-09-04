@@ -106,6 +106,11 @@ public static class EnumerableExtensions
     /// <typeparam name="TSource">The type of the elements of source.</typeparam>
     /// <param name="source">The sequence of elements to shuffle.</param>
     /// <returns>A randomly shuffled array.</returns>
+    /// <remarks>
+    /// Uses <see cref="Random.Shared"/>, which is not cryptographically secure. Do not use this to
+    /// shuffle anything whose order must be unpredictable to an adversary, such as a deck in a game
+    /// played for stakes, a shuffled ballot, or key material.
+    /// </remarks>
     public static TSource[] Shuffle<TSource>(this IEnumerable<TSource> source)
     {
         Argument.NotNull(source);
