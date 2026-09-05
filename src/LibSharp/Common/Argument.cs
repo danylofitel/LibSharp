@@ -48,6 +48,7 @@ public static class Argument
     /// <param name="value">Argument value.</param>
     /// <param name="minValueExclusive">Minimal value exclusive.</param>
     /// <param name="name">Argument name. Captured automatically from the argument expression when omitted.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="minValueExclusive"/> is <c>null</c>.</exception>
     public static void GreaterThan<T>([NotNull] T? value, T minValueExclusive, [CallerArgumentExpression(nameof(value))] string? name = null)
         where T : IComparable<T>
     {
@@ -74,6 +75,7 @@ public static class Argument
     /// <param name="value">Argument value.</param>
     /// <param name="minValueInclusive">Minimal value inclusive.</param>
     /// <param name="name">Argument name. Captured automatically from the argument expression when omitted.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="minValueInclusive"/> is <c>null</c>.</exception>
     public static void GreaterThanOrEqualTo<T>([NotNull] T? value, T minValueInclusive, [CallerArgumentExpression(nameof(value))] string? name = null)
         where T : IComparable<T>
     {
@@ -100,6 +102,7 @@ public static class Argument
     /// <param name="value">Argument value.</param>
     /// <param name="maxValueExclusive">Maximal value exclusive.</param>
     /// <param name="name">Argument name. Captured automatically from the argument expression when omitted.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="maxValueExclusive"/> is <c>null</c>.</exception>
     public static void LessThan<T>([NotNull] T? value, T maxValueExclusive, [CallerArgumentExpression(nameof(value))] string? name = null)
         where T : IComparable<T>
     {
@@ -126,6 +129,7 @@ public static class Argument
     /// <param name="value">Argument value.</param>
     /// <param name="maxValueInclusive">Maximal value inclusive.</param>
     /// <param name="name">Argument name. Captured automatically from the argument expression when omitted.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="maxValueInclusive"/> is <c>null</c>.</exception>
     public static void LessThanOrEqualTo<T>([NotNull] T? value, T maxValueInclusive, [CallerArgumentExpression(nameof(value))] string? name = null)
         where T : IComparable<T>
     {

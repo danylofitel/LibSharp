@@ -53,6 +53,7 @@ public sealed class LazyAsyncPublicationOnly<T> : ILazyAsync<T>
     /// <c>false</c> when the factory returns values that share an owned resource, or that something
     /// else is responsible for.
     /// </param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="factory"/> is <c>null</c>.</exception>
     public LazyAsyncPublicationOnly(Func<CancellationToken, Task<T>> factory, bool disposeDroppedValues = true)
     {
         Argument.NotNull(factory);

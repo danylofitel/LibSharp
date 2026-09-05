@@ -56,6 +56,7 @@ public readonly struct StaleReadPolicy : IEquatable<StaleReadPolicy>
     /// refresh interval plus this bound.
     /// </param>
     /// <returns>The policy.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="maxStaleness"/> is outside the permitted range.</exception>
     /// <remarks>
     /// The middle ground: absorb a brief outage without blocking readers, but stop serving data that
     /// has aged past what the caller can tolerate. Once the bound is passed the cache behaves as

@@ -52,6 +52,7 @@ public sealed class InitializerAsyncPublicationOnly<T> : IInitializerAsync<T>
     public bool HasValue => _value is not null;
 
     /// <inheritdoc/>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="factory"/> is <c>null</c>.</exception>
     public ValueTask<T> GetValueAsync(Func<CancellationToken, Task<T>> factory, CancellationToken cancellationToken = default)
     {
         Argument.NotNull(factory);

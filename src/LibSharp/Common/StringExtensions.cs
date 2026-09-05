@@ -18,6 +18,7 @@ public static class StringExtensions
     /// <param name="input">Base 64 encoded string.</param>
     /// <param name="encoding">String encoding.</param>
     /// <returns>Original string.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="input"/> is <c>null</c>.</exception>
     public static string Base64Decode(this string input, Encoding? encoding = null)
     {
         Argument.NotNull(input);
@@ -32,6 +33,7 @@ public static class StringExtensions
     /// <param name="input">Input string.</param>
     /// <param name="encoding">String encoding.</param>
     /// <returns>Base 64 encoded string.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="input"/> is <c>null</c>.</exception>
     public static string Base64Encode(this string input, Encoding? encoding = null)
     {
         Argument.NotNull(input);
@@ -45,6 +47,7 @@ public static class StringExtensions
     /// </summary>
     /// <param name="input">The input string.</param>
     /// <returns>The reversed string.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="input"/> is <c>null</c>.</exception>
     public static string Reverse(this string input)
     {
         Argument.NotNull(input);
@@ -96,6 +99,8 @@ public static class StringExtensions
     /// <param name="input">The input string.</param>
     /// <param name="maxLength">The maximum length.</param>
     /// <returns>The string truncated to the maximum length.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="input"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="maxLength"/> is outside the permitted range.</exception>
     /// <remarks>
     /// Cuts at a code unit, so it can split a surrogate pair or separate a combining mark from the
     /// character it modifies, leaving text that no longer renders correctly. Use
@@ -120,6 +125,8 @@ public static class StringExtensions
     /// <param name="input">The input string.</param>
     /// <param name="maxTextElements">The maximum number of text elements.</param>
     /// <returns>The string truncated to the maximum number of text elements.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="input"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="maxTextElements"/> is outside the permitted range.</exception>
     public static string TruncateTextElements(this string input, int maxTextElements)
     {
         Argument.NotNull(input);

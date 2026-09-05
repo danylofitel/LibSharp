@@ -32,6 +32,8 @@ public sealed class DebouncedAction : IDisposable
     /// <param name="timeProvider">
     /// (Optional) Time provider used to schedule the quiet-period timer. Defaults to <see cref="TimeProvider.System"/>.
     /// </param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="action"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="delay"/> is outside the permitted range.</exception>
     public DebouncedAction(Action action, TimeSpan delay, TimeProvider? timeProvider = null)
     {
         Argument.NotNull(action);

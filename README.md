@@ -138,6 +138,9 @@ BenchmarkDotNet setup and benchmark scripts are available in <https://github.com
 
 ### Collections
 
+`MinPriorityQueue<T>` and `MaxPriorityQueue<T>` predate and differ from .NET 6's `System.Collections.Generic.PriorityQueue<TElement, TPriority>`. The BCL type pairs each element with a separate priority and exposes only enqueue/dequeue/peek. These order the element itself through an `IComparer<T>` or `Comparison<T>`, and are full collections: they implement `ICollection<T>` and `IReadOnlyCollection<T>`, so they support `Contains`, `Remove`, `CopyTo` and can be passed to any API taking a read-only collection. Prefer the BCL type when a separate priority is the natural model and you only push and pop; prefer these when the element carries its own ordering, or when you need the collection operations.
+
+
 `Collections` namespace contains extension methods for `ICollection`, `IDictionary`, `IEnumerable`, and `IAsyncEnumerable` interfaces, plus `ConcurrentHashSet<T>`, `MinPriorityQueue<T>`, and `MaxPriorityQueue<T>` collections.
 
 ```csharp
@@ -315,11 +318,12 @@ BenchmarkDotNet setup and benchmark scripts are available in <https://github.com
 
 Notes:
 
+* `ILazyAsync<T>` is the common contract of every asynchronously produced value here — `HasValue` plus `GetValueAsync`. The lazies implement it, and `IValueCacheAsync<T>` extends it with `Expiration`, so code that only needs a value can accept `ILazyAsync<T>` and take a lazy, a cache or a proactive cache alike.
 * Every `GetValueAsync` returns `ValueTask<T>` rather than `Task<T>`, so a cache hit costs no allocation. See [Awaiting a ValueTask](#awaiting-a-valuetask) below for the rules that come with it.
 * All caches accept an optional `TimeProvider` (defaulting to `TimeProvider.System`). Pass a `FakeTimeProvider` in tests to drive expiration and background refresh deterministically, without real delays.
 * Some of the classes implement `IDisposable` interface and should be correctly disposed.
 * Be cautious when caching types that implement `IDisposable` interface as the values will not be automatically disposed by the caches.
-* Be cautious when using classes with `LazyThreadSafetyMode.PublicationOnly` behavior together with `IDisposable` types as discarded instances will not be disposed.
+* `PublicationOnly` implementations dispose values that lose the publication race, when those values implement `IAsyncDisposable` or `IDisposable`. The losing value is identified exactly by the compare-exchange that publishes the winner, so it is known never to have reached a caller and nothing else could release it. Pass `disposeDroppedValues: false` to opt out when the factory returns values that share an owned resource or are owned elsewhere. The published value is never disposed for you.
 * `PublicationOnly` implementations may run multiple factories concurrently and publish the first successful result.
 * Async lazy and initializer methods throw `InvalidOperationException` if a factory returns a null `Task`.
 
@@ -357,9 +361,9 @@ The factory delegates you supply still take and return `Task<T>`. They do the re
 
 #### Lazy
 
-Two different implementations of async lazy values are available — `LazyAsyncPublicationOnly` and `LazyAsyncExecutionAndPublication`. Those are async versions of `System.Lazy` class with `LazyThreadSafetyMode.PublicationOnly` and `LazyThreadSafetyMode.ExecutionAndPublication` modes respectively. They differ in how concurrent callers are handled: `ExecutionAndPublication` shares a single factory execution between them, while `PublicationOnly` lets each run its own and keeps whichever value is published first. Neither is `IDisposable`.
+Two different implementations of async lazy values are available — `LazyAsyncPublicationOnly` and `LazyAsyncExecutionAndPublication`. Those are async versions of `System.Lazy` class with `LazyThreadSafetyMode.PublicationOnly` and `LazyThreadSafetyMode.ExecutionAndPublication` modes respectively. They differ in how concurrent callers are handled: `ExecutionAndPublication` shares a single factory execution between them, while `PublicationOnly` lets each run its own and keeps whichever value is published first. Neither is `IDisposable`, and both implement `ILazyAsync<T>`.
 
-`LazyAsyncExecutionAndPublication` runs at most one in-flight factory and retries after failed or canceled attempts. `LazyAsyncPublicationOnly` may execute multiple concurrent factories, but only the first successfully published value is retained — so it should not be used with `IDisposable` values, since every losing racer's value is dropped without being disposed.
+`LazyAsyncExecutionAndPublication` runs at most one in-flight factory and retries after failed or canceled attempts. `LazyAsyncPublicationOnly` may execute multiple concurrent factories, but only the first successfully published value is retained; the losing racers' values are disposed for you if they are disposable, unless you pass `disposeDroppedValues: false`.
 
 ```csharp
     using LibSharp.Caching;

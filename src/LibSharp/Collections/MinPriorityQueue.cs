@@ -112,6 +112,8 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     /// <param name="capacity">Initial capacity.</param>
     /// <param name="collection">The collection to add to the queue.</param>
     /// <param name="comparer">Value comparer.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="collection"/> or <paramref name="comparer"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="capacity"/> is outside the permitted range.</exception>
     public MinPriorityQueue(int capacity, IEnumerable<T> collection, IComparer<T> comparer)
     {
         Argument.GreaterThanOrEqualTo(capacity, 0);
@@ -271,6 +273,8 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     }
 
     /// <inheritdoc/>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="array"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="array"/> or <paramref name="arrayIndex"/> is outside the permitted range.</exception>
     public void CopyTo(T[] array, int arrayIndex)
     {
         Argument.NotNull(array);
@@ -290,6 +294,14 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
         {
             ++_version;
 
+            // Move the last item into the hole and restore the heap from there. Only one of the two
+            // can act, so running both is how the direction is chosen rather than computed.
+            //
+            // Removing the last item leaves firstIndex one past the new Count, pointing at the slot
+            // that still holds the removed item. Sink stops immediately there (no children), and
+            // Swim cannot move it either: the heap invariant means a leaf is never smaller than its
+            // parent, so the comparison fails on the first step. Were that not so, the removed item
+            // would be swapped back into the live heap and the clear below would blank a real one.
             Exchange(firstIndex, Count--);
             Sink(firstIndex);
             Swim(firstIndex);

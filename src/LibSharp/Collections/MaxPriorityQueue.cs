@@ -112,6 +112,8 @@ public sealed class MaxPriorityQueue<T> : IPriorityQueue<T>, ICollection
     /// <param name="capacity">Initial capacity.</param>
     /// <param name="collection">The collection to add to the queue.</param>
     /// <param name="comparer">Value comparer.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="collection"/> or <paramref name="comparer"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="capacity"/> is outside the permitted range.</exception>
     public MaxPriorityQueue(int capacity, IEnumerable<T> collection, IComparer<T> comparer)
     {
         Argument.GreaterThanOrEqualTo(capacity, 0);

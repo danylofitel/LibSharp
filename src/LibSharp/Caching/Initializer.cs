@@ -19,6 +19,7 @@ public sealed class Initializer<T> : IInitializer<T>
     /// Thrown when the value factory reads the initializer it is initializing. Re-entering from the
     /// factory is not supported.
     /// </exception>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="factory"/> is <c>null</c>.</exception>
     public T GetValue(Func<T> factory)
     {
         Argument.NotNull(factory);

@@ -43,6 +43,7 @@ public sealed class LazyAsyncExecutionAndPublication<T> : ILazyAsync<T>
     /// Initializes a new instance of the <see cref="LazyAsyncExecutionAndPublication{T}"/> class from a value factory.
     /// </summary>
     /// <param name="factory">The value factory.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="factory"/> is <c>null</c>.</exception>
     public LazyAsyncExecutionAndPublication(Func<CancellationToken, Task<T>> factory)
     {
         Argument.NotNull(factory);

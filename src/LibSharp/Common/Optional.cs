@@ -90,6 +90,7 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
     /// <param name="onValue">Invoked with the wrapped value when the optional has one.</param>
     /// <param name="onNone">Invoked when the optional is empty.</param>
     /// <returns>The result of the invoked delegate.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="onNone"/> or <paramref name="onValue"/> is <c>null</c>.</exception>
     public TResult Match<TResult>(Func<T, TResult> onValue, Func<TResult> onNone)
     {
         Argument.NotNull(onValue);
@@ -104,6 +105,7 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
     /// </summary>
     /// <param name="onValue">Invoked with the wrapped value when the optional has one.</param>
     /// <param name="onNone">Invoked when the optional is empty.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="onNone"/> or <paramref name="onValue"/> is <c>null</c>.</exception>
     public void Match(Action<T> onValue, Action onNone)
     {
         Argument.NotNull(onValue);
@@ -126,6 +128,7 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
     /// <typeparam name="TResult">The result value type.</typeparam>
     /// <param name="selector">The transform to apply to the wrapped value.</param>
     /// <returns>An optional holding the transformed value, or an empty optional.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="selector"/> is <c>null</c>.</exception>
     public Optional<TResult> Map<TResult>(Func<T, TResult> selector)
     {
         Argument.NotNull(selector);
@@ -140,6 +143,7 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
     /// <typeparam name="TResult">The result value type.</typeparam>
     /// <param name="selector">The transform producing the next optional from the wrapped value.</param>
     /// <returns>The optional produced by <paramref name="selector"/>, or an empty optional.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="selector"/> is <c>null</c>.</exception>
     public Optional<TResult> Bind<TResult>(Func<T, Optional<TResult>> selector)
     {
         Argument.NotNull(selector);

@@ -137,6 +137,7 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     /// <param name="onSuccess">Invoked with the success value when this is a success.</param>
     /// <param name="onError">Invoked with the error value when this is an error.</param>
     /// <returns>The result of the invoked delegate.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="onError"/> or <paramref name="onSuccess"/> is <c>null</c>.</exception>
     public TResult Match<TResult>(Func<T, TResult> onSuccess, Func<TError, TResult> onError)
     {
         Argument.NotNull(onSuccess);
@@ -151,6 +152,7 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     /// </summary>
     /// <param name="onSuccess">Invoked with the success value when this is a success.</param>
     /// <param name="onError">Invoked with the error value when this is an error.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="onError"/> or <paramref name="onSuccess"/> is <c>null</c>.</exception>
     public void Match(Action<T> onSuccess, Action<TError> onError)
     {
         Argument.NotNull(onSuccess);
@@ -173,6 +175,7 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     /// <typeparam name="TResult">The mapped success value type.</typeparam>
     /// <param name="selector">The transform to apply to the success value.</param>
     /// <returns>A result holding the transformed value, or the original error.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="selector"/> is <c>null</c>.</exception>
     public Result<TResult, TError> Map<TResult>(Func<T, TResult> selector)
     {
         Argument.NotNull(selector);
@@ -189,6 +192,7 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     /// <typeparam name="TErrorResult">The mapped error value type.</typeparam>
     /// <param name="selector">The transform to apply to the error value.</param>
     /// <returns>A result holding the original success value, or the transformed error.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="selector"/> is <c>null</c>.</exception>
     public Result<T, TErrorResult> MapError<TErrorResult>(Func<TError, TErrorResult> selector)
     {
         Argument.NotNull(selector);
@@ -205,6 +209,7 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     /// <typeparam name="TResult">The mapped success value type.</typeparam>
     /// <param name="selector">The transform producing the next result from the success value.</param>
     /// <returns>The result produced by <paramref name="selector"/>, or the original error.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="selector"/> is <c>null</c>.</exception>
     public Result<TResult, TError> Bind<TResult>(Func<T, Result<TResult, TError>> selector)
     {
         Argument.NotNull(selector);

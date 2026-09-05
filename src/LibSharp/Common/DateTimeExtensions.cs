@@ -14,6 +14,12 @@ public static class DateTimeExtensions
     /// </summary>
     /// <param name="epochMilliseconds">Epoch milliseconds.</param>
     /// <returns>A UTC DateTime value.</returns>
+    /// <exception cref="OverflowException">
+    /// Thrown when <paramref name="epochMilliseconds"/> is large enough that converting it to ticks overflows.
+    /// </exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// Thrown when the result falls outside the range of <see cref="DateTime"/>.
+    /// </exception>
     public static DateTime FromEpochMilliseconds(this long epochMilliseconds)
     {
         return DateTime.UnixEpoch.AddTicks(checked(epochMilliseconds * TimeSpan.TicksPerMillisecond));
@@ -24,6 +30,12 @@ public static class DateTimeExtensions
     /// </summary>
     /// <param name="epochSeconds">Epoch seconds.</param>
     /// <returns>A UTC DateTime value.</returns>
+    /// <exception cref="OverflowException">
+    /// Thrown when <paramref name="epochSeconds"/> is large enough that converting it to ticks overflows.
+    /// </exception>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// Thrown when the result falls outside the range of <see cref="DateTime"/>.
+    /// </exception>
     public static DateTime FromEpochSeconds(this long epochSeconds)
     {
         return DateTime.UnixEpoch.AddTicks(checked(epochSeconds * TimeSpan.TicksPerSecond));

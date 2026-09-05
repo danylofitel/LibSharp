@@ -33,6 +33,8 @@ public sealed class ThrottledAction
     /// <param name="timeProvider">
     /// (Optional) Time provider used to measure the interval. Defaults to <see cref="TimeProvider.System"/>.
     /// </param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="action"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="interval"/> is outside the permitted range.</exception>
     public ThrottledAction(Action action, TimeSpan interval, TimeProvider? timeProvider = null)
     {
         Argument.NotNull(action);

@@ -1,5 +1,6 @@
 // Copyright (c) 2026 Danylo Fitel
 
+using System;
 using System.Collections.Generic;
 using LibSharp.Common;
 
@@ -15,6 +16,7 @@ public sealed class ReverseComparer<TComparable> : IComparer<TComparable>
     /// Initializes a new instance of the <see cref="ReverseComparer{TComparable}"/> class.
     /// </summary>
     /// <param name="comparer">A comparer.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="comparer"/> is <c>null</c>.</exception>
     public ReverseComparer(IComparer<TComparable> comparer)
     {
         Argument.NotNull(comparer);
@@ -28,8 +30,5 @@ public sealed class ReverseComparer<TComparable> : IComparer<TComparable>
         return _comparer.Compare(y, x);
     }
 
-    /// <summary>
-    /// The comparer.
-    /// </summary>
     private readonly IComparer<TComparable> _comparer;
 }

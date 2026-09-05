@@ -22,6 +22,8 @@ public static class FuncExtensions
     /// <exception cref="TimeoutException">The timeout elapsed before the work completed.</exception>
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was cancelled.</exception>
     /// <exception cref="InvalidOperationException"><paramref name="task"/> returned a null task.</exception>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="task"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="timeout"/> is outside the permitted range.</exception>
     /// <remarks>
     /// The caller is released when the timeout elapses whether or not the work cooperates. The work
     /// is also handed a token that is cancelled at the same moment, giving it the chance to stop;
@@ -91,6 +93,8 @@ public static class FuncExtensions
     /// <exception cref="TimeoutException">The timeout elapsed before the work completed.</exception>
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was cancelled.</exception>
     /// <exception cref="InvalidOperationException"><paramref name="task"/> returned a null task.</exception>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="task"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="timeout"/> is outside the permitted range.</exception>
     /// <remarks>
     /// The caller is released when the timeout elapses whether or not the work cooperates. The work
     /// is also handed a token that is cancelled at the same moment, giving it the chance to stop;

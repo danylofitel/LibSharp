@@ -29,6 +29,8 @@ public sealed class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
     /// <param name="factory">The value factory.</param>
     /// <param name="timeToLive">Cache time-to-live.</param>
     /// <param name="timeProvider">(Optional) Time provider used for expiration. Defaults to <see cref="TimeProvider.System"/>.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="factory"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="timeToLive"/> is outside the permitted range.</exception>
     public ValueCacheAsync(Func<CancellationToken, Task<T>> factory, TimeSpan timeToLive, TimeProvider? timeProvider = null)
     {
         Argument.NotNull(factory);
@@ -46,6 +48,7 @@ public sealed class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
     /// <param name="factory">The value factory.</param>
     /// <param name="expirationFunction">Function to calculate expiration of a value.</param>
     /// <param name="timeProvider">(Optional) Time provider used for expiration. Defaults to <see cref="TimeProvider.System"/>.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="expirationFunction"/> or <paramref name="factory"/> is <c>null</c>.</exception>
     public ValueCacheAsync(Func<CancellationToken, Task<T>> factory, Func<T, DateTime> expirationFunction, TimeProvider? timeProvider = null)
     {
         Argument.NotNull(factory);
@@ -64,6 +67,8 @@ public sealed class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
     /// <param name="updateFactory">The update factory.</param>
     /// <param name="timeToLive">Cache time-to-live.</param>
     /// <param name="timeProvider">(Optional) Time provider used for expiration. Defaults to <see cref="TimeProvider.System"/>.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="createFactory"/> or <paramref name="updateFactory"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="timeToLive"/> is outside the permitted range.</exception>
     public ValueCacheAsync(Func<CancellationToken, Task<T>> createFactory, Func<T, CancellationToken, Task<T>> updateFactory, TimeSpan timeToLive, TimeProvider? timeProvider = null)
     {
         Argument.NotNull(createFactory);
@@ -84,6 +89,7 @@ public sealed class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
     /// <param name="updateFactory">The update factory.</param>
     /// <param name="expirationFunction">Function to calculate expiration of a value.</param>
     /// <param name="timeProvider">(Optional) Time provider used for expiration. Defaults to <see cref="TimeProvider.System"/>.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="createFactory"/>, <paramref name="expirationFunction"/>, or <paramref name="updateFactory"/> is <c>null</c>.</exception>
     public ValueCacheAsync(Func<CancellationToken, Task<T>> createFactory, Func<T, CancellationToken, Task<T>> updateFactory, Func<T, DateTime> expirationFunction, TimeProvider? timeProvider = null)
     {
         Argument.NotNull(createFactory);
@@ -120,6 +126,7 @@ public sealed class ValueCacheAsync<T> : IValueCacheAsync<T>, IDisposable
     }
 
     /// <inheritdoc/>
+    /// <exception cref="ObjectDisposedException">Thrown when this instance has been disposed.</exception>
     public ValueTask<T> GetValueAsync(CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);

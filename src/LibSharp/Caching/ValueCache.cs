@@ -27,6 +27,8 @@ public sealed class ValueCache<T> : IValueCache<T>
     /// <param name="factory">The value factory.</param>
     /// <param name="timeToLive">Cache time-to-live.</param>
     /// <param name="timeProvider">(Optional) Time provider used for expiration. Defaults to <see cref="TimeProvider.System"/>.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="factory"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="timeToLive"/> is outside the permitted range.</exception>
     public ValueCache(Func<T> factory, TimeSpan timeToLive, TimeProvider? timeProvider = null)
     {
         Argument.NotNull(factory);
@@ -43,6 +45,7 @@ public sealed class ValueCache<T> : IValueCache<T>
     /// <param name="factory">The value factory.</param>
     /// <param name="expirationFunction">Function to calculate expiration of a value.</param>
     /// <param name="timeProvider">(Optional) Time provider used for expiration. Defaults to <see cref="TimeProvider.System"/>.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="expirationFunction"/> or <paramref name="factory"/> is <c>null</c>.</exception>
     public ValueCache(Func<T> factory, Func<T, DateTime> expirationFunction, TimeProvider? timeProvider = null)
     {
         Argument.NotNull(factory);
@@ -60,6 +63,8 @@ public sealed class ValueCache<T> : IValueCache<T>
     /// <param name="updateFactory">The update factory.</param>
     /// <param name="timeToLive">Cache time-to-live.</param>
     /// <param name="timeProvider">(Optional) Time provider used for expiration. Defaults to <see cref="TimeProvider.System"/>.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="createFactory"/> or <paramref name="updateFactory"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="timeToLive"/> is outside the permitted range.</exception>
     public ValueCache(Func<T> createFactory, Func<T, T> updateFactory, TimeSpan timeToLive, TimeProvider? timeProvider = null)
     {
         Argument.NotNull(createFactory);
@@ -79,6 +84,7 @@ public sealed class ValueCache<T> : IValueCache<T>
     /// <param name="updateFactory">The update factory.</param>
     /// <param name="expirationFunction">Function to calculate expiration of a value.</param>
     /// <param name="timeProvider">(Optional) Time provider used for expiration. Defaults to <see cref="TimeProvider.System"/>.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="createFactory"/>, <paramref name="expirationFunction"/>, or <paramref name="updateFactory"/> is <c>null</c>.</exception>
     public ValueCache(Func<T> createFactory, Func<T, T> updateFactory, Func<T, DateTime> expirationFunction, TimeProvider? timeProvider = null)
     {
         Argument.NotNull(createFactory);

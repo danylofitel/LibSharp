@@ -1,5 +1,6 @@
 // Copyright (c) 2026 Danylo Fitel
 
+using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -33,6 +34,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// Initializes a new empty instance of <see cref="ConcurrentHashSet{T}"/> using the specified equality comparer.
     /// </summary>
     /// <param name="comparer">The equality comparer to use when comparing elements.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="comparer"/> is <c>null</c>.</exception>
     public ConcurrentHashSet(IEqualityComparer<T> comparer)
     {
         Argument.NotNull(comparer);
@@ -46,6 +48,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// from the specified collection, using the default equality comparer.
     /// </summary>
     /// <param name="collection">The collection whose elements are copied into the set.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="collection"/> is <c>null</c>.</exception>
     public ConcurrentHashSet(IEnumerable<T> collection)
     {
         Argument.NotNull(collection);
@@ -64,6 +67,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// </summary>
     /// <param name="collection">The collection whose elements are copied into the set.</param>
     /// <param name="comparer">The equality comparer to use when comparing elements.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="collection"/> or <paramref name="comparer"/> is <c>null</c>.</exception>
     public ConcurrentHashSet(IEnumerable<T> collection, IEqualityComparer<T> comparer)
     {
         Argument.NotNull(collection);
@@ -126,6 +130,8 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     }
 
     /// <inheritdoc/>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="array"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="arrayIndex"/> is outside the permitted range.</exception>
     public void CopyTo(T[] array, int arrayIndex)
     {
         Argument.NotNull(array);
@@ -138,6 +144,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// Adds all elements from <paramref name="other"/> that are not already in the set.
     /// </summary>
     /// <param name="other">The collection of elements to add to the set.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="other"/> is <c>null</c>.</exception>
     public void UnionWith(IEnumerable<T> other)
     {
         Argument.NotNull(other);
@@ -152,6 +159,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// Removes all elements from the set that are not also present in <paramref name="other"/>.
     /// </summary>
     /// <param name="other">The collection that defines which elements to retain.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="other"/> is <c>null</c>.</exception>
     public void IntersectWith(IEnumerable<T> other)
     {
         Argument.NotNull(other);
@@ -170,6 +178,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// Removes all elements from the set that are also present in <paramref name="other"/>.
     /// </summary>
     /// <param name="other">The collection of elements to remove from the set.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="other"/> is <c>null</c>.</exception>
     public void ExceptWith(IEnumerable<T> other)
     {
         Argument.NotNull(other);
@@ -186,6 +195,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// <paramref name="other"/> are ignored.
     /// </summary>
     /// <param name="other">The collection to compare with the current set.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="other"/> is <c>null</c>.</exception>
     public void SymmetricExceptWith(IEnumerable<T> other)
     {
         Argument.NotNull(other);
@@ -207,6 +217,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// </summary>
     /// <param name="other">The collection to compare with the current set.</param>
     /// <returns><c>true</c> if the set is a subset of <paramref name="other"/>; otherwise <c>false</c>.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="other"/> is <c>null</c>.</exception>
     public bool IsSubsetOf(IEnumerable<T> other)
     {
         Argument.NotNull(other);
@@ -234,6 +245,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// </summary>
     /// <param name="other">The collection to compare with the current set.</param>
     /// <returns><c>true</c> if the set is a superset of <paramref name="other"/>; otherwise <c>false</c>.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="other"/> is <c>null</c>.</exception>
     public bool IsSupersetOf(IEnumerable<T> other)
     {
         Argument.NotNull(other);
@@ -255,6 +267,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// </summary>
     /// <param name="other">The collection to compare with the current set.</param>
     /// <returns><c>true</c> if the set is a proper subset of <paramref name="other"/>; otherwise <c>false</c>.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="other"/> is <c>null</c>.</exception>
     public bool IsProperSubsetOf(IEnumerable<T> other)
     {
         Argument.NotNull(other);
@@ -282,6 +295,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// </summary>
     /// <param name="other">The collection to compare with the current set.</param>
     /// <returns><c>true</c> if the set is a proper superset of <paramref name="other"/>; otherwise <c>false</c>.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="other"/> is <c>null</c>.</exception>
     public bool IsProperSupersetOf(IEnumerable<T> other)
     {
         Argument.NotNull(other);
@@ -308,6 +322,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// </summary>
     /// <param name="other">The collection to compare with the current set.</param>
     /// <returns><c>true</c> if the set and <paramref name="other"/> share at least one element; otherwise <c>false</c>.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="other"/> is <c>null</c>.</exception>
     public bool Overlaps(IEnumerable<T> other)
     {
         Argument.NotNull(other);
@@ -328,6 +343,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// </summary>
     /// <param name="other">The collection to compare with the current set.</param>
     /// <returns><c>true</c> if the set equals <paramref name="other"/>; otherwise <c>false</c>.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="other"/> is <c>null</c>.</exception>
     public bool SetEquals(IEnumerable<T> other)
     {
         Argument.NotNull(other);

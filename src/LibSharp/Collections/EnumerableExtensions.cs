@@ -20,6 +20,8 @@ public static class EnumerableExtensions
     /// <param name="chunkWeight">The maximum total weight of elements in a chunk.</param>
     /// <param name="itemWeight">The item weight selector.</param>
     /// <returns>A sequence of chunks.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="itemWeight"/> or <paramref name="source"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="chunkWeight"/> is outside the permitted range.</exception>
     /// <remarks>
     /// This is a weight-based variant, distinct from the standard-library
     /// <see cref="System.Linq.Enumerable.Chunk{TSource}(System.Collections.Generic.IEnumerable{TSource}, int)"/>,
@@ -51,6 +53,7 @@ public static class EnumerableExtensions
     /// <param name="source">The sequence of elements.</param>
     /// <param name="predicate">A function to test each element for a condition.</param>
     /// <returns>Index of the first element in the sequence that satisfies the condition, -1 otherwise.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="predicate"/> or <paramref name="source"/> is <c>null</c>.</exception>
     public static int FirstIndexOf<TSource>(this IEnumerable<TSource> source, Func<TSource, bool> predicate)
     {
         Argument.NotNull(source);
@@ -78,6 +81,7 @@ public static class EnumerableExtensions
     /// <param name="source">The sequence of elements.</param>
     /// <param name="predicate">A function to test each element for a condition.</param>
     /// <returns>Index of the last element in the sequence that satisfies the condition, -1 otherwise.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="predicate"/> or <paramref name="source"/> is <c>null</c>.</exception>
     public static int LastIndexOf<TSource>(this IEnumerable<TSource> source, Func<TSource, bool> predicate)
     {
         Argument.NotNull(source);
@@ -106,6 +110,7 @@ public static class EnumerableExtensions
     /// <typeparam name="TSource">The type of the elements of source.</typeparam>
     /// <param name="source">The sequence of elements to shuffle.</param>
     /// <returns>A randomly shuffled array.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="source"/> is <c>null</c>.</exception>
     /// <remarks>
     /// Uses <see cref="Random.Shared"/>, which is not cryptographically secure. Do not use this to
     /// shuffle anything whose order must be unpredictable to an adversary, such as a deck in a game

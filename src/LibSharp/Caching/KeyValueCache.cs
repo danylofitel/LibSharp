@@ -38,6 +38,8 @@ public sealed class KeyValueCache<TKey, TValue> : IKeyValueCache<TKey, TValue>
     /// <param name="factory">Value factory.</param>
     /// <param name="timeToLive">Cache time-to-live.</param>
     /// <param name="timeProvider">(Optional) Time provider used for expiration. Defaults to <see cref="TimeProvider.System"/>.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="factory"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="timeToLive"/> is outside the permitted range.</exception>
     public KeyValueCache(Func<TKey, TValue> factory, TimeSpan timeToLive, TimeProvider? timeProvider = null)
     {
         Argument.NotNull(factory);
@@ -54,6 +56,7 @@ public sealed class KeyValueCache<TKey, TValue> : IKeyValueCache<TKey, TValue>
     /// <param name="factory">The value factory.</param>
     /// <param name="expirationFunction">Function to calculate expiration of a value.</param>
     /// <param name="timeProvider">(Optional) Time provider used for expiration. Defaults to <see cref="TimeProvider.System"/>.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="expirationFunction"/> or <paramref name="factory"/> is <c>null</c>.</exception>
     public KeyValueCache(Func<TKey, TValue> factory, Func<TKey, TValue, DateTime> expirationFunction, TimeProvider? timeProvider = null)
     {
         Argument.NotNull(factory);
@@ -71,6 +74,8 @@ public sealed class KeyValueCache<TKey, TValue> : IKeyValueCache<TKey, TValue>
     /// <param name="updateFactory">The update factory.</param>
     /// <param name="timeToLive">Cache time-to-live.</param>
     /// <param name="timeProvider">(Optional) Time provider used for expiration. Defaults to <see cref="TimeProvider.System"/>.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="createFactory"/> or <paramref name="updateFactory"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="timeToLive"/> is outside the permitted range.</exception>
     public KeyValueCache(Func<TKey, TValue> createFactory, Func<TKey, TValue, TValue> updateFactory, TimeSpan timeToLive, TimeProvider? timeProvider = null)
     {
         Argument.NotNull(createFactory);
@@ -90,6 +95,7 @@ public sealed class KeyValueCache<TKey, TValue> : IKeyValueCache<TKey, TValue>
     /// <param name="updateFactory">The update factory.</param>
     /// <param name="expirationFunction">Function to calculate expiration of a value.</param>
     /// <param name="timeProvider">(Optional) Time provider used for expiration. Defaults to <see cref="TimeProvider.System"/>.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="createFactory"/>, <paramref name="expirationFunction"/>, or <paramref name="updateFactory"/> is <c>null</c>.</exception>
     public KeyValueCache(Func<TKey, TValue> createFactory, Func<TKey, TValue, TValue> updateFactory, Func<TKey, TValue, DateTime> expirationFunction, TimeProvider? timeProvider = null)
     {
         Argument.NotNull(createFactory);
@@ -121,6 +127,7 @@ public sealed class KeyValueCache<TKey, TValue> : IKeyValueCache<TKey, TValue>
     /// Thrown when the value factory reads the cache it is refreshing. Re-entering from the
     /// factory is not supported.
     /// </exception>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="key"/> is <c>null</c>.</exception>
     /// <remarks>Re-entering for a different key is allowed.</remarks>
     public TValue GetValue(TKey key)
     {

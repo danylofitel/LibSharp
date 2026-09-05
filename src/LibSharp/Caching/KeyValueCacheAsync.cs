@@ -39,6 +39,8 @@ public sealed class KeyValueCacheAsync<TKey, TValue> : IKeyValueCacheAsync<TKey,
     /// <param name="factory">Value factory.</param>
     /// <param name="timeToLive">Cache time-to-live.</param>
     /// <param name="timeProvider">(Optional) Time provider used for expiration. Defaults to <see cref="TimeProvider.System"/>.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="factory"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="timeToLive"/> is outside the permitted range.</exception>
     public KeyValueCacheAsync(Func<TKey, CancellationToken, Task<TValue>> factory, TimeSpan timeToLive, TimeProvider? timeProvider = null)
     {
         Argument.NotNull(factory);
@@ -55,6 +57,7 @@ public sealed class KeyValueCacheAsync<TKey, TValue> : IKeyValueCacheAsync<TKey,
     /// <param name="factory">The value factory.</param>
     /// <param name="expirationFunction">Function to calculate expiration of a value.</param>
     /// <param name="timeProvider">(Optional) Time provider used for expiration. Defaults to <see cref="TimeProvider.System"/>.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="expirationFunction"/> or <paramref name="factory"/> is <c>null</c>.</exception>
     public KeyValueCacheAsync(Func<TKey, CancellationToken, Task<TValue>> factory, Func<TKey, TValue, DateTime> expirationFunction, TimeProvider? timeProvider = null)
     {
         Argument.NotNull(factory);
@@ -72,6 +75,8 @@ public sealed class KeyValueCacheAsync<TKey, TValue> : IKeyValueCacheAsync<TKey,
     /// <param name="updateFactory">The update factory.</param>
     /// <param name="timeToLive">Cache time-to-live.</param>
     /// <param name="timeProvider">(Optional) Time provider used for expiration. Defaults to <see cref="TimeProvider.System"/>.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="createFactory"/> or <paramref name="updateFactory"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="timeToLive"/> is outside the permitted range.</exception>
     public KeyValueCacheAsync(Func<TKey, CancellationToken, Task<TValue>> createFactory, Func<TKey, TValue, CancellationToken, Task<TValue>> updateFactory, TimeSpan timeToLive, TimeProvider? timeProvider = null)
     {
         Argument.NotNull(createFactory);
@@ -91,6 +96,7 @@ public sealed class KeyValueCacheAsync<TKey, TValue> : IKeyValueCacheAsync<TKey,
     /// <param name="updateFactory">The update factory.</param>
     /// <param name="expirationFunction">Function to calculate expiration of a value.</param>
     /// <param name="timeProvider">(Optional) Time provider used for expiration. Defaults to <see cref="TimeProvider.System"/>.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="createFactory"/>, <paramref name="expirationFunction"/>, or <paramref name="updateFactory"/> is <c>null</c>.</exception>
     public KeyValueCacheAsync(Func<TKey, CancellationToken, Task<TValue>> createFactory, Func<TKey, TValue, CancellationToken, Task<TValue>> updateFactory, Func<TKey, TValue, DateTime> expirationFunction, TimeProvider? timeProvider = null)
     {
         Argument.NotNull(createFactory);
@@ -127,6 +133,8 @@ public sealed class KeyValueCacheAsync<TKey, TValue> : IKeyValueCacheAsync<TKey,
     }
 
     /// <inheritdoc/>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="key"/> is <c>null</c>.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown when this instance has been disposed.</exception>
     public ValueTask<TValue> GetValueAsync(TKey key, CancellationToken cancellationToken = default)
     {
         if (key is null)

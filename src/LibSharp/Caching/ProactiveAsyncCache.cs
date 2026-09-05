@@ -68,6 +68,8 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
     /// Cache configuration. Validated and copied here, so later changes to the instance do not
     /// affect this cache.
     /// </param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="options"/> or <paramref name="valueFactory"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="options"/> is outside the permitted range.</exception>
     /// <remarks>
     /// The value factory is expected to be independent of this cache instance. Re-entering this same
     /// cache from inside the factory is unsupported and deadlocks if the factory awaits the nested read.
@@ -183,6 +185,7 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
     }
 
     /// <inheritdoc/>
+    /// <exception cref="ObjectDisposedException">Thrown when this instance has been disposed.</exception>
     public ValueTask<T> GetValueAsync(CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
