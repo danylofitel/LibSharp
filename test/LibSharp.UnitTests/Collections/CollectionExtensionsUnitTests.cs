@@ -1,6 +1,7 @@
 // Copyright (c) 2026 Danylo Fitel
 
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using LibSharp.Collections;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -44,6 +45,31 @@ public class CollectionExtensionsUnitTests
         {
             Assert.Contains(value, collection);
         }
+    }
+
+    [TestMethod]
+    public void AddRange_NonListCollection_UsesFallbackPath()
+    {
+        // A List<T> target takes the List.AddRange fast path, so this is what covers the general
+        // ICollection<T> loop that every other target uses.
+        ICollection<int> collection = new HashSet<int> { 1 };
+
+        collection.AddRange(new[] { 2, 3, 2 });
+
+        CollectionAssert.AreEquivalent(new[] { 1, 2, 3 }, collection.ToList());
+    }
+
+    [TestMethod]
+    public void AddRange_ListTarget_MatchesFallbackBehaviour()
+    {
+        // The fast path must be a pure optimisation: same elements, same order.
+        List<int> viaFastPath = new List<int> { 1 };
+        ICollection<int> viaLoop = new Collection<int> { 1 };
+
+        viaFastPath.AddRange(new[] { 2, 3 });
+        viaLoop.AddRange(new[] { 2, 3 });
+
+        CollectionAssert.AreEqual(viaFastPath, viaLoop.ToList());
     }
 }
 

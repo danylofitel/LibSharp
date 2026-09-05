@@ -285,6 +285,26 @@ public class LazyAsyncPublicationOnlyUnitTests
         Assert.IsNotNull(await second.ConfigureAwait(false));
     }
 
+    [TestMethod]
+    public async Task DroppedValue_Null_IsIgnored()
+    {
+        // A factory may legitimately produce null; the dropped-value path must not choke on it.
+        TaskCompletionSource gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        LazyAsyncPublicationOnly<string?> lazy = new LazyAsyncPublicationOnly<string?>(async _ =>
+        {
+            await gate.Task.ConfigureAwait(false);
+            return (string?)null;
+        });
+
+        Task<string?> first = lazy.GetValueAsync(TestContext.CancellationToken).AsTask();
+        Task<string?> second = lazy.GetValueAsync(TestContext.CancellationToken).AsTask();
+        gate.SetResult();
+
+        Assert.IsNull(await first.ConfigureAwait(false));
+        Assert.IsNull(await second.ConfigureAwait(false));
+        Assert.IsTrue(lazy.HasValue);
+    }
+
     private sealed class Tracked : IDisposable
     {
         public bool Disposed { get; private set; }
