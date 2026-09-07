@@ -212,11 +212,14 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
             return new ValueTask<T>(snapshot.Value);
         }
 
+        // A read the stale-read policy will satisfy also returns without waiting, exactly as a hit
+        // does, so it has nothing to cancel either.
+        bool servedWithoutWaiting = snapshot is not null && CanServeStale(snapshot);
+
         // Miss: this call has to wait for a refresh, so an already-cancelled token cancels it here.
         // WaitAsync in the slow path cannot be relied on for this — when the shared refresh has
-        // already completed it hands back its result without ever consulting the token. Checked
-        // after the fast path above, because a hit does no waiting and so has nothing to cancel.
-        if (cancellationToken.IsCancellationRequested)
+        // already completed it hands back its result without ever consulting the token.
+        if (!servedWithoutWaiting && cancellationToken.IsCancellationRequested)
         {
             return ValueTask.FromCanceled<T>(cancellationToken);
         }
@@ -517,7 +520,10 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
 
             try
             {
-                _ = await GetOrCreateFetchTask().ConfigureAwait(false);
+                // backgroundRefresh, as in phase 2: this is the loop, and it paces its own retries
+                // with _retryDelay. Leaving it subject to the reader-side failure backoff would make
+                // a reader's recorded failure suppress the loop's own retry and stall it further.
+                _ = await GetOrCreateFetchTask(backgroundRefresh: true).ConfigureAwait(false);
             }
             catch (OperationCanceledException) when (_cts.IsCancellationRequested)
             {

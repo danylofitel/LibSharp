@@ -857,6 +857,58 @@ public class ProactiveAsyncCacheUnitTests
     // explicitly: without it the compiler reports CS8618, which the normal build suppresses but
     // `dotnet format` does not, and its code-fix pass then makes the property nullable and breaks
     // every TestContext.CancellationToken use.
+    [TestMethod]
+    public async Task GetValueAsync_CancelledToken_WithStaleReads_StillServesTheStaleValue()
+    {
+        // A stale-serving read returns without waiting, exactly as a fresh hit does, so there is
+        // nothing for the token to cancel.
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            _ => Task.FromResult(42),
+            new ProactiveAsyncCacheOptions
+            {
+                RefreshInterval = TimeSpan.FromMinutes(10),
+                PreFetchOffset = TimeSpan.Zero,
+                StaleReads = StaleReadPolicy.ServeStale,
+                TimeProvider = timeProvider,
+            });
+        await using ConfiguredAsyncDisposable disposable = cache.ConfigureAwait(false);
+
+        Assert.AreEqual(42, await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false));
+        timeProvider.Advance(TimeSpan.FromMinutes(20));
+
+        using CancellationTokenSource cancelled = new CancellationTokenSource();
+        cancelled.Cancel();
+
+        Assert.AreEqual(42, await cache.GetValueAsync(cancelled.Token).ConfigureAwait(false));
+    }
+
+    [TestMethod]
+    public async Task GetValueAsync_CancelledToken_WithoutStaleReads_StillCancels()
+    {
+        // The counterpart: with no stale value to serve, the read must wait, so the token applies.
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            _ => Task.FromResult(42),
+            new ProactiveAsyncCacheOptions
+            {
+                RefreshInterval = TimeSpan.FromMinutes(10),
+                PreFetchOffset = TimeSpan.Zero,
+                TimeProvider = timeProvider,
+            });
+        await using ConfiguredAsyncDisposable disposable = cache.ConfigureAwait(false);
+
+        Assert.AreEqual(42, await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false));
+        timeProvider.Advance(TimeSpan.FromMinutes(20));
+
+        using CancellationTokenSource cancelled = new CancellationTokenSource();
+        cancelled.Cancel();
+
+        // TaskCanceledException, matching how the rest of this file asserts an already-cancelled read.
+        _ = await Assert.ThrowsExactlyAsync<TaskCanceledException>(
+            async () => _ = await cache.GetValueAsync(cancelled.Token).ConfigureAwait(false)).ConfigureAwait(false);
+    }
+
     public TestContext TestContext { get; set; } = null!;
 
     // ── Failure backoff ────────────────────────────────────

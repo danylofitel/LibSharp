@@ -23,9 +23,11 @@ namespace LibSharp.Caching;
 /// </para>
 /// <para>
 /// Automatic disposal assumes the factory returns a freshly created instance that it exclusively
-/// owns. A factory returning a shared instance is still safe — identity is checked, so the published
-/// value is never disposed — but one returning distinct values that share an owned resource is not,
-/// and should turn disposal off.
+/// owns. Where <typeparamref name="T"/> is a reference type, a factory returning one shared instance
+/// to every racer is still safe: identity is checked, so the published value is never disposed. No
+/// such check is possible for a value type, which is copied per racer, nor for distinct values that
+/// share an owned resource. A factory that cannot meet the precondition should pass
+/// <c>disposeDroppedValues: false</c>.
 /// </para>
 /// <para>
 /// This type never disposes the published value, so its disposal remains the caller's responsibility.

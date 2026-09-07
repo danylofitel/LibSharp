@@ -31,9 +31,16 @@ internal static class DroppedValue
             return default;
         }
 
-        // A factory that hands back a shared instance produces the same object for every racer.
-        // Disposing it would destroy the value just published, so identity is ruled out first.
-        if (ReferenceEquals(droppedObject, published))
+        // Rule out the factory having handed every racer the same object, which disposing would
+        // destroy along with the value just published.
+        //
+        // This applies to reference types only, where identity is exact. A value type is copied per
+        // racer, so no test can tell a shared underlying resource from two distinct ones: equality
+        // would skip disposal for genuinely separate values that merely compare equal, which leaks
+        // for a factory that honours the exclusive-ownership precondition in order to protect one
+        // that does not. Value types are therefore disposed on the precondition alone, and a factory
+        // that cannot meet it should turn disposal off.
+        if (!typeof(T).IsValueType && ReferenceEquals(droppedObject, published))
         {
             return default;
         }

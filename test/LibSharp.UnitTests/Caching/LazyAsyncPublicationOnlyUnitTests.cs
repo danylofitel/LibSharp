@@ -305,6 +305,70 @@ public class LazyAsyncPublicationOnlyUnitTests
         Assert.IsTrue(lazy.HasValue);
     }
 
+    [TestMethod]
+    public async Task DroppedValue_ValueType_IsDisposedOnThePreconditionAlone()
+    {
+        // A struct is copied per racer, so nothing can distinguish a shared underlying resource from
+        // two separate ones. Disposal therefore rests on the documented precondition that the factory
+        // returns a value it exclusively owns; a factory that cannot meet it must opt out, which the
+        // companion test below covers.
+        SharedResource shared = new SharedResource();
+
+        _ = await RaceForHandlesAsync(shared, disposeDroppedValues: true).ConfigureAwait(false);
+
+        Assert.IsTrue(shared.Closed);
+    }
+
+    [TestMethod]
+    public async Task DroppedValue_ValueTypeSharingAResource_IsProtectedByOptingOut()
+    {
+        // The supported way to hold a value type whose copies share an owned resource.
+        SharedResource shared = new SharedResource();
+
+        _ = await RaceForHandlesAsync(shared, disposeDroppedValues: false).ConfigureAwait(false);
+
+        Assert.IsFalse(shared.Closed);
+    }
+
+    private async Task<ResourceHandle> RaceForHandlesAsync(SharedResource shared, bool disposeDroppedValues)
+    {
+        TaskCompletionSource gate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        LazyAsyncPublicationOnly<ResourceHandle> lazy = new LazyAsyncPublicationOnly<ResourceHandle>(
+            async _ =>
+            {
+                await gate.Task.ConfigureAwait(false);
+                return new ResourceHandle(shared);
+            },
+            disposeDroppedValues);
+
+        Task<ResourceHandle> first = lazy.GetValueAsync(TestContext.CancellationToken).AsTask();
+        Task<ResourceHandle> second = lazy.GetValueAsync(TestContext.CancellationToken).AsTask();
+        gate.SetResult();
+        ResourceHandle published = await first.ConfigureAwait(false);
+        _ = await second.ConfigureAwait(false);
+        return published;
+    }
+
+    private sealed class SharedResource
+    {
+        public bool Closed { get; set; }
+    }
+
+    private readonly struct ResourceHandle : IDisposable
+    {
+        private readonly SharedResource _resource;
+
+        public ResourceHandle(SharedResource resource)
+        {
+            _resource = resource;
+        }
+
+        public void Dispose()
+        {
+            _resource.Closed = true;
+        }
+    }
+
     private sealed class Tracked : IDisposable
     {
         public bool Disposed { get; private set; }
