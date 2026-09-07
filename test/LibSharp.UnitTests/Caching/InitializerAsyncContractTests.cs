@@ -99,6 +99,21 @@ public abstract class InitializerAsyncContractTests
         Assert.AreEqual(42, await initializer.GetValueAsync(_ => Task.FromResult(99), cancelled.Token).ConfigureAwait(false));
     }
 
+    [TestMethod]
+    public async Task AlreadyCancelledToken_BeforeInitialization_Cancels()
+    {
+        // The factory deliberately ignores its token: every implementation must still honour an
+        // already-cancelled token rather than leaving it to the factory.
+        IInitializerAsync<int> initializer = CreateInitializer();
+
+        using CancellationTokenSource cancelled = new CancellationTokenSource();
+        cancelled.Cancel();
+
+        _ = await Assert.ThrowsExactlyAsync<TaskCanceledException>(
+            async () => _ = await initializer.GetValueAsync(_ => Task.FromResult(42), cancelled.Token).ConfigureAwait(false)).ConfigureAwait(false);
+        Assert.IsFalse(initializer.HasValue);
+    }
+
     public TestContext TestContext { get; set; } = null!;
 }
 

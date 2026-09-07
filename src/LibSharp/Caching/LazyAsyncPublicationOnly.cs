@@ -84,6 +84,15 @@ public sealed class LazyAsyncPublicationOnly<T> : ILazyAsync<T>
             return new ValueTask<T>(value.Value);
         }
 
+        // This call has to produce a value, so an already-cancelled token cancels it here rather
+        // than relying on the factory to honour the token it is handed — many do not. Checked after
+        // the published-value path above, because that returns without waiting and so has nothing
+        // to cancel, matching every other type in this namespace.
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return ValueTask.FromCanceled<T>(cancellationToken);
+        }
+
         return InitializeAsync(cancellationToken);
     }
 
