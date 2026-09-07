@@ -863,8 +863,13 @@ public class ProactiveAsyncCacheUnitTests
         // A stale-serving read returns without waiting, exactly as a fresh hit does, so there is
         // nothing for the token to cancel.
         FakeTimeProvider timeProvider = new FakeTimeProvider();
+        // Only the first call completes. Later ones block, so the background loop cannot publish a
+        // fresh snapshot and turn this into a cache hit, which would bypass the path under test.
+        TaskCompletionSource<int> blockLaterCalls = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        int calls = 0;
+
         ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
-            _ => Task.FromResult(42),
+            _ => Interlocked.Increment(ref calls) == 1 ? Task.FromResult(42) : blockLaterCalls.Task,
             new ProactiveAsyncCacheOptions
             {
                 RefreshInterval = TimeSpan.FromMinutes(10),
@@ -881,6 +886,9 @@ public class ProactiveAsyncCacheUnitTests
         cancelled.Cancel();
 
         Assert.AreEqual(42, await cache.GetValueAsync(cancelled.Token).ConfigureAwait(false));
+
+        // Let the blocked fetch finish so disposal can drain it.
+        blockLaterCalls.SetResult(0);
     }
 
     [TestMethod]
@@ -888,8 +896,13 @@ public class ProactiveAsyncCacheUnitTests
     {
         // The counterpart: with no stale value to serve, the read must wait, so the token applies.
         FakeTimeProvider timeProvider = new FakeTimeProvider();
+        // Only the first call completes. Later ones block, so the background loop cannot publish a
+        // fresh snapshot and turn this into a cache hit, which would bypass the path under test.
+        TaskCompletionSource<int> blockLaterCalls = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        int calls = 0;
+
         ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
-            _ => Task.FromResult(42),
+            _ => Interlocked.Increment(ref calls) == 1 ? Task.FromResult(42) : blockLaterCalls.Task,
             new ProactiveAsyncCacheOptions
             {
                 RefreshInterval = TimeSpan.FromMinutes(10),
@@ -907,6 +920,9 @@ public class ProactiveAsyncCacheUnitTests
         // TaskCanceledException, matching how the rest of this file asserts an already-cancelled read.
         _ = await Assert.ThrowsExactlyAsync<TaskCanceledException>(
             async () => _ = await cache.GetValueAsync(cancelled.Token).ConfigureAwait(false)).ConfigureAwait(false);
+
+        // Let the blocked fetch finish so disposal can drain it.
+        blockLaterCalls.SetResult(0);
     }
 
     public TestContext TestContext { get; set; } = null!;
@@ -922,10 +938,18 @@ public class ProactiveAsyncCacheUnitTests
         FakeTimeProvider timeProvider = new FakeTimeProvider();
         int calls = 0;
 
+        // The background loop makes its own first attempt and is deliberately exempt from the
+        // reader-side backoff, so the two must not race: gate the factory so the read joins the
+        // loop's in-flight attempt rather than starting a second one after it has already failed.
+        TaskCompletionSource factoryEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource releaseFactory = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
         ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
-            cancellationToken =>
+            async cancellationToken =>
             {
                 _ = Interlocked.Increment(ref calls);
+                _ = factoryEntered.TrySetResult();
+                await releaseFactory.Task.ConfigureAwait(false);
                 throw new InvalidTimeZoneException("dependency down");
             },
             new ProactiveAsyncCacheOptions
@@ -936,10 +960,16 @@ public class ProactiveAsyncCacheUnitTests
             });
         await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
-        // Act — the first read fails and records the failure.
-        _ = await Assert.ThrowsExactlyAsync<InvalidTimeZoneException>(
-            () => cache.GetValueAsync(TestContext.CancellationToken).AsTask()).ConfigureAwait(false);
+        // Only the background loop can reach the factory before this point.
+        await factoryEntered.Task.ConfigureAwait(false);
 
+        // Act — this read joins that in-flight attempt, so it adds no factory call of its own.
+        Task<int> firstRead = cache.GetValueAsync(TestContext.CancellationToken).AsTask();
+        releaseFactory.SetResult();
+        _ = await Assert.ThrowsExactlyAsync<InvalidTimeZoneException>(() => firstRead).ConfigureAwait(false);
+
+        // The loop now waits out its own retry delay, which a FakeTimeProvider never advances, so
+        // any further increase below is a read reaching the factory.
         int callsAfterFirst = Volatile.Read(ref calls);
 
         // Assert — reads inside the retry window replay the stored exception, calling nothing.
@@ -995,13 +1025,22 @@ public class ProactiveAsyncCacheUnitTests
         FakeTimeProvider timeProvider = new FakeTimeProvider();
         int calls = 0;
 
+        // The background loop refreshes on its own once the value expires, so gate the failing call:
+        // the read below then joins that in-flight attempt instead of racing to start a second one.
+        TaskCompletionSource failingCallEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource releaseFailingCall = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
         ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
-            cancellationToken =>
+            async cancellationToken =>
             {
-                int call = Interlocked.Increment(ref calls);
-                return call == 1
-                    ? Task.FromResult(1)
-                    : throw new InvalidTimeZoneException("dependency down");
+                if (Interlocked.Increment(ref calls) == 1)
+                {
+                    return 1;
+                }
+
+                _ = failingCallEntered.TrySetResult();
+                await releaseFailingCall.Task.ConfigureAwait(false);
+                throw new InvalidTimeZoneException("dependency down");
             },
             new ProactiveAsyncCacheOptions
             {
@@ -1014,10 +1053,21 @@ public class ProactiveAsyncCacheUnitTests
 
         Assert.AreEqual(1, await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false));
 
-        // Expire the value, then read: this read triggers the failing refresh and serves stale.
+        // Expire the value. The loop wakes and starts the failing refresh; wait for it so the read
+        // below joins that attempt rather than starting one of its own.
         timeProvider.Advance(TimeSpan.FromMinutes(11));
+        await failingCallEntered.Task.ConfigureAwait(false);
+
+        // The read is served stale without waiting for that refresh to finish.
         Assert.AreEqual(1, await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false));
 
+        releaseFailingCall.SetResult();
+        await PollUntilAsync(
+            () => cache.ConsecutiveRefreshFailures > 0,
+            TestContext.CancellationToken,
+            "The refresh never failed.").ConfigureAwait(false);
+
+        // The loop now waits out its retry delay, which a FakeTimeProvider never advances.
         int callsAfterFailure = Volatile.Read(ref calls);
 
         // Act & Assert — further reads keep serving stale and stop touching the factory entirely.
@@ -1404,7 +1454,14 @@ public class ProactiveAsyncCacheUnitTests
 
         // Go quiet well past the idle timeout so the loop parks.
         timeProvider.Advance(TimeSpan.FromMinutes(31));
-        await Task.Delay(100, TestContext.CancellationToken).ConfigureAwait(false);
+
+        // Wait for the loop to actually park rather than assuming a delay was long enough. The
+        // tracker holds a wake signal only while a worker is suspended on it.
+        await PollUntilAsync(
+            () => GetIdleSignal(cache) is not null,
+            TestContext.CancellationToken,
+            "The background loop never parked.").ConfigureAwait(false);
+
         int atPark = Volatile.Read(ref calls);
 
         // Many refresh intervals with no reads: a parked loop must not call the factory at all.
@@ -1430,6 +1487,14 @@ public class ProactiveAsyncCacheUnitTests
             },
             TestContext.CancellationToken,
             "The background loop did not resume pre-fetching after being woken.").ConfigureAwait(false);
+    }
+
+    private static object? GetIdleSignal<TValue>(ProactiveAsyncCache<TValue> cache)
+    {
+        FieldInfo trackerField = typeof(ProactiveAsyncCache<TValue>).GetField("_idleTracker", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        object tracker = trackerField.GetValue(cache)!;
+        FieldInfo signalField = tracker.GetType().GetField("_signal", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        return signalField.GetValue(tracker);
     }
 
     private static async Task PollUntilAsync(Func<bool> condition, CancellationToken cancellationToken, string failureMessage)
