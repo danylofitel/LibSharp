@@ -4,6 +4,7 @@ bin/
 obj/
 TestResults/
 coveragereport/
+coverage/
 *.user
 benchmarks/results/
 BenchmarkDotNet.Artifacts/
