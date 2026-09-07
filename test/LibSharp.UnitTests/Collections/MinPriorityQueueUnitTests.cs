@@ -4,6 +4,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using LibSharp.Collections;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -1261,5 +1262,36 @@ public class MinPriorityQueueUnitTests
 
         Assert.AreEqual(1, queue.Count);
         Assert.AreEqual(42, queue.Peek());
+    }
+
+    [TestMethod]
+    public void MoveNext_RepeatedlyAfterExhaustion_KeepsReturningFalse()
+    {
+        // IEnumerator requires MoveNext to keep returning false once past the end. It must also stop
+        // advancing: an index that grows on every call eventually overflows and reads out of bounds.
+        MinPriorityQueue<int> queue = new MinPriorityQueue<int>(new[] { 1, 2, 3 });
+        using IEnumerator<int> enumerator = queue.GetEnumerator();
+
+        for (int i = 0; i < 3; i++)
+        {
+            Assert.IsTrue(enumerator.MoveNext());
+        }
+
+        // The first false call legitimately steps from the last element to just past the end.
+        Assert.IsFalse(enumerator.MoveNext());
+
+        FieldInfo? indexField = enumerator.GetType().GetField("_index", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.IsNotNull(indexField, "Could not find the enumerator's _index field.");
+        int indexAtEnd = (int)indexField!.GetValue(enumerator)!;
+
+        for (int i = 0; i < 1000; i++)
+        {
+            Assert.IsFalse(enumerator.MoveNext());
+        }
+
+        // Returning false is not enough: the index must also stand still, or it eventually
+        // overflows and Current reads outside the heap.
+        Assert.AreEqual(indexAtEnd, (int)indexField.GetValue(enumerator)!, "MoveNext kept advancing past the end.");
+        _ = Assert.ThrowsExactly<InvalidOperationException>(() => _ = enumerator.Current);
     }
 }

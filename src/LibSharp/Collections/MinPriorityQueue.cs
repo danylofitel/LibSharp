@@ -442,7 +442,10 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
     /// </summary>
     private void Shrink()
     {
-        if (Count * 4 < _heap.Length && _heap.Length >= InitialCapacity * 2)
+        // Division rather than multiplication: Count * 4 overflows past roughly 536 million
+        // elements, turning negative, which passes this test and then throws from the copy below
+        // because Count no longer fits the smaller array.
+        if (Count < _heap.Length / 4 && _heap.Length >= InitialCapacity * 2)
         {
             T[] smallerPQ = new T[_heap.Length / 2];
             Array.Copy(_heap, 1, smallerPQ, 1, Count);
@@ -522,6 +525,13 @@ public sealed class MinPriorityQueue<T> : IPriorityQueue<T>, ICollection
         public bool MoveNext()
         {
             MinPriorityQueue<TItem> queue = Validate();
+
+            if (_index >= queue.Count)
+            {
+                // Already past the end. Standing still keeps repeated calls returning false, where
+                // incrementing would eventually overflow the index and read outside the heap.
+                return false;
+            }
 
             ++_index;
             return _index < queue.Count;
