@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <MSTest>
+    <!-- A per-test ceiling so that a test which blocks on a gate it never receives fails with a
+         timeout instead of hanging the run. Individual tests may still set a shorter [Timeout].
+         This is deliberately generous: it is a backstop against hangs, not a performance budget. -->
+    <TestTimeout>60000</TestTimeout>
+  </MSTest>
+</RunSettings>
