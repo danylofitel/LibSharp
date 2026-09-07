@@ -14,6 +14,19 @@ namespace LibSharp.UnitTests.Caching;
 [TestClass]
 public class ProactiveAsyncCacheUnitTests
 {
+    // A note for anyone adding tests here.
+    //
+    // Every instance of this cache runs a background refresh loop, so the loop is a second caller of
+    // the value factory alongside the test. It attempts a fetch right after construction, and again
+    // whenever the fake clock is advanced past a delay it is waiting on. It is also deliberately
+    // exempt from the reader-side failure backoff, so a failing factory sees attempts from it that
+    // no read triggered.
+    //
+    // Anything the loop can move — the factory call count, ConsecutiveRefreshFailures,
+    // LastRefreshException, LastSuccessfulRefresh — therefore cannot be asserted against an exact
+    // value derived from the number of reads. Either gate the factory so the read joins the loop's
+    // in-flight attempt rather than racing it, or assert a relation such as growth instead.
+
     // ── Constructor validation ────────────────────────────────────────────
 
     [TestMethod]
@@ -1161,12 +1174,19 @@ public class ProactiveAsyncCacheUnitTests
         await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
         // Each attempt must clear the backoff window, or the factory is never reached again.
-        for (int expected = 1; expected <= 3; expected++)
+        //
+        // The count grows rather than matching the read count exactly: advancing past the retry
+        // delay also wakes the background loop, whose own attempt records a failure of its own. What
+        // this asserts is that it keeps growing — if the backoff never cleared, reads would stop
+        // reaching the factory and the count would stand still.
+        int previousFailures = 0;
+        for (int round = 1; round <= 3; round++)
         {
             _ = await Assert.ThrowsExactlyAsync<InvalidTimeZoneException>(
                 () => cache.GetValueAsync(TestContext.CancellationToken).AsTask()).ConfigureAwait(false);
 
-            Assert.AreEqual(expected, cache.ConsecutiveRefreshFailures);
+            Assert.IsGreaterThan(previousFailures, cache.ConsecutiveRefreshFailures, "The failure count stopped growing, so reads stopped reaching the factory.");
+            previousFailures = cache.ConsecutiveRefreshFailures;
             _ = Assert.IsInstanceOfType<InvalidTimeZoneException>(cache.LastRefreshException);
             Assert.IsNull(cache.LastSuccessfulRefresh, "No value has ever been produced.");
 
@@ -1180,10 +1200,23 @@ public class ProactiveAsyncCacheUnitTests
     {
         FakeTimeProvider timeProvider = new FakeTimeProvider();
         int calls = 0;
+        // Gate the failing call so the read joins the background loop's attempt. Racing it would
+        // let the loop make the second, succeeding call and clear the failure before it is observed.
+        TaskCompletionSource failingCallEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        TaskCompletionSource releaseFailingCall = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+
         ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
-            _ => Interlocked.Increment(ref calls) == 1
-                ? throw new InvalidTimeZoneException("transient")
-                : Task.FromResult(42),
+            async (CancellationToken cancellationToken) =>
+            {
+                if (Interlocked.Increment(ref calls) != 1)
+                {
+                    return 42;
+                }
+
+                _ = failingCallEntered.TrySetResult();
+                await releaseFailingCall.Task.ConfigureAwait(false);
+                throw new InvalidTimeZoneException("transient");
+            },
             new ProactiveAsyncCacheOptions
             {
                 RefreshInterval = TimeSpan.FromMinutes(10),
@@ -1192,8 +1225,12 @@ public class ProactiveAsyncCacheUnitTests
             });
         await using ConfiguredAsyncDisposable d = cache.ConfigureAwait(false);
 
-        _ = await Assert.ThrowsExactlyAsync<InvalidTimeZoneException>(
-            () => cache.GetValueAsync(TestContext.CancellationToken).AsTask()).ConfigureAwait(false);
+        // Only the background loop can reach the factory before this point.
+        await failingCallEntered.Task.ConfigureAwait(false);
+
+        Task<int> failedRead = cache.GetValueAsync(TestContext.CancellationToken).AsTask();
+        releaseFailingCall.SetResult();
+        _ = await Assert.ThrowsExactlyAsync<InvalidTimeZoneException>(() => failedRead).ConfigureAwait(false);
         Assert.AreEqual(1, cache.ConsecutiveRefreshFailures);
 
         // Act
