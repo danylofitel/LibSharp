@@ -1371,6 +1371,67 @@ public class ProactiveAsyncCacheUnitTests
     // Polls until the condition holds, waiting on real time between attempts so a continuation
     // scheduled on the thread pool actually gets to run. The caller cancellation token and the
     // test timeout bound the total wait.
+    [TestMethod]
+    public async Task IdleTimeout_ParksTheRefreshLoopWhenUnread_AndResumesOnTheNextRead()
+    {
+        // End-to-end cover for the whole point of IdleTimeout. IdleTimeout is comfortably larger
+        // than RefreshInterval, as the option's documentation requires: a shorter one falls idle
+        // between consecutive reads and degrades the cache to on-demand refresh.
+        int calls = 0;
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
+        ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            _ => Task.FromResult(Interlocked.Increment(ref calls)),
+            new ProactiveAsyncCacheOptions
+            {
+                RefreshInterval = TimeSpan.FromMinutes(10),
+                PreFetchOffset = TimeSpan.FromMinutes(1),
+                IdleTimeout = TimeSpan.FromMinutes(30),
+                TimeProvider = timeProvider,
+            });
+        await using ConfiguredAsyncDisposable disposable = cache.ConfigureAwait(false);
+
+        _ = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+
+        // While active, reaching the pre-fetch point refreshes without anyone reading.
+        await PollUntilAsync(
+            () =>
+            {
+                timeProvider.Advance(TimeSpan.FromMinutes(1));
+                return Volatile.Read(ref calls) >= 2;
+            },
+            TestContext.CancellationToken,
+            "The background loop never pre-fetched while the cache was active.").ConfigureAwait(false);
+
+        // Go quiet well past the idle timeout so the loop parks.
+        timeProvider.Advance(TimeSpan.FromMinutes(31));
+        await Task.Delay(100, TestContext.CancellationToken).ConfigureAwait(false);
+        int atPark = Volatile.Read(ref calls);
+
+        // Many refresh intervals with no reads: a parked loop must not call the factory at all.
+        // Waiting longer here only strengthens the assertion, so it cannot flake.
+        for (int i = 0; i < 10; i++)
+        {
+            timeProvider.Advance(TimeSpan.FromMinutes(30));
+        }
+
+        await Task.Delay(200, TestContext.CancellationToken).ConfigureAwait(false);
+        Assert.AreEqual(atPark, Volatile.Read(ref calls), "The loop kept refreshing after it should have parked.");
+
+        // A read wakes it, and the loop resumes pre-fetching on its own afterwards.
+        _ = await cache.GetValueAsync(TestContext.CancellationToken).ConfigureAwait(false);
+        int afterWake = Volatile.Read(ref calls);
+        Assert.IsGreaterThan(atPark, afterWake, "The waking read did not fetch.");
+
+        await PollUntilAsync(
+            () =>
+            {
+                timeProvider.Advance(TimeSpan.FromMinutes(1));
+                return Volatile.Read(ref calls) > afterWake;
+            },
+            TestContext.CancellationToken,
+            "The background loop did not resume pre-fetching after being woken.").ConfigureAwait(false);
+    }
+
     private static async Task PollUntilAsync(Func<bool> condition, CancellationToken cancellationToken, string failureMessage)
     {
         for (int i = 0; i < 2000; i++)
