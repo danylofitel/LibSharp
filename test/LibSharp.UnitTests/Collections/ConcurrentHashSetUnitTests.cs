@@ -698,8 +698,60 @@ public class ConcurrentHashSetUnitTests
         Assert.AreEqual(1000, set.Count);
     }
 
-    public TestContext TestContext { get; set; }
+    // MSTest assigns this by property injection after construction. The initializer states that
+    // explicitly: without it the compiler reports CS8618, which the normal build suppresses but
+    // `dotnet format` does not, and its code-fix pass then makes the property nullable and breaks
+    // every TestContext.CancellationToken use.
+    public TestContext TestContext { get; set; } = null!;
 
     private static readonly int[] s_expected = new[] { 1, 2, 3 };
-}
 
+    // -- Enumeration -------------------------------------------------------
+
+    [TestMethod]
+    public void GetEnumerator_YieldsEveryElementExactlyOnce()
+    {
+        ConcurrentHashSet<int> set = new ConcurrentHashSet<int>(Enumerable.Range(0, 50));
+
+        List<int> seen = new List<int>();
+        foreach (int item in set)
+        {
+            seen.Add(item);
+        }
+
+        seen.Sort();
+        CollectionAssert.AreEqual(Enumerable.Range(0, 50).ToList(), seen);
+    }
+
+    [TestMethod]
+    public void GetEnumerator_RemovingDuringEnumeration_DoesNotThrow()
+    {
+        // Enumeration is lock-free and live rather than a snapshot, so it must tolerate the set
+        // changing underneath it - which is exactly what IntersectWith does internally.
+        ConcurrentHashSet<int> set = new ConcurrentHashSet<int>(Enumerable.Range(0, 100));
+
+        int visited = 0;
+        foreach (int item in set)
+        {
+            visited++;
+            if (item % 2 == 0)
+            {
+                _ = set.Remove(item);
+            }
+        }
+
+        Assert.IsGreaterThan(0, visited);
+        Assert.IsTrue(set.All(x => x % 2 != 0), "Every even element should have been removed.");
+    }
+
+    [TestMethod]
+    public void IntersectWith_RemovesWhileEnumeratingItself()
+    {
+        ConcurrentHashSet<int> set = new ConcurrentHashSet<int>(Enumerable.Range(0, 100));
+
+        set.IntersectWith(new[] { 10, 20, 30 });
+
+        Assert.AreEqual(3, set.Count);
+        Assert.IsTrue(set.SetEquals(new[] { 10, 20, 30 }));
+    }
+}

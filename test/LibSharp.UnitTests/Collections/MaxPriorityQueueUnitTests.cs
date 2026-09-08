@@ -4,6 +4,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using LibSharp.Collections;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -32,7 +33,7 @@ public class MaxPriorityQueueUnitTests
     public void Constructor_NoArguments_NonComparableType_Throws()
     {
         // Act
-        _ = Assert.ThrowsExactly<ArgumentException>(() => new MaxPriorityQueue<object>());
+        _ = Assert.ThrowsExactly<InvalidOperationException>(() => new MaxPriorityQueue<object>());
     }
 
     [TestMethod]
@@ -147,7 +148,7 @@ public class MaxPriorityQueueUnitTests
     public void Constructor_FromCollection_NonComparableType_Throws()
     {
         // Act
-        _ = Assert.ThrowsExactly<ArgumentException>(() => new MaxPriorityQueue<object>(new object[] { new object(), new object(), new object() }));
+        _ = Assert.ThrowsExactly<InvalidOperationException>(() => new MaxPriorityQueue<object>(new object[] { new object(), new object(), new object() }));
     }
 
     [TestMethod]
@@ -324,7 +325,7 @@ public class MaxPriorityQueueUnitTests
         MaxPriorityQueue<int> queue = new MaxPriorityQueue<int>();
 
         // Act
-        Assert.IsFalse(queue.IsSynchronized);
+        Assert.IsFalse(((ICollection)queue).IsSynchronized);
     }
 
     [TestMethod]
@@ -334,7 +335,7 @@ public class MaxPriorityQueueUnitTests
         MaxPriorityQueue<int> queue = new MaxPriorityQueue<int>();
 
         // Act
-        Assert.AreEqual(queue, queue.SyncRoot);
+        Assert.AreEqual(queue, ((ICollection)queue).SyncRoot);
     }
 
     [TestMethod]
@@ -767,7 +768,7 @@ public class MaxPriorityQueueUnitTests
         MaxPriorityQueue<int> queue = new MaxPriorityQueue<int>(items);
 
         // Act
-        queue.CopyTo(destination, 0);
+        ((ICollection)queue).CopyTo(destination, 0);
 
         // Assert
         CollectionAssert.AreEquivalent(items, destination);
@@ -1053,7 +1054,119 @@ public class MaxPriorityQueueUnitTests
             return x!.Value.CompareTo(y!.Value);
         }
     }
+
+    // -- Enumerator contract -----------------------------------------------
+
+    [TestMethod]
+    public void Current_BeforeMoveNext_Throws()
+    {
+        // Heap index 0 is an unused slot, so a missing guard here silently hands back default(T)
+        // instead of failing.
+        MaxPriorityQueue<int> queue = new MaxPriorityQueue<int>(new[] { 5, 3, 9, 1, 7 });
+        using IEnumerator<int> enumerator = queue.GetEnumerator();
+
+        _ = Assert.ThrowsExactly<InvalidOperationException>(() => _ = enumerator.Current);
+    }
+
+    [TestMethod]
+    public void Current_OnEmptyQueue_Throws()
+    {
+        MaxPriorityQueue<int> queue = new MaxPriorityQueue<int>();
+        using IEnumerator<int> enumerator = queue.GetEnumerator();
+
+        _ = Assert.ThrowsExactly<InvalidOperationException>(() => _ = enumerator.Current);
+    }
+
+    [TestMethod]
+    public void Current_AfterEnumerationCompletes_Throws()
+    {
+        MaxPriorityQueue<int> queue = new MaxPriorityQueue<int>(new[] { 5, 3, 9, 1, 7 });
+        using IEnumerator<int> enumerator = queue.GetEnumerator();
+
+        while (enumerator.MoveNext())
+        {
+        }
+
+        _ = Assert.ThrowsExactly<InvalidOperationException>(() => _ = enumerator.Current);
+    }
+
+    [TestMethod]
+    public void Current_AfterReset_ThrowsUntilMoveNext()
+    {
+        MaxPriorityQueue<int> queue = new MaxPriorityQueue<int>(new[] { 5, 3, 9, 1, 7 });
+        using IEnumerator<int> enumerator = queue.GetEnumerator();
+
+        Assert.IsTrue(enumerator.MoveNext());
+        enumerator.Reset();
+
+        _ = Assert.ThrowsExactly<InvalidOperationException>(() => _ = enumerator.Current);
+    }
+
+    [TestMethod]
+    public void GetEnumerator_YieldsEveryElementExactlyOnce()
+    {
+        // The order is deliberately unspecified - it is the heap layout, not priority order - so
+        // this pins the contract that actually holds: every element, exactly once.
+        int[] items = new[] { 5, 3, 9, 1, 7 };
+        MaxPriorityQueue<int> queue = new MaxPriorityQueue<int>(items);
+
+        List<int> enumerated = new List<int>();
+        foreach (int item in queue)
+        {
+            enumerated.Add(item);
+        }
+
+        enumerated.Sort();
+        int[] expected = (int[])items.Clone();
+        Array.Sort(expected);
+
+        CollectionAssert.AreEqual(expected, enumerated);
+    }
+
+    [TestMethod]
+    public void GetEnumerator_OrderIsNotPriorityOrder_ButDequeueIs()
+    {
+        // Documents the trap: enumeration starts with the highest-priority element, so a short
+        // example can look ordered when it is not.
+        MaxPriorityQueue<int> queue = new MaxPriorityQueue<int>(new[] { 5, 3, 9, 1, 7 });
+
+        List<int> drained = new List<int>();
+        while (queue.TryDequeue(out int next))
+        {
+            drained.Add(next);
+        }
+
+        CollectionAssert.AreEqual(new[] { 9, 7, 5, 3, 1 }, drained);
+    }
+
+    [TestMethod]
+    public void MoveNext_RepeatedlyAfterExhaustion_KeepsReturningFalse()
+    {
+        // IEnumerator requires MoveNext to keep returning false once past the end. It must also stop
+        // advancing: an index that grows on every call eventually overflows and reads out of bounds.
+        MaxPriorityQueue<int> queue = new MaxPriorityQueue<int>(new[] { 1, 2, 3 });
+        using IEnumerator<int> enumerator = queue.GetEnumerator();
+
+        for (int i = 0; i < 3; i++)
+        {
+            Assert.IsTrue(enumerator.MoveNext());
+        }
+
+        // The first false call legitimately steps from the last element to just past the end.
+        Assert.IsFalse(enumerator.MoveNext());
+
+        FieldInfo? indexField = enumerator.GetType().GetField("_index", BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.IsNotNull(indexField, "Could not find the enumerator's _index field.");
+        int indexAtEnd = (int)indexField!.GetValue(enumerator)!;
+
+        for (int i = 0; i < 1000; i++)
+        {
+            Assert.IsFalse(enumerator.MoveNext());
+        }
+
+        // Returning false is not enough: the index must also stand still, or it eventually
+        // overflows and Current reads outside the heap.
+        Assert.AreEqual(indexAtEnd, (int)indexField.GetValue(enumerator)!, "MoveNext kept advancing past the end.");
+        _ = Assert.ThrowsExactly<InvalidOperationException>(() => _ = enumerator.Current);
+    }
 }
-
-
-

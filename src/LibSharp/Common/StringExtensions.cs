@@ -3,7 +3,6 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Text;
 
 namespace LibSharp.Common;
@@ -19,6 +18,7 @@ public static class StringExtensions
     /// <param name="input">Base 64 encoded string.</param>
     /// <param name="encoding">String encoding.</param>
     /// <returns>Original string.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="input"/> is <c>null</c>.</exception>
     public static string Base64Decode(this string input, Encoding? encoding = null)
     {
         Argument.NotNull(input);
@@ -33,6 +33,7 @@ public static class StringExtensions
     /// <param name="input">Input string.</param>
     /// <param name="encoding">String encoding.</param>
     /// <returns>Base 64 encoded string.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="input"/> is <c>null</c>.</exception>
     public static string Base64Encode(this string input, Encoding? encoding = null)
     {
         Argument.NotNull(input);
@@ -46,17 +47,31 @@ public static class StringExtensions
     /// </summary>
     /// <param name="input">The input string.</param>
     /// <returns>The reversed string.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="input"/> is <c>null</c>.</exception>
     public static string Reverse(this string input)
     {
         Argument.NotNull(input);
 
-        int[] characterIndexes = StringInfo.ParseCombiningCharacters(input);
+        if (input.Length <= 1)
+        {
+            return input;
+        }
 
-        Array.Reverse(characterIndexes);
+        // Reversing text elements preserves the total number of chars, so the result length is
+        // known up front and each element can be copied straight into its final position.
+        return string.Create(input.Length, input, static (destination, source) =>
+        {
+            ReadOnlySpan<char> remaining = source;
+            int written = 0;
 
-        IEnumerable<string> elements = characterIndexes.Select(i => StringInfo.GetNextTextElement(input, i));
-
-        return string.Concat(elements);
+            while (!remaining.IsEmpty)
+            {
+                int length = StringInfo.GetNextTextElementLength(remaining);
+                remaining[..length].CopyTo(destination[(destination.Length - written - length)..]);
+                written += length;
+                remaining = remaining[length..];
+            }
+        });
     }
 
     /// <summary>
@@ -79,11 +94,18 @@ public static class StringExtensions
     }
 
     /// <summary>
-    /// Truncates the string to the specified maximum length.
+    /// Truncates the string to the specified maximum number of UTF-16 code units.
     /// </summary>
     /// <param name="input">The input string.</param>
     /// <param name="maxLength">The maximum length.</param>
     /// <returns>The string truncated to the maximum length.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="input"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="maxLength"/> is outside the permitted range.</exception>
+    /// <remarks>
+    /// Cuts at a code unit, so it can split a surrogate pair or separate a combining mark from the
+    /// character it modifies, leaving text that no longer renders correctly. Use
+    /// <see cref="TruncateTextElements"/> to cut on grapheme boundaries instead.
+    /// </remarks>
     public static string Truncate(this string input, int maxLength)
     {
         Argument.NotNull(input);
@@ -103,6 +125,8 @@ public static class StringExtensions
     /// <param name="input">The input string.</param>
     /// <param name="maxTextElements">The maximum number of text elements.</param>
     /// <returns>The string truncated to the maximum number of text elements.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="input"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="maxTextElements"/> is outside the permitted range.</exception>
     public static string TruncateTextElements(this string input, int maxTextElements)
     {
         Argument.NotNull(input);
@@ -113,12 +137,23 @@ public static class StringExtensions
             return string.Empty;
         }
 
-        int[] characterIndexes = StringInfo.ParseCombiningCharacters(input);
-        if (characterIndexes.Length <= maxTextElements)
+        // Walk only as far as the limit rather than indexing every element: a string within the
+        // limit is recognised without scanning the remainder.
+        ReadOnlySpan<char> remaining = input;
+        int offset = 0;
+
+        for (int i = 0; i < maxTextElements; ++i)
         {
-            return input;
+            if (remaining.IsEmpty)
+            {
+                return input;
+            }
+
+            int length = StringInfo.GetNextTextElementLength(remaining);
+            offset += length;
+            remaining = remaining[length..];
         }
 
-        return input[..characterIndexes[maxTextElements]];
+        return remaining.IsEmpty ? input : input[..offset];
     }
 }

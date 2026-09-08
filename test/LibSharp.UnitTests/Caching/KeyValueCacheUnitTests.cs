@@ -13,7 +13,11 @@ namespace LibSharp.UnitTests.Caching;
 [TestClass]
 public class KeyValueCacheUnitTests
 {
-    public TestContext TestContext { get; set; }
+    // MSTest assigns this by property injection after construction. The initializer states that
+    // explicitly: without it the compiler reports CS8618, which the normal build suppresses but
+    // `dotnet format` does not, and its code-fix pass then makes the property nullable and breaks
+    // every TestContext.CancellationToken use.
+    public TestContext TestContext { get; set; } = null!;
 
     [TestMethod]
     public void KeyValueCache_TimeToLive_ValueNotExpired()
@@ -465,5 +469,74 @@ public class KeyValueCacheUnitTests
         timeProvider.Advance(TimeSpan.FromMinutes(1));
         Assert.AreEqual(3, cache.GetValue("a")); // "a" expired: factory invoked again.
         Assert.AreEqual(3, calls);
+    }
+
+    // ── Count ─────────────────────────────────────────────────────────────
+
+    [TestMethod]
+    public void Count_IsZeroBeforeAnyKeyIsRequested()
+    {
+        KeyValueCache<int, int> cache = new KeyValueCache<int, int>(key => key, TimeSpan.FromHours(1));
+
+        Assert.AreEqual(0, cache.Count);
+    }
+
+    [TestMethod]
+    public void Count_TracksDistinctKeysRequested()
+    {
+        KeyValueCache<int, int> cache = new KeyValueCache<int, int>(key => key, TimeSpan.FromHours(1));
+
+        _ = cache.GetValue(1);
+        Assert.AreEqual(1, cache.Count);
+
+        _ = cache.GetValue(2);
+        Assert.AreEqual(2, cache.Count);
+
+        // Repeat reads of a known key add nothing.
+        _ = cache.GetValue(1);
+        _ = cache.GetValue(2);
+        Assert.AreEqual(2, cache.Count);
+    }
+
+    [TestMethod]
+    public void Count_StillCountsEntriesWhoseValueHasExpired()
+    {
+        // The point of exposing Count: entries are never evicted, so an expired value still
+        // occupies an entry. This is the number that grows without bound on an unbounded key space.
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
+        KeyValueCache<int, int> cache = new KeyValueCache<int, int>(key => key, TimeSpan.FromMinutes(1), timeProvider);
+
+        _ = cache.GetValue(1);
+        _ = cache.GetValue(2);
+        Assert.AreEqual(2, cache.Count);
+
+        timeProvider.Advance(TimeSpan.FromHours(1));
+
+        Assert.AreEqual(2, cache.Count, "Expired values must still be counted: nothing is evicted.");
+    }
+
+    // ── Factory re-entrancy ───────────────────────────────────────────────
+
+    [TestMethod]
+    public void GetValue_FactoryReadsSameKey_ThrowsInsteadOfRecursing()
+    {
+        KeyValueCache<int, int>? cache = null;
+        cache = new KeyValueCache<int, int>(key => cache!.GetValue(key), TimeSpan.FromHours(1));
+
+        _ = Assert.ThrowsExactly<InvalidOperationException>(() => _ = cache.GetValue(1));
+    }
+
+    [TestMethod]
+    public void GetValue_FactoryReadsDifferentKey_IsAllowed()
+    {
+        // Each key has its own value cache and its own lock, so cross-key reads are legitimate
+        // and must keep working.
+        KeyValueCache<int, int>? cache = null;
+        cache = new KeyValueCache<int, int>(
+            key => key == 1 ? cache!.GetValue(2) + 10 : key,
+            TimeSpan.FromHours(1));
+
+        Assert.AreEqual(12, cache.GetValue(1));
+        Assert.AreEqual(2, cache.GetValue(2));
     }
 }

@@ -9,27 +9,27 @@ namespace LibSharp.Benchmarks.Benchmarks;
 
 public class AsyncLockBenchmarks
 {
-    private AsyncLock m_asyncLock = null!;
-    private CancellationTokenSource m_cancellationTokenSource = null!;
+    private AsyncLock _asyncLock = null!;
+    private CancellationTokenSource _cancellationTokenSource = null!;
 
     [GlobalSetup]
     public void GlobalSetup()
     {
-        m_asyncLock = new AsyncLock();
-        m_cancellationTokenSource = new CancellationTokenSource();
+        _asyncLock = new AsyncLock();
+        _cancellationTokenSource = new CancellationTokenSource();
     }
 
     [GlobalCleanup]
     public void GlobalCleanup()
     {
-        m_cancellationTokenSource.Dispose();
-        m_asyncLock.Dispose();
+        _cancellationTokenSource.Dispose();
+        _asyncLock.Dispose();
     }
 
     [Benchmark(Baseline = true)]
     public async Task AcquireRelease_DefaultToken()
     {
-        using (await m_asyncLock.AcquireAsync().ConfigureAwait(false))
+        using (await _asyncLock.AcquireAsync().ConfigureAwait(false))
         {
         }
     }
@@ -37,7 +37,7 @@ public class AsyncLockBenchmarks
     [Benchmark]
     public async Task AcquireRelease_CancelableToken()
     {
-        using (await m_asyncLock.AcquireAsync(m_cancellationTokenSource.Token).ConfigureAwait(false))
+        using (await _asyncLock.AcquireAsync(_cancellationTokenSource.Token).ConfigureAwait(false))
         {
         }
     }

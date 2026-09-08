@@ -44,6 +44,25 @@ jobs:
       - name: Test
         run: dotnet test test/LibSharp.UnitTests/LibSharp.UnitTests.csproj -c Release --no-build --verbosity normal
 
+  format:
+    name: Verify formatting
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      # Naming rules live in .editorconfig but are not enforced by the compiler: a misnamed field
+      # builds clean even with EnforceCodeStyleInBuild. This is what actually gates them, along with
+      # whitespace and the rest of the style ruleset.
+      - name: Verify formatting and naming
+        run: dotnet format LibSharp.slnx --verify-no-changes --verbosity minimal
+
   package:
     name: Validate package
     runs-on: ubuntu-latest

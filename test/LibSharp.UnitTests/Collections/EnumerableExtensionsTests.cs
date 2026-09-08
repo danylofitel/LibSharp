@@ -280,5 +280,36 @@ public class EnumerableExtensionsTests
 
         public int SortNumber { get; }
     }
-}
 
+    // -- Non-finite weights ------------------------------------------------
+
+    [TestMethod]
+    public void Chunk_NaNItemWeight_Throws()
+    {
+        // NaN passes both range guards and then poisons the running total, after which no
+        // comparison against the budget is ever true again and chunking silently stops.
+        int[] items = Enumerable.Range(0, 10).ToArray();
+
+        _ = Assert.ThrowsExactly<ArgumentException>(
+            () => items.Chunk(3.0, x => x == 5 ? double.NaN : 1.0).ToList());
+    }
+
+    [TestMethod]
+    public void Chunk_InfiniteItemWeight_Throws()
+    {
+        int[] items = Enumerable.Range(0, 10).ToArray();
+
+        _ = Assert.ThrowsExactly<ArgumentException>(
+            () => items.Chunk(3.0, x => x == 5 ? double.PositiveInfinity : 1.0).ToList());
+    }
+
+    [TestMethod]
+    public void Chunk_FiniteWeights_RespectsTheBudget()
+    {
+        int[] items = Enumerable.Range(0, 10).ToArray();
+
+        List<List<int>> chunks = items.Chunk(3.0, _ => 1.0).ToList();
+
+        CollectionAssert.AreEqual(new[] { 3, 3, 3, 1 }, chunks.Select(c => c.Count).ToArray());
+    }
+}

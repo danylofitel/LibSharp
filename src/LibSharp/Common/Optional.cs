@@ -28,8 +28,18 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
     public Optional(T value)
     {
         HasValue = true;
-        m_value = value;
+        _value = value;
     }
+
+    /// <summary>
+    /// Gets an optional that holds no value.
+    /// </summary>
+    /// <remarks>
+    /// The same thing as <c>default(Optional&lt;T&gt;)</c>, named so that the empty state is
+    /// discoverable and reads clearly at a call site. Note that an optional holding <c>null</c> is
+    /// a distinct state from this one and does not compare equal to it.
+    /// </remarks>
+    public static Optional<T> Empty => default;
 
     /// <summary>
     /// Gets a value indicating whether the optional has a value.
@@ -39,6 +49,7 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
     /// <summary>
     /// Gets the value if it exists, throws an exception if it doesn't.
     /// </summary>
+    /// <exception cref="InvalidOperationException">Thrown when the optional does not hold a value.</exception>
     public T Value
     {
         get
@@ -48,7 +59,7 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
                 throw new InvalidOperationException("The optional does not hold a value.");
             }
 
-            return m_value;
+            return _value;
         }
     }
 
@@ -58,7 +69,7 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
     /// <param name="fallback">The fallback value. Defaults to <c>default(T)</c>.</param>
     public T? GetValueOrDefault(T? fallback = default)
     {
-        return HasValue ? m_value : fallback;
+        return HasValue ? _value : fallback;
     }
 
     /// <summary>
@@ -67,7 +78,7 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
     /// </summary>
     public bool TryGetValue([MaybeNullWhen(false)] out T value)
     {
-        value = m_value;
+        value = _value;
         return HasValue;
     }
 
@@ -79,12 +90,13 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
     /// <param name="onValue">Invoked with the wrapped value when the optional has one.</param>
     /// <param name="onNone">Invoked when the optional is empty.</param>
     /// <returns>The result of the invoked delegate.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="onNone"/> or <paramref name="onValue"/> is <c>null</c>.</exception>
     public TResult Match<TResult>(Func<T, TResult> onValue, Func<TResult> onNone)
     {
         Argument.NotNull(onValue);
         Argument.NotNull(onNone);
 
-        return HasValue ? onValue(m_value) : onNone();
+        return HasValue ? onValue(_value) : onNone();
     }
 
     /// <summary>
@@ -93,6 +105,7 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
     /// </summary>
     /// <param name="onValue">Invoked with the wrapped value when the optional has one.</param>
     /// <param name="onNone">Invoked when the optional is empty.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="onNone"/> or <paramref name="onValue"/> is <c>null</c>.</exception>
     public void Match(Action<T> onValue, Action onNone)
     {
         Argument.NotNull(onValue);
@@ -100,7 +113,7 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
 
         if (HasValue)
         {
-            onValue(m_value);
+            onValue(_value);
         }
         else
         {
@@ -115,11 +128,12 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
     /// <typeparam name="TResult">The result value type.</typeparam>
     /// <param name="selector">The transform to apply to the wrapped value.</param>
     /// <returns>An optional holding the transformed value, or an empty optional.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="selector"/> is <c>null</c>.</exception>
     public Optional<TResult> Map<TResult>(Func<T, TResult> selector)
     {
         Argument.NotNull(selector);
 
-        return HasValue ? new Optional<TResult>(selector(m_value)) : default;
+        return HasValue ? new Optional<TResult>(selector(_value)) : default;
     }
 
     /// <summary>
@@ -129,11 +143,12 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
     /// <typeparam name="TResult">The result value type.</typeparam>
     /// <param name="selector">The transform producing the next optional from the wrapped value.</param>
     /// <returns>The optional produced by <paramref name="selector"/>, or an empty optional.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="selector"/> is <c>null</c>.</exception>
     public Optional<TResult> Bind<TResult>(Func<T, Optional<TResult>> selector)
     {
         Argument.NotNull(selector);
 
-        return HasValue ? selector(m_value) : default;
+        return HasValue ? selector(_value) : default;
     }
 
     /// <inheritdoc/>
@@ -144,7 +159,7 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
             return false;
         }
 
-        return !HasValue || EqualityComparer<T>.Default.Equals(m_value, other.m_value);
+        return !HasValue || EqualityComparer<T>.Default.Equals(_value, other._value);
     }
 
     /// <inheritdoc/>
@@ -156,13 +171,22 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
     /// <inheritdoc/>
     public override int GetHashCode()
     {
-        return HashCode.Combine(HasValue, m_value);
+        return HashCode.Combine(HasValue, _value);
     }
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Returns the string representation of the value, or an empty string when there is none.
+    /// </summary>
+    /// <returns>The string representation.</returns>
+    /// <remarks>
+    /// An empty optional and one holding <c>null</c> both render as an empty string, so this cannot
+    /// tell them apart even though they are distinct states that compare unequal. Use
+    /// <see cref="HasValue"/> for that. The empty case follows <see cref="Nullable{T}"/>, which also
+    /// renders as an empty string.
+    /// </remarks>
     public override string ToString()
     {
-        return HasValue ? (m_value?.ToString() ?? string.Empty) : string.Empty;
+        return HasValue ? (_value?.ToString() ?? string.Empty) : string.Empty;
     }
 
     /// <summary>
@@ -200,5 +224,5 @@ public readonly struct Optional<T> : IEquatable<Optional<T>>
         return !(left == right);
     }
 
-    private readonly T m_value;
+    private readonly T _value;
 }

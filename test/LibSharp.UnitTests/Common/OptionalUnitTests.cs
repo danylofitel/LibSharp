@@ -531,6 +531,41 @@ public class OptionalUnitTests
         Assert.IsFalse(bound.HasValue);
     }
 
+    [TestMethod]
+    public void Empty_HoldsNoValue()
+    {
+        Assert.IsFalse(Optional<int>.Empty.HasValue);
+        _ = Assert.ThrowsExactly<InvalidOperationException>(() => _ = Optional<int>.Empty.Value);
+    }
+
+    [TestMethod]
+    public void Empty_EqualsDefault()
+    {
+        // Empty is the named form of the default value, not a distinct state.
+        Assert.AreEqual(default, Optional<int>.Empty);
+        Assert.IsTrue(Optional<int>.Empty == default);
+        Assert.AreEqual(default(Optional<int>).GetHashCode(), Optional<int>.Empty.GetHashCode());
+    }
+
+    [TestMethod]
+    public void Empty_IsNotEqualToAnOptionalHoldingNull()
+    {
+        // A present null and an absent value are distinct states; Empty must not blur them.
+        Optional<string?> presentNull = new Optional<string?>(null);
+
+        Assert.IsTrue(presentNull.HasValue);
+        Assert.AreNotEqual(Optional<string?>.Empty, presentNull);
+        Assert.IsTrue(Optional<string?>.Empty != presentNull);
+    }
+
+    [TestMethod]
+    public void Empty_MapAndMatch_TreatItAsAbsent()
+    {
+        Assert.IsFalse(Optional<int>.Empty.Map(static x => x + 1).HasValue);
+        Assert.AreEqual("none", Optional<int>.Empty.Match(static x => x.ToString(), static () => "none"));
+        Assert.AreEqual(7, Optional<int>.Empty.GetValueOrDefault(7));
+    }
+
     private static Optional<T> CopyOptional<T>(Optional<T> original)
     {
         return original;

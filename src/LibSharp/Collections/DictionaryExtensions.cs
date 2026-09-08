@@ -21,6 +21,7 @@ public static class DictionaryExtensions
     /// <param name="addValue">The value to add.</param>
     /// <param name="updateValueFactory">The factory providing an updated value from an existing value.</param>
     /// <returns>The new value in the dictionary.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="dictionary"/>, <paramref name="key"/>, or <paramref name="updateValueFactory"/> is <c>null</c>.</exception>
     public static TValue AddOrUpdate<TKey, TValue>(
         this IDictionary<TKey, TValue> dictionary,
         TKey key,
@@ -50,6 +51,7 @@ public static class DictionaryExtensions
     /// <param name="addValueFactory">The factory providing a new value.</param>
     /// <param name="updateValueFactory">The factory providing an updated value from an existing value.</param>
     /// <returns>The new value in the dictionary.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="addValueFactory"/>, <paramref name="dictionary"/>, <paramref name="key"/>, or <paramref name="updateValueFactory"/> is <c>null</c>.</exception>
     public static TValue AddOrUpdate<TKey, TValue>(
         this IDictionary<TKey, TValue> dictionary,
         TKey key,
@@ -91,6 +93,7 @@ public static class DictionaryExtensions
     /// <param name="updateValueFactory">The factory providing an updated value from an existing value.</param>
     /// <param name="factoryArgument">Additional argument that should be passed to the factories.</param>
     /// <returns>The new value in the dictionary.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="addValueFactory"/>, <paramref name="dictionary"/>, <paramref name="key"/>, or <paramref name="updateValueFactory"/> is <c>null</c>.</exception>
     public static TValue AddOrUpdate<TKey, TValue, TArg>(
         this IDictionary<TKey, TValue> dictionary,
         TKey key,
@@ -106,10 +109,18 @@ public static class DictionaryExtensions
         Argument.NotNull(addValueFactory);
         Argument.NotNull(updateValueFactory);
 
-        return dictionary.AddOrUpdate(
-            key,
-            keyValue => addValueFactory(keyValue, factoryArgument),
-            (keyValue, oldValue) => updateValueFactory(keyValue, oldValue, factoryArgument));
+        // The lookup is written out so that a call allocates no closure. That is the point of this
+        // overload: it carries the caller's state to the factory as an argument instead.
+        if (dictionary.TryGetValue(key, out TValue? oldValue))
+        {
+            TValue updatedValue = updateValueFactory(key, oldValue, factoryArgument);
+            dictionary[key] = updatedValue;
+            return updatedValue;
+        }
+
+        TValue addedValue = addValueFactory(key, factoryArgument);
+        dictionary[key] = addedValue;
+        return addedValue;
     }
 
     /// <summary>
@@ -121,6 +132,7 @@ public static class DictionaryExtensions
     /// <param name="key">The key.</param>
     /// <param name="value">The value to add if it does not exist.</param>
     /// <returns>The new value in the dictionary.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="dictionary"/> or <paramref name="key"/> is <c>null</c>.</exception>
     public static TValue GetOrAdd<TKey, TValue>(
         this IDictionary<TKey, TValue> dictionary,
         TKey key,
@@ -144,6 +156,7 @@ public static class DictionaryExtensions
     /// <param name="key">The key.</param>
     /// <param name="valueFactory">The factory providing a new value.</param>
     /// <returns>The new value in the dictionary.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="dictionary"/>, <paramref name="key"/>, or <paramref name="valueFactory"/> is <c>null</c>.</exception>
     public static TValue GetOrAdd<TKey, TValue>(
         this IDictionary<TKey, TValue> dictionary,
         TKey key,
@@ -179,6 +192,7 @@ public static class DictionaryExtensions
     /// <param name="valueFactory">The factory providing a new value.</param>
     /// <param name="factoryArgument">Additional argument that should be passed to the factory.</param>
     /// <returns>The new value in the dictionary.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="dictionary"/>, <paramref name="key"/>, or <paramref name="valueFactory"/> is <c>null</c>.</exception>
     public static TValue GetOrAdd<TKey, TValue, TArg>(
         this IDictionary<TKey, TValue> dictionary,
         TKey key,
@@ -192,9 +206,15 @@ public static class DictionaryExtensions
         }
         Argument.NotNull(valueFactory);
 
-        return dictionary.GetOrAdd(
-            key,
-            keyValue => valueFactory(keyValue, factoryArgument));
+        // Written out for the same reason as AddOrUpdate above: no closure per call.
+        if (dictionary.TryGetValue(key, out TValue? existingValue))
+        {
+            return existingValue;
+        }
+
+        TValue newValue = valueFactory(key, factoryArgument);
+        dictionary[key] = newValue;
+        return newValue;
     }
 
     /// <summary>
@@ -204,12 +224,35 @@ public static class DictionaryExtensions
     /// <typeparam name="TValue">Value type.</typeparam>
     /// <param name="source">Source dictionary.</param>
     /// <returns>A copy of the source dictionary.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="source"/> is <c>null</c>.</exception>
+    /// <remarks>
+    /// The copy is always a <see cref="Dictionary{TKey, TValue}"/>, whatever the source was.
+    /// <para>
+    /// The source's equality comparer is preserved only when the source is itself a
+    /// <see cref="Dictionary{TKey, TValue}"/>, which is the only implementation in the framework that
+    /// exposes one. Copying any other <see cref="IDictionary{TKey, TValue}"/> — a
+    /// <see cref="System.Collections.Concurrent.ConcurrentDictionary{TKey, TValue}"/>, an immutable
+    /// dictionary, or a custom type — produces a copy that uses default equality. A source built with
+    /// <see cref="StringComparer.OrdinalIgnoreCase"/> would then yield a copy that resolves lookups
+    /// case-sensitively, which is a silent change in behaviour rather than an error. Where the
+    /// comparer matters and the source is not a <see cref="Dictionary{TKey, TValue}"/>, construct the
+    /// destination yourself and use <see cref="CopyTo{TKey, TValue}"/> instead.
+    /// </para>
+    /// <para>
+    /// Ordering is not carried over either: copying a <see cref="SortedDictionary{TKey, TValue}"/> or
+    /// a <see cref="SortedList{TKey, TValue}"/> gives back an unordered dictionary.
+    /// </para>
+    /// </remarks>
     public static IDictionary<TKey, TValue> Copy<TKey, TValue>(this IDictionary<TKey, TValue> source)
         where TKey : notnull
     {
         Argument.NotNull(source);
 
-        return source.CopyTo(new Dictionary<TKey, TValue>(source.Count));
+        // Carry the comparer across where it can be recovered, so the copy resolves lookups the way
+        // the source does. IDictionary<,> exposes no comparer, so only a Dictionary can be asked.
+        IEqualityComparer<TKey>? comparer = (source as Dictionary<TKey, TValue>)?.Comparer;
+
+        return source.CopyTo(new Dictionary<TKey, TValue>(source.Count, comparer));
     }
 
     /// <summary>
@@ -220,6 +263,12 @@ public static class DictionaryExtensions
     /// <param name="source">Source dictionary.</param>
     /// <param name="destination">Destination dictionary.</param>
     /// <returns>Destination dictionary with properties copied from the source dictionary.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="destination"/> or <paramref name="source"/> is <c>null</c>.</exception>
+    /// <remarks>
+    /// The caller supplies the destination, so its comparer and ordering are whatever the caller
+    /// chose. This is the overload to reach for when <see cref="Copy{TKey, TValue}"/> would not
+    /// carry the source's comparer across.
+    /// </remarks>
     public static IDictionary<TKey, TValue> CopyTo<TKey, TValue>(this IDictionary<TKey, TValue> source, IDictionary<TKey, TValue> destination)
     {
         Argument.NotNull(source);

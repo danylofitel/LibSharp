@@ -8,7 +8,7 @@ namespace LibSharp.Benchmarks.Benchmarks;
 
 public class PriorityQueueBenchmarks
 {
-    private int[] m_values = null!;
+    private int[] _values = null!;
 
     [Params(128, 1024)]
     public int ItemCount { get; set; }
@@ -17,11 +17,11 @@ public class PriorityQueueBenchmarks
     public void GlobalSetup()
     {
         Random random = new Random(12345);
-        m_values = new int[ItemCount];
+        _values = new int[ItemCount];
 
-        for (int i = 0; i < m_values.Length; i++)
+        for (int i = 0; i < _values.Length; i++)
         {
-            m_values[i] = random.Next();
+            _values[i] = random.Next();
         }
     }
 
@@ -30,9 +30,9 @@ public class PriorityQueueBenchmarks
     {
         MinPriorityQueue<int> queue = new MinPriorityQueue<int>(ItemCount);
 
-        for (int i = 0; i < m_values.Length; i++)
+        for (int i = 0; i < _values.Length; i++)
         {
-            queue.Enqueue(m_values[i]);
+            queue.Enqueue(_values[i]);
         }
 
         int checksum = 0;
@@ -49,9 +49,9 @@ public class PriorityQueueBenchmarks
     {
         MaxPriorityQueue<int> queue = new MaxPriorityQueue<int>(ItemCount);
 
-        for (int i = 0; i < m_values.Length; i++)
+        for (int i = 0; i < _values.Length; i++)
         {
-            queue.Enqueue(m_values[i]);
+            queue.Enqueue(_values[i]);
         }
 
         int checksum = 0;

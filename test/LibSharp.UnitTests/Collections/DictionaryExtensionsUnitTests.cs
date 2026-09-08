@@ -1,5 +1,6 @@
 // Copyright (c) 2026 Danylo Fitel
 
+using System;
 using System.Collections.Generic;
 using LibSharp.Collections;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -357,5 +358,33 @@ public class DictionaryExtensionsUnitTests
         {
             Assert.AreEqual(pair.Value, destination[pair.Key]);
         }
+    }
+
+    // -- Comparer preservation ---------------------------------------------
+
+    [TestMethod]
+    public void Copy_PreservesTheSourceComparer()
+    {
+        // A copy that resolves lookups differently from the original is a silent behaviour change.
+        Dictionary<string, int> source = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Key"] = 1,
+        };
+
+        IDictionary<string, int> copy = source.Copy();
+
+        Assert.IsTrue(copy.ContainsKey("KEY"), "The copy must honour the source's comparer.");
+        Assert.AreEqual(1, copy["key"]);
+    }
+
+    [TestMethod]
+    public void Copy_WithoutAComparer_UsesDefaultEquality()
+    {
+        Dictionary<string, int> source = new Dictionary<string, int> { ["Key"] = 1 };
+
+        IDictionary<string, int> copy = source.Copy();
+
+        Assert.IsFalse(copy.ContainsKey("KEY"));
+        Assert.IsTrue(copy.ContainsKey("Key"));
     }
 }

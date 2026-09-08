@@ -13,6 +13,12 @@ namespace LibSharp.Collections;
 /// A binary heap implementation of a maximum priority queue.
 /// This implementation is not thread-safe.
 /// </summary>
+/// <remarks>
+/// Enumeration yields every element exactly once, but in an unspecified order — the heap's internal
+/// layout, not descending order. Only <see cref="Peek"/> and <see cref="Dequeue"/> observe priority.
+/// The distinction is easy to miss because the heap's first element is always the largest, so a
+/// short example can look sorted when it is not. Sort the results explicitly if order matters.
+/// </remarks>
 /// <typeparam name="T">Comparable type of queue items.</typeparam>
 public sealed class MaxPriorityQueue<T> : IPriorityQueue<T>, ICollection
 {
@@ -106,13 +112,15 @@ public sealed class MaxPriorityQueue<T> : IPriorityQueue<T>, ICollection
     /// <param name="capacity">Initial capacity.</param>
     /// <param name="collection">The collection to add to the queue.</param>
     /// <param name="comparer">Value comparer.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="collection"/> or <paramref name="comparer"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="capacity"/> is outside the permitted range.</exception>
     public MaxPriorityQueue(int capacity, IEnumerable<T> collection, IComparer<T> comparer)
     {
         Argument.GreaterThanOrEqualTo(capacity, 0);
         Argument.NotNull(collection);
         Argument.NotNull(comparer);
 
-        m_minPriorityQueue = new MinPriorityQueue<T>(capacity, collection, new ReverseComparer<T>(comparer));
+        _minPriorityQueue = new MinPriorityQueue<T>(capacity, collection, new ReverseComparer<T>(comparer));
     }
 
     /// <summary>
@@ -120,101 +128,112 @@ public sealed class MaxPriorityQueue<T> : IPriorityQueue<T>, ICollection
     /// </summary>
     private const int InitialCapacity = 1;
 
-    private readonly MinPriorityQueue<T> m_minPriorityQueue;
+    private readonly MinPriorityQueue<T> _minPriorityQueue;
 
     /// <inheritdoc/>
-    public int Count => m_minPriorityQueue.Count;
+    public int Count => _minPriorityQueue.Count;
 
     /// <inheritdoc/>
     public bool IsReadOnly => false;
 
-    /// <inheritdoc/>
-    public bool IsSynchronized => false;
+    // The non-generic ICollection members are implemented explicitly, so they stay off the public
+    // surface while the interface is still available for legacy interop. SyncRoot and
+    // IsSynchronized are the .NET 1.x synchronization pattern, which is obsolete and which this
+    // type does not honour: nothing here takes a lock on SyncRoot. List<T> hides them the same way.
+    bool ICollection.IsSynchronized => false;
 
-    /// <inheritdoc/>
-    public object SyncRoot => this;
+    object ICollection.SyncRoot => this;
 
     /// <summary>
     /// Returns the largest item without removing it from the queue.
     /// </summary>
     /// <returns>Largest item in the queue.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the queue is empty.</exception>
     public T Peek()
     {
-        return m_minPriorityQueue.Peek();
+        return _minPriorityQueue.Peek();
     }
 
     /// <inheritdoc/>
     public bool TryPeek([MaybeNullWhen(false)] out T item)
     {
-        return m_minPriorityQueue.TryPeek(out item);
+        return _minPriorityQueue.TryPeek(out item);
     }
 
     /// <inheritdoc/>
     public void Enqueue(T item)
     {
-        m_minPriorityQueue.Enqueue(item);
+        _minPriorityQueue.Enqueue(item);
     }
 
     /// <summary>
     /// Returns the largest item and removes it from the queue.
     /// </summary>
     /// <returns>The largest item in the queue.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the queue is empty.</exception>
     public T Dequeue()
     {
-        return m_minPriorityQueue.Dequeue();
+        return _minPriorityQueue.Dequeue();
     }
 
     /// <inheritdoc/>
     public bool TryDequeue([MaybeNullWhen(false)] out T item)
     {
-        return m_minPriorityQueue.TryDequeue(out item);
+        return _minPriorityQueue.TryDequeue(out item);
     }
 
     /// <inheritdoc/>
     public void Add(T item)
     {
-        m_minPriorityQueue.Add(item);
+        _minPriorityQueue.Add(item);
     }
 
     /// <inheritdoc/>
     public void Clear()
     {
-        m_minPriorityQueue.Clear();
+        _minPriorityQueue.Clear();
     }
 
     /// <inheritdoc/>
     public bool Contains(T item)
     {
-        return m_minPriorityQueue.Contains(item);
+        return _minPriorityQueue.Contains(item);
     }
 
     /// <inheritdoc/>
     public void CopyTo(T[] array, int arrayIndex)
     {
-        m_minPriorityQueue.CopyTo(array, arrayIndex);
+        _minPriorityQueue.CopyTo(array, arrayIndex);
     }
 
     /// <inheritdoc/>
     public bool Remove(T item)
     {
-        return m_minPriorityQueue.Remove(item);
+        return _minPriorityQueue.Remove(item);
     }
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Returns an enumerator over every element in the queue.
+    /// </summary>
+    /// <returns>An enumerator that yields each element exactly once, in an unspecified order.</returns>
+    /// <remarks>
+    /// The order is the heap's internal layout, not priority order. Use <see cref="Dequeue"/> to
+    /// consume elements by priority, or sort the enumerated results.
+    /// </remarks>
     public IEnumerator<T> GetEnumerator()
     {
-        return m_minPriorityQueue.GetEnumerator();
+        return _minPriorityQueue.GetEnumerator();
     }
 
-    /// <inheritdoc/>
-    public void CopyTo(Array array, int index)
+    void ICollection.CopyTo(Array array, int index)
     {
-        m_minPriorityQueue.CopyTo(array, index);
+        // The inner queue hides this member behind the interface too, so reach it the same way.
+        ((ICollection)_minPriorityQueue).CopyTo(array, index);
     }
 
     /// <inheritdoc/>
     IEnumerator IEnumerable.GetEnumerator()
     {
-        return m_minPriorityQueue.GetEnumerator();
+        return _minPriorityQueue.GetEnumerator();
     }
 }

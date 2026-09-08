@@ -21,8 +21,8 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     private Result(T value, bool isSuccess, TError error)
     {
         IsSuccess = isSuccess;
-        m_value = value;
-        m_error = error;
+        _value = value;
+        _error = error;
     }
 
     /// <summary>
@@ -70,7 +70,7 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
                 throw new InvalidOperationException("The result is an error and does not hold a success value.");
             }
 
-            return m_value;
+            return _value;
         }
     }
 
@@ -87,7 +87,7 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
                 throw new InvalidOperationException("The result is a success and does not hold an error value.");
             }
 
-            return m_error;
+            return _error;
         }
     }
 
@@ -97,7 +97,7 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     /// <param name="fallback">The fallback value. Defaults to <c>default(T)</c>.</param>
     public T? GetValueOrDefault(T? fallback = default)
     {
-        return IsSuccess ? m_value : fallback;
+        return IsSuccess ? _value : fallback;
     }
 
     /// <summary>
@@ -106,7 +106,7 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     /// <param name="fallback">The fallback error. Defaults to <c>default(TError)</c>.</param>
     public TError? GetErrorOrDefault(TError? fallback = default)
     {
-        return IsError ? m_error : fallback;
+        return IsError ? _error : fallback;
     }
 
     /// <summary>
@@ -115,7 +115,7 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     /// </summary>
     public bool TryGetValue([MaybeNullWhen(false)] out T value)
     {
-        value = m_value;
+        value = _value;
         return IsSuccess;
     }
 
@@ -125,7 +125,7 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     /// </summary>
     public bool TryGetError([MaybeNullWhen(false)] out TError error)
     {
-        error = m_error;
+        error = _error;
         return IsError;
     }
 
@@ -137,12 +137,13 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     /// <param name="onSuccess">Invoked with the success value when this is a success.</param>
     /// <param name="onError">Invoked with the error value when this is an error.</param>
     /// <returns>The result of the invoked delegate.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="onError"/> or <paramref name="onSuccess"/> is <c>null</c>.</exception>
     public TResult Match<TResult>(Func<T, TResult> onSuccess, Func<TError, TResult> onError)
     {
         Argument.NotNull(onSuccess);
         Argument.NotNull(onError);
 
-        return IsSuccess ? onSuccess(m_value) : onError(m_error);
+        return IsSuccess ? onSuccess(_value) : onError(_error);
     }
 
     /// <summary>
@@ -151,6 +152,7 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     /// </summary>
     /// <param name="onSuccess">Invoked with the success value when this is a success.</param>
     /// <param name="onError">Invoked with the error value when this is an error.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="onError"/> or <paramref name="onSuccess"/> is <c>null</c>.</exception>
     public void Match(Action<T> onSuccess, Action<TError> onError)
     {
         Argument.NotNull(onSuccess);
@@ -158,11 +160,11 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
 
         if (IsSuccess)
         {
-            onSuccess(m_value);
+            onSuccess(_value);
         }
         else
         {
-            onError(m_error);
+            onError(_error);
         }
     }
 
@@ -173,13 +175,14 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     /// <typeparam name="TResult">The mapped success value type.</typeparam>
     /// <param name="selector">The transform to apply to the success value.</param>
     /// <returns>A result holding the transformed value, or the original error.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="selector"/> is <c>null</c>.</exception>
     public Result<TResult, TError> Map<TResult>(Func<T, TResult> selector)
     {
         Argument.NotNull(selector);
 
         return IsSuccess
-            ? Result<TResult, TError>.Ok(selector(m_value))
-            : Result<TResult, TError>.Fail(m_error);
+            ? Result<TResult, TError>.Ok(selector(_value))
+            : Result<TResult, TError>.Fail(_error);
     }
 
     /// <summary>
@@ -189,13 +192,14 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     /// <typeparam name="TErrorResult">The mapped error value type.</typeparam>
     /// <param name="selector">The transform to apply to the error value.</param>
     /// <returns>A result holding the original success value, or the transformed error.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="selector"/> is <c>null</c>.</exception>
     public Result<T, TErrorResult> MapError<TErrorResult>(Func<TError, TErrorResult> selector)
     {
         Argument.NotNull(selector);
 
         return IsSuccess
-            ? Result<T, TErrorResult>.Ok(m_value)
-            : Result<T, TErrorResult>.Fail(selector(m_error));
+            ? Result<T, TErrorResult>.Ok(_value)
+            : Result<T, TErrorResult>.Fail(selector(_error));
     }
 
     /// <summary>
@@ -205,13 +209,14 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     /// <typeparam name="TResult">The mapped success value type.</typeparam>
     /// <param name="selector">The transform producing the next result from the success value.</param>
     /// <returns>The result produced by <paramref name="selector"/>, or the original error.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="selector"/> is <c>null</c>.</exception>
     public Result<TResult, TError> Bind<TResult>(Func<T, Result<TResult, TError>> selector)
     {
         Argument.NotNull(selector);
 
         return IsSuccess
-            ? selector(m_value)
-            : Result<TResult, TError>.Fail(m_error);
+            ? selector(_value)
+            : Result<TResult, TError>.Fail(_error);
     }
 
     /// <inheritdoc/>
@@ -224,10 +229,10 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
 
         if (IsSuccess)
         {
-            return EqualityComparer<T>.Default.Equals(m_value, other.m_value);
+            return EqualityComparer<T>.Default.Equals(_value, other._value);
         }
 
-        return EqualityComparer<TError>.Default.Equals(m_error, other.m_error);
+        return EqualityComparer<TError>.Default.Equals(_error, other._error);
     }
 
     /// <inheritdoc/>
@@ -241,21 +246,28 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
     {
         if (IsSuccess)
         {
-            return HashCode.Combine(true, m_value);
+            return HashCode.Combine(true, _value);
         }
 
-        return HashCode.Combine(false, m_error);
+        return HashCode.Combine(false, _error);
     }
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Returns the string representation of the value on success, or of the error on failure.
+    /// </summary>
+    /// <returns>The string representation.</returns>
+    /// <remarks>
+    /// A success carrying <c>null</c> and a failure carrying <c>null</c> both render as an empty
+    /// string, so this cannot tell them apart. Use <see cref="IsSuccess"/> for that.
+    /// </remarks>
     public override string ToString()
     {
         if (IsSuccess)
         {
-            return m_value?.ToString() ?? string.Empty;
+            return _value?.ToString() ?? string.Empty;
         }
 
-        return m_error?.ToString() ?? string.Empty;
+        return _error?.ToString() ?? string.Empty;
     }
 
     /// <summary>
@@ -274,6 +286,6 @@ public readonly struct Result<T, TError> : IEquatable<Result<T, TError>>
         return !(left == right);
     }
 
-    private readonly T m_value;
-    private readonly TError m_error;
+    private readonly T _value;
+    private readonly TError _error;
 }

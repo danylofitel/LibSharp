@@ -24,7 +24,7 @@ public class TypeExtensionsUnitTests
     public void GetDefaultComparer_NonComparableType_Throws()
     {
         // Act
-        _ = Assert.ThrowsExactly<ArgumentException>(() => TypeExtensions.GetDefaultComparer<object>());
+        _ = Assert.ThrowsExactly<InvalidOperationException>(() => TypeExtensions.GetDefaultComparer<object>());
     }
 
     [TestMethod]

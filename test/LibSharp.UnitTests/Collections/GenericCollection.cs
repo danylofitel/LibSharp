@@ -9,47 +9,47 @@ internal class GenericCollection<T> : ICollection<T>
 {
     public GenericCollection(List<T> collection)
     {
-        m_collection = collection;
+        _collection = collection;
     }
 
-    public int Count => m_collection.Count;
+    public int Count => _collection.Count;
 
     public bool IsReadOnly => false;
 
     public void Add(T item)
     {
-        m_collection.Add(item);
+        _collection.Add(item);
     }
 
     public void Clear()
     {
-        m_collection.Clear();
+        _collection.Clear();
     }
 
     public bool Contains(T item)
     {
-        return m_collection.Contains(item);
+        return _collection.Contains(item);
     }
 
     public void CopyTo(T[] array, int arrayIndex)
     {
-        m_collection.CopyTo(array, arrayIndex);
+        _collection.CopyTo(array, arrayIndex);
     }
 
     public IEnumerator<T> GetEnumerator()
     {
-        return m_collection.GetEnumerator();
+        return _collection.GetEnumerator();
     }
 
     public bool Remove(T item)
     {
-        return m_collection.Remove(item);
+        return _collection.Remove(item);
     }
 
     IEnumerator IEnumerable.GetEnumerator()
     {
-        return m_collection.GetEnumerator();
+        return _collection.GetEnumerator();
     }
 
-    private readonly List<T> m_collection;
+    private readonly List<T> _collection;
 }

@@ -33,20 +33,22 @@ public sealed class ThrottledAction
     /// <param name="timeProvider">
     /// (Optional) Time provider used to measure the interval. Defaults to <see cref="TimeProvider.System"/>.
     /// </param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="action"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="interval"/> is outside the permitted range.</exception>
     public ThrottledAction(Action action, TimeSpan interval, TimeProvider? timeProvider = null)
     {
         Argument.NotNull(action);
         Argument.GreaterThanOrEqualTo(interval, TimeSpan.Zero);
 
-        m_action = action;
-        m_interval = interval;
-        m_timeProvider = timeProvider ?? TimeProvider.System;
+        _action = action;
+        _interval = interval;
+        _timeProvider = timeProvider ?? TimeProvider.System;
 
         // Clamp to long.MaxValue so an astronomically large interval (near TimeSpan.MaxValue) does not
         // overflow the double-to-long conversion — which would otherwise yield an undefined value and
         // break the throttle. long.MaxValue ticks simply means "effectively never fires again".
-        double intervalTicks = Math.Round(interval.TotalSeconds * m_timeProvider.TimestampFrequency);
-        m_intervalTicks = intervalTicks < long.MaxValue ? (long)intervalTicks : long.MaxValue;
+        double intervalTicks = Math.Round(interval.TotalSeconds * _timeProvider.TimestampFrequency);
+        _intervalTicks = intervalTicks < long.MaxValue ? (long)intervalTicks : long.MaxValue;
     }
 
     /// <summary>
@@ -55,7 +57,7 @@ public sealed class ThrottledAction
     /// </summary>
     public void Invoke()
     {
-        if (m_interval == TimeSpan.Zero)
+        if (_interval == TimeSpan.Zero)
         {
             InvokeMutex();
         }
@@ -67,18 +69,18 @@ public sealed class ThrottledAction
 
     private void InvokeMutex()
     {
-        if (Interlocked.CompareExchange(ref m_isRunning, 1, 0) != 0)
+        if (Interlocked.CompareExchange(ref _isRunning, 1, 0) != 0)
         {
             return;
         }
 
         try
         {
-            m_action();
+            _action();
         }
         finally
         {
-            Volatile.Write(ref m_isRunning, 0);
+            Volatile.Write(ref _isRunning, 0);
         }
     }
 
@@ -86,33 +88,33 @@ public sealed class ThrottledAction
     {
         bool shouldInvoke;
 
-        lock (m_lock)
+        lock (_lock)
         {
-            long now = m_timeProvider.GetTimestamp();
+            long now = _timeProvider.GetTimestamp();
 
             // The first invocation always fires; the timestamp origin is provider-defined and
             // must not be assumed to be far from zero (e.g. FakeTimeProvider starts near zero).
-            shouldInvoke = !m_hasInvoked || now - m_lastInvocationTimestamp >= m_intervalTicks;
+            shouldInvoke = !_hasInvoked || now - _lastInvocationTimestamp >= _intervalTicks;
             if (shouldInvoke)
             {
-                m_lastInvocationTimestamp = now;
-                m_hasInvoked = true;
+                _lastInvocationTimestamp = now;
+                _hasInvoked = true;
             }
         }
 
         if (shouldInvoke)
         {
-            m_action();
+            _action();
         }
     }
 
-    private readonly Action m_action;
-    private readonly TimeSpan m_interval;
-    private readonly TimeProvider m_timeProvider;
-    private readonly long m_intervalTicks;
-    private readonly object m_lock = new object();
+    private readonly Action _action;
+    private readonly TimeSpan _interval;
+    private readonly TimeProvider _timeProvider;
+    private readonly long _intervalTicks;
+    private readonly object _lock = new object();
 
-    private long m_lastInvocationTimestamp;
-    private bool m_hasInvoked;
-    private int m_isRunning;
+    private long _lastInvocationTimestamp;
+    private bool _hasInvoked;
+    private int _isRunning;
 }

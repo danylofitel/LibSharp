@@ -4,6 +4,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using LibSharp.Caching;
+using Microsoft.Extensions.Time.Testing;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using NSubstitute;
 
@@ -71,7 +72,7 @@ public class KeyValueCacheAsyncUnitTests
         Task<int>[] callers = new Task<int>[8];
         for (int i = 0; i < callers.Length; i++)
         {
-            callers[i] = cache.GetValueAsync(1, CancellationToken.None);
+            callers[i] = cache.GetValueAsync(1, CancellationToken.None).AsTask();
         }
 
         _ = await factoryStarted.Task.WaitAsync(CancellationToken.None).ConfigureAwait(false);
@@ -97,7 +98,7 @@ public class KeyValueCacheAsyncUnitTests
             },
             TimeSpan.FromHours(1));
 
-        Task<int> getTask = cache.GetValueAsync(1, CancellationToken.None);
+        Task<int> getTask = cache.GetValueAsync(1, CancellationToken.None).AsTask();
         _ = await factoryStarted.Task.WaitAsync(CancellationToken.None).ConfigureAwait(false);
 
         // Act
@@ -508,5 +509,71 @@ public class KeyValueCacheAsyncUnitTests
         _ = updateFactory.Received(1)(2, Arg.Any<int>(), Arg.Any<CancellationToken>());
     }
 
-    public TestContext TestContext { get; set; }
+    // MSTest assigns this by property injection after construction. The initializer states that
+    // explicitly: without it the compiler reports CS8618, which the normal build suppresses but
+    // `dotnet format` does not, and its code-fix pass then makes the property nullable and breaks
+    // every TestContext.CancellationToken use.
+    public TestContext TestContext { get; set; } = null!;
+
+    // ── Count ─────────────────────────────────────────────
+
+    [TestMethod]
+    public void Count_IsZeroBeforeAnyKeyIsRequested()
+    {
+        using KeyValueCacheAsync<int, int> cache = new KeyValueCacheAsync<int, int>(
+            (key, cancellationToken) => Task.FromResult(key),
+            TimeSpan.FromHours(1));
+
+        Assert.AreEqual(0, cache.Count);
+    }
+
+    [TestMethod]
+    public async Task Count_TracksDistinctKeysRequested()
+    {
+        using KeyValueCacheAsync<int, int> cache = new KeyValueCacheAsync<int, int>(
+            (key, cancellationToken) => Task.FromResult(key),
+            TimeSpan.FromHours(1));
+
+        _ = await cache.GetValueAsync(1, CancellationToken.None).ConfigureAwait(false);
+        Assert.AreEqual(1, cache.Count);
+
+        _ = await cache.GetValueAsync(2, CancellationToken.None).ConfigureAwait(false);
+        Assert.AreEqual(2, cache.Count);
+
+        // Repeat reads of a known key add nothing.
+        _ = await cache.GetValueAsync(1, CancellationToken.None).ConfigureAwait(false);
+        _ = await cache.GetValueAsync(2, CancellationToken.None).ConfigureAwait(false);
+        Assert.AreEqual(2, cache.Count);
+    }
+
+    [TestMethod]
+    public async Task Count_StillCountsEntriesWhoseValueHasExpired()
+    {
+        // The point of exposing Count: entries are never evicted, so an expired value still
+        // occupies an entry. This is the number that grows without bound on an unbounded key space.
+        FakeTimeProvider timeProvider = new FakeTimeProvider();
+        using KeyValueCacheAsync<int, int> cache = new KeyValueCacheAsync<int, int>(
+            (key, cancellationToken) => Task.FromResult(key),
+            TimeSpan.FromMinutes(1),
+            timeProvider);
+
+        _ = await cache.GetValueAsync(1, CancellationToken.None).ConfigureAwait(false);
+        _ = await cache.GetValueAsync(2, CancellationToken.None).ConfigureAwait(false);
+        Assert.AreEqual(2, cache.Count);
+
+        timeProvider.Advance(TimeSpan.FromHours(1));
+
+        Assert.AreEqual(2, cache.Count, "Expired values must still be counted: nothing is evicted.");
+    }
+
+    [TestMethod]
+    public void Count_ThrowsWhenDisposed()
+    {
+        KeyValueCacheAsync<int, int> cache = new KeyValueCacheAsync<int, int>(
+            (key, cancellationToken) => Task.FromResult(key),
+            TimeSpan.FromHours(1));
+        cache.Dispose();
+
+        _ = Assert.ThrowsExactly<ObjectDisposedException>(() => _ = cache.Count);
+    }
 }

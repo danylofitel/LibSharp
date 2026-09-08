@@ -1,5 +1,6 @@
 // Copyright (c) 2026 Danylo Fitel
 
+using System;
 using System.Text.RegularExpressions;
 
 namespace LibSharp.Common;
@@ -17,6 +18,7 @@ public static class RegexExtensions
     /// <param name="value">The value to match against.</param>
     /// <param name="timedOut">Set to <c>true</c> if the regex timed out, <c>false</c> otherwise.</param>
     /// <returns>True if a match was found, false if not or if the regex timed out.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="regex"/> or <paramref name="value"/> is <c>null</c>.</exception>
     public static bool TryIsMatch(this Regex regex, string value, out bool timedOut)
     {
         Argument.NotNull(regex);
@@ -42,6 +44,7 @@ public static class RegexExtensions
     /// <param name="value">The value to match against.</param>
     /// <param name="timedOut">Set to <c>true</c> if the regex timed out, <c>false</c> otherwise.</param>
     /// <returns>A match if it was found, an empty match if not or if the regex timed out.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="regex"/> or <paramref name="value"/> is <c>null</c>.</exception>
     public static Match TryMatch(this Regex regex, string value, out bool timedOut)
     {
         Argument.NotNull(regex);
@@ -69,6 +72,7 @@ public static class RegexExtensions
     /// <param name="replacement">The replacement string.</param>
     /// <param name="timedOut">Set to <c>true</c> if the regex timed out, <c>false</c> otherwise.</param>
     /// <returns>A string with all occurrences replaced. Returns the original string if the regex times out.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="input"/>, <paramref name="regex"/>, or <paramref name="replacement"/> is <c>null</c>.</exception>
     public static string TryReplace(this Regex regex, string input, string replacement, out bool timedOut)
     {
         Argument.NotNull(regex);
@@ -97,6 +101,7 @@ public static class RegexExtensions
     /// <param name="evaluator">A custom method that examines each match and returns either the original matched string or a replacement string.</param>
     /// <param name="timedOut">Set to <c>true</c> if the regex timed out, <c>false</c> otherwise.</param>
     /// <returns>A string with all matched substrings replaced. Returns the original string if the regex times out.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="evaluator"/>, <paramref name="input"/>, or <paramref name="regex"/> is <c>null</c>.</exception>
     public static string TryReplace(this Regex regex, string input, MatchEvaluator evaluator, out bool timedOut)
     {
         Argument.NotNull(regex);

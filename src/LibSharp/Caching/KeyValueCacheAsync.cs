@@ -17,6 +17,18 @@ namespace LibSharp.Caching;
 /// Entries are never evicted from the cache.
 /// This is by design for bounded key spaces.
 /// Do not use with unbounded key spaces as memory will grow monotonically.
+/// <para>
+/// Should not be used with IDisposable value types since it does not dispose of expired values.
+/// Values are replaced in place as they expire, and entries are retained for the lifetime of the
+/// cache, so a disposable value leaks once per expiry per key. This type never disposes the value,
+/// so disposal remains the caller's responsibility. (The internal per-key caches are disposed with
+/// this instance; the values they hold are not.)
+/// </para>
+/// <para>
+/// The value factory must not call <see cref="GetValueAsync"/> on this same cache for the same key
+/// and await the result. The per-key lock is held across the factory call and is not re-entrant, so
+/// that deadlocks. Re-entering for a <em>different</em> key is safe.
+/// </para>
 /// </remarks>
 public sealed class KeyValueCacheAsync<TKey, TValue> : IKeyValueCacheAsync<TKey, TValue>, IDisposable
     where TKey : notnull
@@ -27,14 +39,16 @@ public sealed class KeyValueCacheAsync<TKey, TValue> : IKeyValueCacheAsync<TKey,
     /// <param name="factory">Value factory.</param>
     /// <param name="timeToLive">Cache time-to-live.</param>
     /// <param name="timeProvider">(Optional) Time provider used for expiration. Defaults to <see cref="TimeProvider.System"/>.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="factory"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="timeToLive"/> is outside the permitted range.</exception>
     public KeyValueCacheAsync(Func<TKey, CancellationToken, Task<TValue>> factory, TimeSpan timeToLive, TimeProvider? timeProvider = null)
     {
         Argument.NotNull(factory);
         Argument.GreaterThanOrEqualTo(timeToLive, TimeSpan.Zero);
 
-        m_timeProvider = timeProvider ?? TimeProvider.System;
-        m_createFactory = factory;
-        m_timeToLive = timeToLive;
+        _timeProvider = timeProvider ?? TimeProvider.System;
+        _createFactory = factory;
+        _timeToLive = timeToLive;
     }
 
     /// <summary>
@@ -43,14 +57,15 @@ public sealed class KeyValueCacheAsync<TKey, TValue> : IKeyValueCacheAsync<TKey,
     /// <param name="factory">The value factory.</param>
     /// <param name="expirationFunction">Function to calculate expiration of a value.</param>
     /// <param name="timeProvider">(Optional) Time provider used for expiration. Defaults to <see cref="TimeProvider.System"/>.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="expirationFunction"/> or <paramref name="factory"/> is <c>null</c>.</exception>
     public KeyValueCacheAsync(Func<TKey, CancellationToken, Task<TValue>> factory, Func<TKey, TValue, DateTime> expirationFunction, TimeProvider? timeProvider = null)
     {
         Argument.NotNull(factory);
         Argument.NotNull(expirationFunction);
 
-        m_timeProvider = timeProvider ?? TimeProvider.System;
-        m_createFactory = factory;
-        m_expirationFunction = expirationFunction;
+        _timeProvider = timeProvider ?? TimeProvider.System;
+        _createFactory = factory;
+        _expirationFunction = expirationFunction;
     }
 
     /// <summary>
@@ -60,16 +75,18 @@ public sealed class KeyValueCacheAsync<TKey, TValue> : IKeyValueCacheAsync<TKey,
     /// <param name="updateFactory">The update factory.</param>
     /// <param name="timeToLive">Cache time-to-live.</param>
     /// <param name="timeProvider">(Optional) Time provider used for expiration. Defaults to <see cref="TimeProvider.System"/>.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="createFactory"/> or <paramref name="updateFactory"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="timeToLive"/> is outside the permitted range.</exception>
     public KeyValueCacheAsync(Func<TKey, CancellationToken, Task<TValue>> createFactory, Func<TKey, TValue, CancellationToken, Task<TValue>> updateFactory, TimeSpan timeToLive, TimeProvider? timeProvider = null)
     {
         Argument.NotNull(createFactory);
         Argument.NotNull(updateFactory);
         Argument.GreaterThanOrEqualTo(timeToLive, TimeSpan.Zero);
 
-        m_timeProvider = timeProvider ?? TimeProvider.System;
-        m_createFactory = createFactory;
-        m_updateFactory = updateFactory;
-        m_timeToLive = timeToLive;
+        _timeProvider = timeProvider ?? TimeProvider.System;
+        _createFactory = createFactory;
+        _updateFactory = updateFactory;
+        _timeToLive = timeToLive;
     }
 
     /// <summary>
@@ -79,27 +96,53 @@ public sealed class KeyValueCacheAsync<TKey, TValue> : IKeyValueCacheAsync<TKey,
     /// <param name="updateFactory">The update factory.</param>
     /// <param name="expirationFunction">Function to calculate expiration of a value.</param>
     /// <param name="timeProvider">(Optional) Time provider used for expiration. Defaults to <see cref="TimeProvider.System"/>.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="createFactory"/>, <paramref name="expirationFunction"/>, or <paramref name="updateFactory"/> is <c>null</c>.</exception>
     public KeyValueCacheAsync(Func<TKey, CancellationToken, Task<TValue>> createFactory, Func<TKey, TValue, CancellationToken, Task<TValue>> updateFactory, Func<TKey, TValue, DateTime> expirationFunction, TimeProvider? timeProvider = null)
     {
         Argument.NotNull(createFactory);
         Argument.NotNull(updateFactory);
         Argument.NotNull(expirationFunction);
 
-        m_timeProvider = timeProvider ?? TimeProvider.System;
-        m_createFactory = createFactory;
-        m_updateFactory = updateFactory;
-        m_expirationFunction = expirationFunction;
+        _timeProvider = timeProvider ?? TimeProvider.System;
+        _createFactory = createFactory;
+        _updateFactory = updateFactory;
+        _expirationFunction = expirationFunction;
+    }
+
+    /// <summary>
+    /// Gets the number of entries the cache is holding.
+    /// </summary>
+    /// <remarks>
+    /// Entries are never evicted, so this is the number of distinct keys ever requested, including
+    /// those whose value has since expired. It is the measure to watch when confirming that a key
+    /// space really is bounded.
+    /// <para>
+    /// Not free: reading it takes every bucket lock of the underlying <see cref="ConcurrentDictionary{TKey, TValue}"/>
+    /// and so contends with concurrent writers. Sample it periodically; do not read it per request.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ObjectDisposedException">Thrown if the cache has been disposed.</exception>
+    public int Count
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
+
+            return _cache.Count;
+        }
     }
 
     /// <inheritdoc/>
-    public async Task<TValue> GetValueAsync(TKey key, CancellationToken cancellationToken = default)
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="key"/> is <c>null</c>.</exception>
+    /// <exception cref="ObjectDisposedException">Thrown when this instance has been disposed.</exception>
+    public ValueTask<TValue> GetValueAsync(TKey key, CancellationToken cancellationToken = default)
     {
         if (key is null)
         {
             throw new ArgumentNullException(nameof(key));
         }
 
-        ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
 
         /* ValueCacheAsync is disposable, so we should to call Dispose() on every created instance.
          *
@@ -113,14 +156,17 @@ public sealed class KeyValueCacheAsync<TKey, TValue> : IKeyValueCacheAsync<TKey,
          *
          * This will not invoke the factory method yet.
          */
-        Lazy<ValueCacheAsync<TValue>> lazyValueCache = m_cache.GetOrAdd(
+        // The factory is static and receives `this` as state, so a read allocates no delegate:
+        // Roslyn caches only lambdas that capture nothing.
+        Lazy<ValueCacheAsync<TValue>> lazyValueCache = _cache.GetOrAdd(
             key,
-            cacheKey => new Lazy<ValueCacheAsync<TValue>>(
-                () => CreateValueCache(cacheKey),
-                LazyThreadSafetyMode.ExecutionAndPublication));
+            static (cacheKey, self) => new Lazy<ValueCacheAsync<TValue>>(
+                () => self.CreateValueCache(cacheKey),
+                LazyThreadSafetyMode.ExecutionAndPublication),
+            this);
 
         // Re-check after GetOrAdd to avoid leaking entries added concurrently with Dispose.
-        ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
 
         /*
          * Now that the value cache for the key has been initialized with a single instance,
@@ -135,11 +181,11 @@ public sealed class KeyValueCacheAsync<TKey, TValue> : IKeyValueCacheAsync<TKey,
         /*
          * Final disposal check after evaluating the Lazy. If Dispose ran between the
          * previous check and here — either because the Lazy had IsValueCreated==false
-         * when Dispose iterated m_cache, or because ConcurrentDictionary's enumerator
+         * when Dispose iterated _cache, or because ConcurrentDictionary's enumerator
          * snapshot missed this entry — this ValueCacheAsync will not be cleaned up by
          * the Dispose path. Detect that case and dispose it ourselves to prevent a leak.
         */
-        if (Volatile.Read(ref m_isDisposed) != 0)
+        if (Volatile.Read(ref _isDisposed) != 0)
         {
             valueCache.Dispose();
             throw new ObjectDisposedException(GetType().Name);
@@ -150,7 +196,10 @@ public sealed class KeyValueCacheAsync<TKey, TValue> : IKeyValueCacheAsync<TKey,
          *
          * This will invoke the factory method if the value has not been initialized yet or if it has expired.
          */
-        return await valueCache.GetValueAsync(cancellationToken).ConfigureAwait(false);
+        // Returned directly rather than awaited: this method has no work of its own after the
+        // delegation, so not being async saves a second state machine and a second allocation
+        // on top of whatever the per-key cache does.
+        return valueCache.GetValueAsync(cancellationToken);
     }
 
     /// <summary>
@@ -158,12 +207,12 @@ public sealed class KeyValueCacheAsync<TKey, TValue> : IKeyValueCacheAsync<TKey,
     /// </summary>
     public void Dispose()
     {
-        if (Interlocked.Exchange(ref m_isDisposed, 1) != 0)
+        if (Interlocked.Exchange(ref _isDisposed, 1) != 0)
         {
             return;
         }
 
-        foreach (Lazy<ValueCacheAsync<TValue>> cache in m_cache.Values)
+        foreach (Lazy<ValueCacheAsync<TValue>> cache in _cache.Values)
         {
             if (cache.IsValueCreated)
             {
@@ -171,33 +220,33 @@ public sealed class KeyValueCacheAsync<TKey, TValue> : IKeyValueCacheAsync<TKey,
             }
         }
 
-        m_cache.Clear();
+        _cache.Clear();
     }
 
     private ValueCacheAsync<TValue> CreateValueCache(TKey key)
     {
-        if (m_updateFactory is null)
+        if (_updateFactory is null)
         {
-            return m_timeToLive.HasValue
-                ? new ValueCacheAsync<TValue>((token) => m_createFactory(key, token), m_timeToLive.Value, m_timeProvider)
-                : new ValueCacheAsync<TValue>((token) => m_createFactory(key, token), value => m_expirationFunction!(key, value), m_timeProvider);
+            return _timeToLive.HasValue
+                ? new ValueCacheAsync<TValue>((token) => _createFactory(key, token), _timeToLive.Value, _timeProvider)
+                : new ValueCacheAsync<TValue>((token) => _createFactory(key, token), value => _expirationFunction!(key, value), _timeProvider);
         }
 
-        return m_timeToLive.HasValue
-            ? new ValueCacheAsync<TValue>((token) => m_createFactory(key, token), (value, token) => m_updateFactory(key, value, token), m_timeToLive.Value, m_timeProvider)
-            : new ValueCacheAsync<TValue>((token) => m_createFactory(key, token), (value, token) => m_updateFactory(key, value, token), value => m_expirationFunction!(key, value), m_timeProvider);
+        return _timeToLive.HasValue
+            ? new ValueCacheAsync<TValue>((token) => _createFactory(key, token), (value, token) => _updateFactory(key, value, token), _timeToLive.Value, _timeProvider)
+            : new ValueCacheAsync<TValue>((token) => _createFactory(key, token), (value, token) => _updateFactory(key, value, token), value => _expirationFunction!(key, value), _timeProvider);
     }
 
-    private readonly ConcurrentDictionary<TKey, Lazy<ValueCacheAsync<TValue>>> m_cache = new ConcurrentDictionary<TKey, Lazy<ValueCacheAsync<TValue>>>();
-    private readonly TimeProvider m_timeProvider;
+    private readonly ConcurrentDictionary<TKey, Lazy<ValueCacheAsync<TValue>>> _cache = new ConcurrentDictionary<TKey, Lazy<ValueCacheAsync<TValue>>>();
+    private readonly TimeProvider _timeProvider;
 
-    // Exactly one of m_timeToLive / m_expirationFunction is set by each constructor; m_updateFactory
+    // Exactly one of _timeToLive / _expirationFunction is set by each constructor; _updateFactory
     // is null when the cache was created without an update factory. The forgiving access to
-    // m_expirationFunction in CreateValueCache is guarded by this invariant.
-    private readonly Func<TKey, CancellationToken, Task<TValue>> m_createFactory;
-    private readonly Func<TKey, TValue, CancellationToken, Task<TValue>>? m_updateFactory;
-    private readonly TimeSpan? m_timeToLive;
-    private readonly Func<TKey, TValue, DateTime>? m_expirationFunction;
+    // _expirationFunction in CreateValueCache is guarded by this invariant.
+    private readonly Func<TKey, CancellationToken, Task<TValue>> _createFactory;
+    private readonly Func<TKey, TValue, CancellationToken, Task<TValue>>? _updateFactory;
+    private readonly TimeSpan? _timeToLive;
+    private readonly Func<TKey, TValue, DateTime>? _expirationFunction;
 
-    private int m_isDisposed;
+    private int _isDisposed;
 }

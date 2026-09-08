@@ -1,5 +1,6 @@
 // Copyright (c) 2026 Danylo Fitel
 
+using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -25,20 +26,21 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// </summary>
     public ConcurrentHashSet()
     {
-        m_comparer = EqualityComparer<T>.Default;
-        m_dictionary = new ConcurrentDictionary<T, byte>(m_comparer);
+        _comparer = EqualityComparer<T>.Default;
+        _dictionary = new ConcurrentDictionary<T, byte>(_comparer);
     }
 
     /// <summary>
     /// Initializes a new empty instance of <see cref="ConcurrentHashSet{T}"/> using the specified equality comparer.
     /// </summary>
     /// <param name="comparer">The equality comparer to use when comparing elements.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="comparer"/> is <c>null</c>.</exception>
     public ConcurrentHashSet(IEqualityComparer<T> comparer)
     {
         Argument.NotNull(comparer);
 
-        m_comparer = comparer;
-        m_dictionary = new ConcurrentDictionary<T, byte>(comparer);
+        _comparer = comparer;
+        _dictionary = new ConcurrentDictionary<T, byte>(comparer);
     }
 
     /// <summary>
@@ -46,15 +48,16 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// from the specified collection, using the default equality comparer.
     /// </summary>
     /// <param name="collection">The collection whose elements are copied into the set.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="collection"/> is <c>null</c>.</exception>
     public ConcurrentHashSet(IEnumerable<T> collection)
     {
         Argument.NotNull(collection);
 
-        m_comparer = EqualityComparer<T>.Default;
-        m_dictionary = new ConcurrentDictionary<T, byte>(m_comparer);
+        _comparer = EqualityComparer<T>.Default;
+        _dictionary = new ConcurrentDictionary<T, byte>(_comparer);
         foreach (T item in collection)
         {
-            _ = m_dictionary.TryAdd(item, 0);
+            _ = _dictionary.TryAdd(item, 0);
         }
     }
 
@@ -64,21 +67,22 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// </summary>
     /// <param name="collection">The collection whose elements are copied into the set.</param>
     /// <param name="comparer">The equality comparer to use when comparing elements.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="collection"/> or <paramref name="comparer"/> is <c>null</c>.</exception>
     public ConcurrentHashSet(IEnumerable<T> collection, IEqualityComparer<T> comparer)
     {
         Argument.NotNull(collection);
         Argument.NotNull(comparer);
 
-        m_comparer = comparer;
-        m_dictionary = new ConcurrentDictionary<T, byte>(comparer);
+        _comparer = comparer;
+        _dictionary = new ConcurrentDictionary<T, byte>(comparer);
         foreach (T item in collection)
         {
-            _ = m_dictionary.TryAdd(item, 0);
+            _ = _dictionary.TryAdd(item, 0);
         }
     }
 
     /// <inheritdoc/>
-    public int Count => m_dictionary.Count;
+    public int Count => _dictionary.Count;
 
     /// <inheritdoc/>
     public bool IsReadOnly => false;
@@ -90,13 +94,13 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// <returns><c>true</c> if the element was added; <c>false</c> if it was already present.</returns>
     public bool Add(T item)
     {
-        return m_dictionary.TryAdd(item, 0);
+        return _dictionary.TryAdd(item, 0);
     }
 
     /// <inheritdoc/>
     void ICollection<T>.Add(T item)
     {
-        _ = m_dictionary.TryAdd(item, 0);
+        _ = _dictionary.TryAdd(item, 0);
     }
 
     /// <summary>
@@ -106,7 +110,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// <returns><c>true</c> if the element was removed; <c>false</c> if it was not present.</returns>
     public bool Remove(T item)
     {
-        return m_dictionary.TryRemove(item, out _);
+        return _dictionary.TryRemove(item, out _);
     }
 
     /// <summary>
@@ -116,35 +120,38 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// <returns><c>true</c> if the element is in the set; otherwise <c>false</c>.</returns>
     public bool Contains(T item)
     {
-        return m_dictionary.ContainsKey(item);
+        return _dictionary.ContainsKey(item);
     }
 
     /// <inheritdoc/>
     public void Clear()
     {
-        m_dictionary.Clear();
+        _dictionary.Clear();
     }
 
     /// <inheritdoc/>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="array"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="arrayIndex"/> is outside the permitted range.</exception>
     public void CopyTo(T[] array, int arrayIndex)
     {
         Argument.NotNull(array);
         Argument.GreaterThanOrEqualTo(arrayIndex, 0);
 
-        ((ICollection<T>)m_dictionary.Keys).CopyTo(array, arrayIndex);
+        ((ICollection<T>)_dictionary.Keys).CopyTo(array, arrayIndex);
     }
 
     /// <summary>
     /// Adds all elements from <paramref name="other"/> that are not already in the set.
     /// </summary>
     /// <param name="other">The collection of elements to add to the set.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="other"/> is <c>null</c>.</exception>
     public void UnionWith(IEnumerable<T> other)
     {
         Argument.NotNull(other);
 
         foreach (T item in other)
         {
-            _ = m_dictionary.TryAdd(item, 0);
+            _ = _dictionary.TryAdd(item, 0);
         }
     }
 
@@ -152,16 +159,17 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// Removes all elements from the set that are not also present in <paramref name="other"/>.
     /// </summary>
     /// <param name="other">The collection that defines which elements to retain.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="other"/> is <c>null</c>.</exception>
     public void IntersectWith(IEnumerable<T> other)
     {
         Argument.NotNull(other);
 
-        HashSet<T> otherSet = new HashSet<T>(other, m_comparer);
-        foreach (T key in m_dictionary.Keys)
+        HashSet<T> otherSet = new HashSet<T>(other, _comparer);
+        foreach (KeyValuePair<T, byte> entry in _dictionary)
         {
-            if (!otherSet.Contains(key))
+            if (!otherSet.Contains(entry.Key))
             {
-                _ = m_dictionary.TryRemove(key, out _);
+                _ = _dictionary.TryRemove(entry.Key, out _);
             }
         }
     }
@@ -170,13 +178,14 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// Removes all elements from the set that are also present in <paramref name="other"/>.
     /// </summary>
     /// <param name="other">The collection of elements to remove from the set.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="other"/> is <c>null</c>.</exception>
     public void ExceptWith(IEnumerable<T> other)
     {
         Argument.NotNull(other);
 
         foreach (T item in other)
         {
-            _ = m_dictionary.TryRemove(item, out _);
+            _ = _dictionary.TryRemove(item, out _);
         }
     }
 
@@ -186,17 +195,18 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// <paramref name="other"/> are ignored.
     /// </summary>
     /// <param name="other">The collection to compare with the current set.</param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="other"/> is <c>null</c>.</exception>
     public void SymmetricExceptWith(IEnumerable<T> other)
     {
         Argument.NotNull(other);
 
         // Deduplicate other first so that each element is toggled exactly once.
-        HashSet<T> otherSet = new HashSet<T>(other, m_comparer);
+        HashSet<T> otherSet = new HashSet<T>(other, _comparer);
         foreach (T item in otherSet)
         {
-            if (!m_dictionary.TryRemove(item, out _))
+            if (!_dictionary.TryRemove(item, out _))
             {
-                _ = m_dictionary.TryAdd(item, 0);
+                _ = _dictionary.TryAdd(item, 0);
             }
         }
     }
@@ -207,6 +217,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// </summary>
     /// <param name="other">The collection to compare with the current set.</param>
     /// <returns><c>true</c> if the set is a subset of <paramref name="other"/>; otherwise <c>false</c>.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="other"/> is <c>null</c>.</exception>
     public bool IsSubsetOf(IEnumerable<T> other)
     {
         Argument.NotNull(other);
@@ -216,10 +227,10 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
             return true;
         }
 
-        HashSet<T> otherSet = new HashSet<T>(other, m_comparer);
-        foreach (T key in m_dictionary.Keys)
+        HashSet<T> otherSet = new HashSet<T>(other, _comparer);
+        foreach (KeyValuePair<T, byte> entry in _dictionary)
         {
-            if (!otherSet.Contains(key))
+            if (!otherSet.Contains(entry.Key))
             {
                 return false;
             }
@@ -234,13 +245,14 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// </summary>
     /// <param name="other">The collection to compare with the current set.</param>
     /// <returns><c>true</c> if the set is a superset of <paramref name="other"/>; otherwise <c>false</c>.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="other"/> is <c>null</c>.</exception>
     public bool IsSupersetOf(IEnumerable<T> other)
     {
         Argument.NotNull(other);
 
         foreach (T item in other)
         {
-            if (!m_dictionary.ContainsKey(item))
+            if (!_dictionary.ContainsKey(item))
             {
                 return false;
             }
@@ -255,19 +267,20 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// </summary>
     /// <param name="other">The collection to compare with the current set.</param>
     /// <returns><c>true</c> if the set is a proper subset of <paramref name="other"/>; otherwise <c>false</c>.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="other"/> is <c>null</c>.</exception>
     public bool IsProperSubsetOf(IEnumerable<T> other)
     {
         Argument.NotNull(other);
 
-        HashSet<T> otherSet = new HashSet<T>(other, m_comparer);
+        HashSet<T> otherSet = new HashSet<T>(other, _comparer);
         if (Count >= otherSet.Count)
         {
             return false;
         }
 
-        foreach (T key in m_dictionary.Keys)
+        foreach (KeyValuePair<T, byte> entry in _dictionary)
         {
-            if (!otherSet.Contains(key))
+            if (!otherSet.Contains(entry.Key))
             {
                 return false;
             }
@@ -282,11 +295,12 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// </summary>
     /// <param name="other">The collection to compare with the current set.</param>
     /// <returns><c>true</c> if the set is a proper superset of <paramref name="other"/>; otherwise <c>false</c>.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="other"/> is <c>null</c>.</exception>
     public bool IsProperSupersetOf(IEnumerable<T> other)
     {
         Argument.NotNull(other);
 
-        HashSet<T> otherSet = new HashSet<T>(other, m_comparer);
+        HashSet<T> otherSet = new HashSet<T>(other, _comparer);
         if (Count <= otherSet.Count)
         {
             return false;
@@ -294,7 +308,7 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
 
         foreach (T item in otherSet)
         {
-            if (!m_dictionary.ContainsKey(item))
+            if (!_dictionary.ContainsKey(item))
             {
                 return false;
             }
@@ -308,13 +322,14 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// </summary>
     /// <param name="other">The collection to compare with the current set.</param>
     /// <returns><c>true</c> if the set and <paramref name="other"/> share at least one element; otherwise <c>false</c>.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="other"/> is <c>null</c>.</exception>
     public bool Overlaps(IEnumerable<T> other)
     {
         Argument.NotNull(other);
 
         foreach (T item in other)
         {
-            if (m_dictionary.ContainsKey(item))
+            if (_dictionary.ContainsKey(item))
             {
                 return true;
             }
@@ -328,19 +343,20 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
     /// </summary>
     /// <param name="other">The collection to compare with the current set.</param>
     /// <returns><c>true</c> if the set equals <paramref name="other"/>; otherwise <c>false</c>.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="other"/> is <c>null</c>.</exception>
     public bool SetEquals(IEnumerable<T> other)
     {
         Argument.NotNull(other);
 
-        HashSet<T> otherSet = new HashSet<T>(other, m_comparer);
+        HashSet<T> otherSet = new HashSet<T>(other, _comparer);
         if (Count != otherSet.Count)
         {
             return false;
         }
 
-        foreach (T key in m_dictionary.Keys)
+        foreach (KeyValuePair<T, byte> entry in _dictionary)
         {
-            if (!otherSet.Contains(key))
+            if (!otherSet.Contains(entry.Key))
             {
                 return false;
             }
@@ -349,10 +365,22 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
         return true;
     }
 
-    /// <inheritdoc/>
+    /// <summary>
+    /// Returns an enumerator over the elements of the set.
+    /// </summary>
+    /// <returns>An enumerator over the elements.</returns>
+    /// <remarks>
+    /// Enumerates the underlying dictionary directly, which is lock-free.
+    /// This is a live view rather than a snapshot: elements added or removed
+    /// after enumeration begins may or may not be observed, exactly as
+    /// <see cref="ConcurrentDictionary{TKey, TValue}"/> behaves.
+    /// </remarks>
     public IEnumerator<T> GetEnumerator()
     {
-        return m_dictionary.Keys.GetEnumerator();
+        foreach (KeyValuePair<T, byte> entry in _dictionary)
+        {
+            yield return entry.Key;
+        }
     }
 
     /// <inheritdoc/>
@@ -361,6 +389,6 @@ public sealed class ConcurrentHashSet<T> : ISet<T>, IReadOnlySet<T>
         return GetEnumerator();
     }
 
-    private readonly IEqualityComparer<T> m_comparer;
-    private readonly ConcurrentDictionary<T, byte> m_dictionary;
+    private readonly IEqualityComparer<T> _comparer;
+    private readonly ConcurrentDictionary<T, byte> _dictionary;
 }

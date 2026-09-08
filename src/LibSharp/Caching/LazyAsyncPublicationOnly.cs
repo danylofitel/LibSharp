@@ -12,11 +12,28 @@ namespace LibSharp.Caching;
 /// </summary>
 /// <typeparam name="T">Value type.</typeparam>
 /// <remarks>
-/// Should not be used with IDisposable or IAsyncDisposable value types since it does not dispose of values.
 /// Concurrent callers may execute the factory more than once; only the first successfully published value is retained and returned to all callers.
 /// Faulted or canceled attempts are not cached and may be retried by later callers.
+/// <para>
+/// When callers race, every losing racer's value is dropped. A dropped value is disposed by default
+/// if it implements <see cref="IAsyncDisposable"/> or <see cref="IDisposable"/>: the compare-exchange
+/// that publishes the winner names the losers exactly, so a dropped value is known never to have
+/// reached a caller, and nothing else could release it. Pass <c>disposeDroppedValues: false</c> to
+/// leave dropped values alone.
+/// </para>
+/// <para>
+/// Automatic disposal assumes the factory returns a freshly created instance that it exclusively
+/// owns. Where <typeparamref name="T"/> is a reference type, a factory returning one shared instance
+/// to every racer is still safe: identity is checked, so the published value is never disposed. No
+/// such check is possible for a value type, which is copied per racer, nor for distinct values that
+/// share an owned resource. A factory that cannot meet the precondition should pass
+/// <c>disposeDroppedValues: false</c>.
+/// </para>
+/// <para>
+/// This type never disposes the published value, so its disposal remains the caller's responsibility.
+/// </para>
 /// </remarks>
-public sealed class LazyAsyncPublicationOnly<T>
+public sealed class LazyAsyncPublicationOnly<T> : ILazyAsync<T>
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="LazyAsyncPublicationOnly{T}"/> class from a value.
@@ -24,24 +41,33 @@ public sealed class LazyAsyncPublicationOnly<T>
     /// <param name="value">The value to hold.</param>
     public LazyAsyncPublicationOnly(T value)
     {
-        m_value = new ValueReference<T>(value);
+        _value = new ValueReference<T>(value);
     }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="LazyAsyncPublicationOnly{T}"/> class from a value factory.
     /// </summary>
     /// <param name="factory">The value factory.</param>
-    public LazyAsyncPublicationOnly(Func<CancellationToken, Task<T>> factory)
+    /// <param name="disposeDroppedValues">
+    /// (Optional) Whether a value that loses the publication race is disposed when it implements
+    /// <see cref="IAsyncDisposable"/> or <see cref="IDisposable"/>. Defaults to <c>true</c>, which is
+    /// the safe choice: a dropped value reaches no caller, so nothing else can release it. Pass
+    /// <c>false</c> when the factory returns values that share an owned resource, or that something
+    /// else is responsible for.
+    /// </param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="factory"/> is <c>null</c>.</exception>
+    public LazyAsyncPublicationOnly(Func<CancellationToken, Task<T>> factory, bool disposeDroppedValues = true)
     {
         Argument.NotNull(factory);
 
-        m_factory = factory;
+        _factory = factory;
+        _disposeDroppedValues = disposeDroppedValues;
     }
 
     /// <summary>
     /// Gets a value indicating whether the value has been initialized.
     /// </summary>
-    public bool HasValue => m_value is not null;
+    public bool HasValue => _value is not null;
 
     /// <summary>
     /// Gets the value.
@@ -50,22 +76,51 @@ public sealed class LazyAsyncPublicationOnly<T>
     /// <returns>The value.</returns>
     /// <exception cref="OperationCanceledException">Thrown if <paramref name="cancellationToken"/> is canceled before a published value is produced.</exception>
     /// <exception cref="InvalidOperationException">Thrown if the value factory returns a null task.</exception>
-    public async Task<T> GetValueAsync(CancellationToken cancellationToken = default)
+    public ValueTask<T> GetValueAsync(CancellationToken cancellationToken = default)
     {
-        if (!HasValue)
+        ValueReference<T>? value = _value;
+        if (value is not null)
         {
-            // m_factory is non-null whenever HasValue is false: the value constructor publishes
-            // m_value (making HasValue true), and the factory constructor sets m_factory.
-            Task<T> factoryTask = m_factory!(cancellationToken)
-                ?? throw new InvalidOperationException("The value factory returned a null task.");
-            T value = await factoryTask.ConfigureAwait(false);
-            _ = Interlocked.CompareExchange(ref m_value, new ValueReference<T>(value), null);
+            return new ValueTask<T>(value.Value);
         }
 
-        // m_value is non-null here: either HasValue was already true, or the block above published it.
-        return m_value!.Value;
+        // This call has to produce a value, so an already-cancelled token cancels it here rather
+        // than relying on the factory to honour the token it is handed — many do not. Checked after
+        // the published-value path above, because that returns without waiting and so has nothing
+        // to cancel, matching every other type in this namespace.
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return ValueTask.FromCanceled<T>(cancellationToken);
+        }
+
+        return InitializeAsync(cancellationToken);
     }
 
-    private readonly Func<CancellationToken, Task<T>>? m_factory;
-    private volatile ValueReference<T>? m_value;
+    private async ValueTask<T> InitializeAsync(CancellationToken cancellationToken)
+    {
+        // _factory is non-null whenever _value is null: the value constructor publishes
+        // _value, and the factory constructor sets _factory.
+        Task<T> factoryTask = _factory!(cancellationToken)
+            ?? throw new InvalidOperationException("The value factory returned a null task.");
+        T value = await factoryTask.ConfigureAwait(false);
+
+        // The exchange names the winner: null back means this call published, anything else is the
+        // value that got there first, and this one was never handed to a caller.
+        ValueReference<T>? published = Interlocked.CompareExchange(ref _value, new ValueReference<T>(value), null);
+        if (published is null)
+        {
+            return value;
+        }
+
+        if (_disposeDroppedValues)
+        {
+            await DroppedValue.DisposeAsync(value, published.Value).ConfigureAwait(false);
+        }
+
+        return published.Value;
+    }
+
+    private readonly Func<CancellationToken, Task<T>>? _factory;
+    private readonly bool _disposeDroppedValues;
+    private volatile ValueReference<T>? _value;
 }

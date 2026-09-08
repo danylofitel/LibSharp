@@ -16,54 +16,93 @@ namespace LibSharp.Caching;
 /// lifetime, so an instance that is never disposed is never garbage collected and keeps invoking
 /// the value factory forever — both a managed leak and a continuous load on whatever the factory
 /// calls. Always dispose the cache via <see cref="DisposeAsync"/> when it is no longer needed.
+/// An <c>idleTimeout</c> stops the factory calls once the cache falls out of use, but it does not
+/// release the instance — disposal is still mandatory.
+/// <para>
+/// Should not be used with <see cref="IDisposable"/> value types since it does not dispose of
+/// replaced values. This cache sheds values more readily than the others in this namespace: the
+/// background loop replaces the current value once per refresh interval whether or not anything
+/// ever reads it, so a disposable <typeparamref name="T"/> leaks on every refresh rather than only
+/// on demand. This type never disposes the value, so disposal remains the caller's responsibility.
+/// </para>
 /// </remarks>
 public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposable
 {
     /// <summary>
-    /// Initializes a new instance of the <see cref="ProactiveAsyncCache{T}"/> class.
-    /// The background refresh loop starts immediately upon construction.
+    /// Initializes a new instance of the <see cref="ProactiveAsyncCache{T}"/> class with default
+    /// options. The background refresh loop starts immediately.
     /// </summary>
     /// <param name="valueFactory">
-    /// The value factory. It must not call or await <see cref="GetValueAsync(System.Threading.CancellationToken)"/>
+    /// The value factory. It must not call or await <see cref="GetValueAsync(CancellationToken)"/>
     /// on this same cache instance.
     /// </param>
-    /// <param name="refreshInterval">The interval at which the cache should be refreshed.</param>
-    /// <param name="preFetchOffset">The offset before the refresh interval to pre-fetch the value.</param>
-    /// <param name="allowStaleReads">
-    /// When <c>true</c>, readers receive the stale cached value immediately while a background
-    /// refresh runs. When <c>false</c> (default), readers block until the refresh completes.
-    /// Either way, the first read blocks until the initial fetch completes, because there is no
-    /// prior value to serve.
-    /// </param>
-    /// <param name="timeProvider">
-    /// (Optional) Time provider used to measure expiration and schedule background refreshes.
-    /// Defaults to <see cref="TimeProvider.System"/>.
+    /// <param name="refreshInterval">How long a fetched value stays fresh. Must be positive.</param>
+    /// <param name="preFetchOffset">
+    /// How long before expiration the background loop refreshes the value. Must be at least zero and
+    /// less than <paramref name="refreshInterval"/>.
     /// </param>
     /// <remarks>
-    /// The value factory is expected to be independent of this cache instance. Re-entering this same
-    /// cache from inside the factory is unsupported and may deadlock if the factory awaits the nested read.
+    /// A convenience for the common case. This overload will never gain further parameters —
+    /// everything else is configured through <see cref="ProactiveAsyncCacheOptions"/>, so that new
+    /// settings can be added without breaking existing callers.
     /// </remarks>
     public ProactiveAsyncCache(
         Func<CancellationToken, Task<T>> valueFactory,
         TimeSpan refreshInterval,
-        TimeSpan preFetchOffset,
-        bool allowStaleReads = false,
-        TimeProvider? timeProvider = null)
+        TimeSpan preFetchOffset)
+        : this(
+            valueFactory,
+            new ProactiveAsyncCacheOptions { RefreshInterval = refreshInterval, PreFetchOffset = preFetchOffset })
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ProactiveAsyncCache{T}"/> class.
+    /// The background refresh loop starts immediately.
+    /// </summary>
+    /// <param name="valueFactory">
+    /// The value factory. It must not call or await <see cref="GetValueAsync(CancellationToken)"/>
+    /// on this same cache instance.
+    /// </param>
+    /// <param name="options">
+    /// Cache configuration. Validated and copied here, so later changes to the instance do not
+    /// affect this cache.
+    /// </param>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="options"/> or <paramref name="valueFactory"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="options"/> is outside the permitted range.</exception>
+    /// <remarks>
+    /// The value factory is expected to be independent of this cache instance. Re-entering this same
+    /// cache from inside the factory is unsupported and deadlocks if the factory awaits the nested read.
+    /// </remarks>
+    public ProactiveAsyncCache(Func<CancellationToken, Task<T>> valueFactory, ProactiveAsyncCacheOptions options)
     {
         Argument.NotNull(valueFactory);
-        Argument.GreaterThan(refreshInterval, TimeSpan.Zero);
-        Argument.GreaterThanOrEqualTo(preFetchOffset, TimeSpan.Zero);
-        Argument.LessThan(preFetchOffset, refreshInterval);
+        Argument.NotNull(options);
+        Argument.GreaterThan(options.RefreshInterval, TimeSpan.Zero, nameof(options.RefreshInterval));
+        Argument.GreaterThanOrEqualTo(options.PreFetchOffset, TimeSpan.Zero, nameof(options.PreFetchOffset));
+        Argument.LessThan(options.PreFetchOffset, options.RefreshInterval, nameof(options.PreFetchOffset));
 
-        m_cts = new CancellationTokenSource();
-        m_lock = new object();
-        m_timeProvider = timeProvider ?? TimeProvider.System;
-        m_fetchFunc = valueFactory;
-        m_refreshInterval = refreshInterval;
-        m_preFetchOffset = preFetchOffset;
-        m_retryDelay = CalculateRetryDelay(refreshInterval, preFetchOffset);
-        m_allowStaleReads = allowStaleReads;
-        m_backgroundTask = Task.Run(BackgroundRefreshAsync);
+        if (options.IdleTimeout.HasValue)
+        {
+            Argument.GreaterThan(options.IdleTimeout.Value, TimeSpan.Zero, nameof(options.IdleTimeout));
+        }
+
+        if (options.FetchTimeout.HasValue)
+        {
+            Argument.GreaterThan(options.FetchTimeout.Value, TimeSpan.Zero, nameof(options.FetchTimeout));
+        }
+
+        _cts = new CancellationTokenSource();
+        _lock = new object();
+        _timeProvider = options.TimeProvider ?? TimeProvider.System;
+        _fetchFunc = valueFactory;
+        _refreshInterval = options.RefreshInterval;
+        _preFetchOffset = options.PreFetchOffset;
+        _retryDelay = CalculateRetryDelay(options.RefreshInterval, options.PreFetchOffset);
+        _staleReads = options.StaleReads;
+        _fetchTimeout = options.FetchTimeout;
+        _idleTracker = options.IdleTimeout.HasValue ? new IdleTracker(_timeProvider, options.IdleTimeout.Value) : null;
+        _backgroundTask = Task.Run(BackgroundRefreshAsync);
     }
 
     /// <inheritdoc/>
@@ -71,8 +110,8 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
     {
         get
         {
-            ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
-            return m_snapshot is not null;
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
+            return _state.Snapshot is not null;
         }
     }
 
@@ -81,38 +120,145 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
     {
         get
         {
-            ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
-            return m_snapshot?.ExpirationTime;
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
+            return _state.Snapshot?.ExpiresAt;
+        }
+    }
+
+    /// <summary>
+    /// Gets the exception from the most recent failed refresh, or <c>null</c> if the cache is healthy.
+    /// </summary>
+    /// <remarks>
+    /// Cleared by the next successful refresh, so a non-null value means the cache is failing
+    /// <em>now</em>, not that it failed at some point. With stale reads enabled this is the only
+    /// signal that the value being served has stopped being updated, since readers see no error.
+    /// <para>
+    /// This and the two properties below are each sampled independently from an internally
+    /// consistent state object, so a pair of reads may straddle a refresh. Treat them as a health
+    /// signal rather than a transactional snapshot.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ObjectDisposedException">Thrown if the cache has been disposed.</exception>
+    public Exception? LastRefreshException
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
+            return _state.Failure?.Exception;
+        }
+    }
+
+    /// <summary>
+    /// Gets the number of consecutive failed refreshes since the last successful one.
+    /// </summary>
+    /// <remarks>
+    /// Zero when the cache is healthy. A value that keeps climbing is the signal to alert on: it
+    /// distinguishes a single transient failure from a dependency that is genuinely down.
+    /// </remarks>
+    /// <exception cref="ObjectDisposedException">Thrown if the cache has been disposed.</exception>
+    public int ConsecutiveRefreshFailures
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
+            return _state.Failure?.ConsecutiveCount ?? 0;
+        }
+    }
+
+    /// <summary>
+    /// Gets the time at which the current value was produced, or <c>null</c> before the first
+    /// successful refresh.
+    /// </summary>
+    /// <remarks>
+    /// Measured with the cache's <see cref="TimeProvider"/>. Together with
+    /// <see cref="ConsecutiveRefreshFailures"/> this gives the age of what is actually being served,
+    /// which is what matters when stale reads are enabled and the value could be arbitrarily old.
+    /// </remarks>
+    /// <exception cref="ObjectDisposedException">Thrown if the cache has been disposed.</exception>
+    public DateTime? LastSuccessfulRefresh
+    {
+        get
+        {
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
+            return _state.Snapshot?.CreatedAt;
         }
     }
 
     /// <inheritdoc/>
-    public async Task<T> GetValueAsync(CancellationToken cancellationToken = default)
+    /// <exception cref="ObjectDisposedException">Thrown when this instance has been disposed.</exception>
+    public ValueTask<T> GetValueAsync(CancellationToken cancellationToken = default)
     {
-        ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
 
-        // Hot path: snapshot is fresh, no lock needed.
-        // m_snapshot is volatile so the reference read is immediately visible across threads.
-        // CacheSnapshot is an immutable record so a non-null reference is always a fully
-        // constructed, consistent object.
-        CacheSnapshot? snapshot = m_snapshot;
-        if (snapshot is not null && UtcNow < snapshot.ExpirationTime)
+        DateTime now = UtcNow;
+
+        // Record the access before looking at the snapshot, so the background loop's idle deadline
+        // reflects this call whether or not the cached value turns out to be fresh. Skipped
+        // entirely when no idle timeout is configured, so the default read path stays a single
+        // volatile reference read with no interlocked operation and no shared cache line to dirty.
+        if (_idleTracker is not null)
         {
-            return snapshot.Value;
+            _idleTracker.RecordAccess(now);
         }
 
+        // Hot path: snapshot is fresh, no lock needed.
+        // _state is volatile so the reference read is immediately visible across threads, and the
+        // whole state is immutable, so this single read gives a consistent view.
+        CacheSnapshot? snapshot = _state.Snapshot;
+        if (snapshot is not null && now < snapshot.ExpiresAt)
+        {
+            // Hit: this method is deliberately not async, so the common path costs no allocation
+            // and builds no state machine.
+            return new ValueTask<T>(snapshot.Value);
+        }
+
+        // A read the stale-read policy will satisfy also returns without waiting, exactly as a hit
+        // does, so it has nothing to cancel either.
+        bool servedWithoutWaiting = snapshot is not null && CanServeStale(snapshot);
+
+        // Miss: this call has to wait for a refresh, so an already-cancelled token cancels it here.
+        // WaitAsync in the slow path cannot be relied on for this — when the shared refresh has
+        // already completed it hands back its result without ever consulting the token.
+        if (!servedWithoutWaiting && cancellationToken.IsCancellationRequested)
+        {
+            return ValueTask.FromCanceled<T>(cancellationToken);
+        }
+
+        return FetchValueAsync(snapshot, cancellationToken);
+    }
+
+    // True when an expired value may still be handed to a reader: the policy permits it, and the
+    // value has not aged past the policy's bound. Staleness is measured from expiration, not from
+    // production, so the oldest value a reader can see is refreshInterval + MaxStaleness.
+    private bool CanServeStale(CacheSnapshot snapshot)
+    {
+        if (!_staleReads.ServesStale)
+        {
+            return false;
+        }
+
+        return _staleReads.MaxStaleness is not TimeSpan maxStaleness
+            || UtcNow - snapshot.ExpiresAt <= maxStaleness;
+    }
+
+    // Slow path: no value yet, or the value has expired.
+    private async ValueTask<T> FetchValueAsync(CacheSnapshot? snapshot, CancellationToken cancellationToken)
+    {
         // Snapshot is absent or expired — get or start a fetch.
         Task<CacheSnapshot> fetchTask = GetOrCreateFetchTask();
 
-        if (snapshot is not null && m_allowStaleReads)
+        if (snapshot is not null && CanServeStale(snapshot))
         {
-            // Stale reads are allowed: return the stale value immediately while the refresh
-            // runs in the background. This ensures readers never block after the initial fetch,
-            // even when the factory is slow or temporarily failing.
-            // If the factory completed synchronously (e.g. Task.FromResult), the fetch task
-            // is already done and a fresher value is available — prefer it over the stale one.
+            // Serve the expired value immediately while the refresh runs in the background, so
+            // readers never block after the initial fetch even when the factory is slow or failing.
+            // If the factory completed synchronously (e.g. Task.FromResult), the fetch task is
+            // already done and a fresher value is available — prefer it over the stale one.
             return fetchTask.IsCompletedSuccessfully ? fetchTask.Result.Value : snapshot.Value;
         }
+
+        // Either stale reads are off, or this value has aged past the configured bound. Falling
+        // through means waiting for the refresh, which is also what surfaces a persistent failure
+        // to the caller instead of hiding it behind an ever-older value.
 
         // Either no value at all (first call) or stale reads are disabled: wait for the fetch.
         // WaitAsync attaches caller cancellation without cancelling the underlying factory call,
@@ -122,7 +268,7 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
             CacheSnapshot result = await fetchTask.WaitAsync(cancellationToken).ConfigureAwait(false);
             return result.Value;
         }
-        catch (OperationCanceledException) when (Volatile.Read(ref m_isDisposed) != 0 && !cancellationToken.IsCancellationRequested)
+        catch (OperationCanceledException) when (Volatile.Read(ref _isDisposed) != 0 && !cancellationToken.IsCancellationRequested)
         {
             // The fetch was cancelled by disposal, not by the caller. Surface as
             // ObjectDisposedException so callers can distinguish the two cases.
@@ -137,40 +283,41 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
     /// </remarks>
     public async ValueTask DisposeAsync()
     {
-        if (Interlocked.Exchange(ref m_isDisposed, 1) != 0)
+        if (Interlocked.Exchange(ref _isDisposed, 1) != 0)
         {
             return;
         }
 
-        // Cancel runs any cancellation callbacks the factory registered on the token it was
-        // handed; a throwing callback is surfaced by Cancel as an AggregateException and must
-        // not prevent disposal from completing.
+        // Cancelling runs any cancellation callbacks the factory registered on the token it was
+        // handed. CancelAsync keeps them off the disposing thread, so a slow or re-entrant callback
+        // cannot stall the caller; a throwing one is surfaced as an AggregateException and must not
+        // prevent disposal from completing.
         try
         {
-            m_cts.Cancel();
+            await _cts.CancelAsync().ConfigureAwait(false);
         }
         catch
         {
             // Intentionally swallowed — DisposeAsync must never throw.
         }
 
-        // Capture m_pendingFetch under lock. After m_isDisposed = 1, GetOrCreateFetchTask
+        // Capture _pendingFetch under lock. After _isDisposed = 1, GetOrCreateFetchTask
         // throws ObjectDisposedException under the lock, so no new fetch can be created.
         // This single read therefore captures the last possible in-flight fetch.
         //
-        // m_backgroundTask is always non-null (set in constructor) and does not need to be
+        // _backgroundTask is always non-null (set in constructor) and does not need to be
         // read under lock — it is never reassigned after construction.
         Task<CacheSnapshot>? pendingFetch;
-        lock (m_lock)
+        lock (_lock)
         {
-            pendingFetch = m_pendingFetch;
+            pendingFetch = _pendingFetch;
         }
 
         // Wait for the background loop to exit. When the background loop is itself awaiting
         // a fetch (not sleeping on the refresh timer), this implicitly drains that fetch too.
         try
         {
-            await m_backgroundTask.ConfigureAwait(false);
+            await _backgroundTask.ConfigureAwait(false);
         }
         catch
         {
@@ -179,7 +326,7 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
         }
 
         // Drain any independently-created fetch (e.g. one started by GetValueAsync while
-        // the background loop was sleeping on the refresh timer). After m_backgroundTask
+        // the background loop was sleeping on the refresh timer). After _backgroundTask
         // exits, no new fetches can be created, so this is the last possible in-flight one.
         if (pendingFetch is not null && !pendingFetch.IsCompleted)
         {
@@ -193,62 +340,82 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
             }
         }
 
-        m_cts.Dispose();
+        _cts.Dispose();
     }
 
     // Returns a task representing an in-progress or newly started fetch. Callers should
     // await the returned task to get the refreshed snapshot.
     //
-    // forceRefresh = false (GetValueAsync): fresh if now < expirationTime
-    // forceRefresh = true  (background loop): fresh if now < expirationTime - preFetchOffset
+    // backgroundRefresh = false (GetValueAsync): fresh if now < expiresAt
+    // backgroundRefresh = true  (background loop): fresh if now < expiresAt - preFetchOffset
     //   The tighter threshold prevents the background from duplicating a fetch that
     //   GetValueAsync just performed while the loop was sleeping.
-    private Task<CacheSnapshot> GetOrCreateFetchTask(bool forceRefresh = false)
+    // The flag also exempts the loop from the reader-side failure backoff below: the loop already
+    // paces its own retries with _retryDelay, so suppressing it there would only stall it further.
+    private Task<CacheSnapshot> GetOrCreateFetchTask(bool backgroundRefresh = false)
     {
         TaskCompletionSource<CacheSnapshot> tcs;
 
-        lock (m_lock)
+        lock (_lock)
         {
             // Re-check disposal under lock — closes the window between the caller's
             // initial disposal check and acquiring the lock.
-            ObjectDisposedException.ThrowIf(Volatile.Read(ref m_isDisposed) != 0, this);
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref _isDisposed) != 0, this);
 
             // Join an existing in-progress fetch.
-            if (m_pendingFetch is not null && !m_pendingFetch.IsCompleted)
+            if (_pendingFetch is not null && !_pendingFetch.IsCompleted)
             {
-                return m_pendingFetch;
+                return _pendingFetch;
             }
 
             // Observe any completed faulted fetch to suppress UnobservedTaskException.
             // (The ContinueWith below handles the common case; this covers any gap.)
-            if (m_pendingFetch?.IsFaulted == true)
+            if (_pendingFetch is { IsFaulted: true })
             {
-                _ = m_pendingFetch!.Exception;
+                _ = _pendingFetch.Exception;
             }
 
             // Re-check freshness under lock — a concurrent thread may have completed a
             // fetch between the caller's outer check and acquiring the lock.
-            CacheSnapshot? snapshot = m_snapshot;
-            TimeSpan freshThreshold = forceRefresh ? m_preFetchOffset : TimeSpan.Zero;
-            if (snapshot is not null && UtcNow < snapshot.ExpirationTime - freshThreshold)
+            CacheState state = _state;
+            CacheSnapshot? snapshot = state.Snapshot;
+            TimeSpan freshThreshold = backgroundRefresh ? _preFetchOffset : TimeSpan.Zero;
+            if (snapshot is not null && UtcNow < snapshot.ExpiresAt - freshThreshold)
             {
                 return Task.FromResult(snapshot);
             }
 
-            // Publish a TCS task as m_pendingFetch *before* invoking the factory. This
+            // Negative caching. A faulted fetch is a completed task and so is never joined, which
+            // leaves every read free to start a fresh factory call: a dependency failing fast would
+            // then be retried once per read, hammering a service that is very likely failing fast
+            // because it is already overloaded. Within _retryDelay of a failure the stored
+            // exception is replayed instead.
+            FetchFailure? failure = state.Failure;
+            if (!backgroundRefresh && failure is not null && UtcNow - failure.FailedAt < _retryDelay)
+            {
+                Task<CacheSnapshot> suppressed = Task.FromException<CacheSnapshot>(failure.Exception);
+
+                // Observe it here: a stale-read caller discards this task without awaiting it, and
+                // an unobserved faulted task would raise UnobservedTaskException on finalization.
+                _ = suppressed.Exception;
+
+                return suppressed;
+            }
+
+            // Publish a TCS task as _pendingFetch *before* invoking the factory. This
             // closes the synchronous re-entrancy hole: if the factory's synchronous prologue
             // calls back into GetValueAsync (and therefore GetOrCreateFetchTask), the lock is
-            // reentrant on the same thread and the reentrant call will find m_pendingFetch
+            // reentrant on the same thread and the reentrant call will find _pendingFetch
             // already set, returning this task instead of starting a new recursive fetch.
             // Awaiting GetValueAsync on this same cache from inside the factory is still
             // unsupported and may deadlock; that misuse is documented on the constructor.
             tcs = new TaskCompletionSource<CacheSnapshot>(TaskCreationOptions.RunContinuationsAsynchronously);
-            m_pendingFetch = tcs.Task;
+            _pendingFetch = tcs.Task;
 
             // Proactively observe any fault so UnobservedTaskException never fires, even
             // when a stale-read caller discards the fetch task reference and the factory
             // later fails.
-            _ = m_pendingFetch.ContinueWith(
+            _ = _pendingFetch.ContinueWith(
                 static t => _ = t.Exception,
                 CancellationToken.None,
                 TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously,
@@ -266,30 +433,73 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
     {
         try
         {
-            Task<T> fetchTask = m_fetchFunc(m_cts.Token)
-                ?? throw new InvalidOperationException("The value factory returned a null task.");
-            T value = await fetchTask.ConfigureAwait(false);
+            T value = await InvokeFactoryAsync().ConfigureAwait(false);
 
             // Clamp expiration to DateTime.MaxValue to avoid overflow when refreshInterval
             // is very large (e.g. TimeSpan.FromDays(1000)).
             DateTime now = UtcNow;
-            DateTime expiration = m_refreshInterval >= DateTime.MaxValue - now
+            DateTime expiration = _refreshInterval >= DateTime.MaxValue - now
                 ? DateTime.MaxValue
-                : now + m_refreshInterval;
+                : now + _refreshInterval;
 
-            CacheSnapshot snapshot = new CacheSnapshot(value, expiration);
-            // Volatile write — immediately visible to all threads reading m_snapshot on the hot path.
-            m_snapshot = snapshot;
+            CacheSnapshot snapshot = new CacheSnapshot(value, now, expiration);
+
+            // Volatile write — immediately visible on the hot path. Success clears any recorded
+            // failure, so the backoff and the failure counters reset together.
+            _state = new CacheState(snapshot, null);
             _ = tcs.TrySetResult(snapshot);
         }
-        catch (OperationCanceledException) when (m_cts.IsCancellationRequested)
+        catch (OperationCanceledException) when (_cts.IsCancellationRequested)
         {
-            _ = tcs.TrySetCanceled(m_cts.Token);
+            // Disposal, not a factory failure — deliberately not recorded as one.
+            _ = tcs.TrySetCanceled(_cts.Token);
         }
         catch (Exception ex)
         {
-            _ = tcs.TrySetException(ex);
+            // Everything else, including a fetch timeout, counts as a failure: it feeds the
+            // reader-side backoff and the diagnostics alike.
+            RecordFailure(ex, tcs);
         }
+    }
+
+    // Invokes the value factory, bounded by the configured fetch timeout if there is one.
+    private async Task<T> InvokeFactoryAsync()
+    {
+        if (_fetchTimeout is not TimeSpan fetchTimeout)
+        {
+            Task<T> untimedTask = _fetchFunc(_cts.Token)
+                ?? throw new InvalidOperationException("The value factory returned a null task.");
+            return await untimedTask.ConfigureAwait(false);
+        }
+
+        // Two sources rather than CancelAfter: the timeout must run on the cache's TimeProvider so
+        // it is testable and consistent with every other deadline here, and CancelAfter always uses
+        // the system clock. The linked source lets disposal cancel the factory as well.
+        using CancellationTokenSource timeoutSource = new CancellationTokenSource(fetchTimeout, _timeProvider);
+        using CancellationTokenSource linkedSource = CancellationTokenSource.CreateLinkedTokenSource(_cts.Token, timeoutSource.Token);
+
+        try
+        {
+            Task<T> fetchTask = _fetchFunc(linkedSource.Token)
+                ?? throw new InvalidOperationException("The value factory returned a null task.");
+            return await fetchTask.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (timeoutSource.IsCancellationRequested && !_cts.IsCancellationRequested)
+        {
+            // Report a timeout as a timeout, not as a cancellation the caller never asked for.
+            throw new TimeoutException(
+                $"The value factory did not complete within the configured fetch timeout of {fetchTimeout}.");
+        }
+    }
+
+    private void RecordFailure(Exception exception, TaskCompletionSource<CacheSnapshot> tcs)
+    {
+        // Keep whatever value we already had; only the failure part of the state changes.
+        CacheState previous = _state;
+        int consecutive = (previous.Failure?.ConsecutiveCount ?? 0) + 1;
+        _state = previous with { Failure = new FetchFailure(exception, UtcNow, consecutive) };
+
+        _ = tcs.TrySetException(exception);
     }
 
     private async Task BackgroundRefreshAsync()
@@ -297,17 +507,29 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
         // Phase 1: initial fetch.
         // Retry until a value is obtained or the cache is disposed. A valid snapshot is
         // required before the timed refresh loop can compute meaningful delays.
-        while (m_snapshot is null)
+        while (_state.Snapshot is null)
         {
-            try
-            {
-                _ = await GetOrCreateFetchTask().ConfigureAwait(false);
-            }
-            catch (OperationCanceledException) when (m_cts.IsCancellationRequested)
+            // Nobody has asked for a value since construction: suspend instead of retrying the
+            // factory forever. A reader arriving meanwhile fetches reactively and wakes this loop;
+            // falling straight through to GetOrCreateFetchTask afterwards is harmless, because it
+            // re-checks freshness under the lock and hands back that reader's snapshot unchanged.
+            if (!await WaitWhileIdleAsync().ConfigureAwait(false))
             {
                 return;
             }
-            catch (ObjectDisposedException) when (Volatile.Read(ref m_isDisposed) != 0)
+
+            try
+            {
+                // backgroundRefresh, as in phase 2: this is the loop, and it paces its own retries
+                // with _retryDelay. Leaving it subject to the reader-side failure backoff would make
+                // a reader's recorded failure suppress the loop's own retry and stall it further.
+                _ = await GetOrCreateFetchTask(backgroundRefresh: true).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (_cts.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (ObjectDisposedException) when (Volatile.Read(ref _isDisposed) != 0)
             {
                 return;
             }
@@ -316,7 +538,7 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
                 // Transient factory failure; wait before retrying to avoid tight-looping.
                 try
                 {
-                    await Task.Delay(Clamp(m_retryDelay), m_timeProvider, m_cts.Token).ConfigureAwait(false);
+                    await Task.Delay(Clamp(_retryDelay), _timeProvider, _cts.Token).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)
                 {
@@ -327,39 +549,66 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
 
         // Phase 2: periodic refresh.
         // Sleep until just before the current snapshot expires, then pre-fetch.
-        while (!m_cts.Token.IsCancellationRequested)
+        while (!_cts.Token.IsCancellationRequested)
         {
             try
             {
+                // Suspend instead of scheduling around an expiration nobody is waiting on. The
+                // snapshot is then left to expire; the read that ends the idle period pays for one
+                // reactive fetch, which is exactly the trade this option makes.
+                if (!await WaitWhileIdleAsync().ConfigureAwait(false))
+                {
+                    break;
+                }
+
                 // Anchor the delay to the snapshot's expiration time rather than using a
                 // fixed interval, so scheduling jitter does not cause cumulative drift.
                 // Phase 1 guarantees a snapshot exists on entry; the null guard is defensive
                 // (a null snapshot simply falls through to an immediate refresh).
-                CacheSnapshot? snapshot = m_snapshot;
+                CacheSnapshot? snapshot = _state.Snapshot;
                 if (snapshot is not null)
                 {
-                    TimeSpan delay = snapshot.ExpirationTime - m_preFetchOffset - UtcNow;
+                    TimeSpan delay = snapshot.ExpiresAt - _preFetchOffset - UtcNow;
+
+                    // Wake at the earlier of the pre-fetch point and the idle deadline, so the idle
+                    // check below can park the loop and release its timer the moment the cache falls
+                    // out of use rather than at the end of the interval.
+                    // TimeUntilIdle is zero exactly when IsIdle is true, so clamping only to a
+                    // strictly positive value keeps this from ever collapsing into a spin.
+                    TimeSpan? untilIdle = _idleTracker?.TimeUntilIdle();
+                    if (untilIdle is TimeSpan remaining && remaining > TimeSpan.Zero && remaining < delay)
+                    {
+                        delay = remaining;
+                    }
+
                     if (delay > TimeSpan.Zero)
                     {
-                        await Task.Delay(Clamp(delay), m_timeProvider, m_cts.Token).ConfigureAwait(false);
+                        await Task.Delay(Clamp(delay), _timeProvider, _cts.Token).ConfigureAwait(false);
                     }
                 }
 
-                // Re-read after sleeping: a concurrent GetValueAsync may have refreshed
-                // the value while we were waiting, making our pre-fetch unnecessary.
-                snapshot = m_snapshot;
-                if (snapshot is not null && UtcNow < snapshot.ExpirationTime - m_preFetchOffset)
+                // The cache may have fallen idle while we slept: skip this refresh and let the top
+                // of the next iteration suspend the loop.
+                if (_idleTracker?.IsIdle() is true)
                 {
                     continue;
                 }
 
-                _ = await GetOrCreateFetchTask(forceRefresh: true).ConfigureAwait(false);
+                // Re-read after sleeping: a concurrent GetValueAsync may have refreshed
+                // the value while we were waiting, making our pre-fetch unnecessary.
+                snapshot = _state.Snapshot;
+                if (snapshot is not null && UtcNow < snapshot.ExpiresAt - _preFetchOffset)
+                {
+                    continue;
+                }
+
+                _ = await GetOrCreateFetchTask(backgroundRefresh: true).ConfigureAwait(false);
             }
-            catch (OperationCanceledException) when (m_cts.IsCancellationRequested)
+            catch (OperationCanceledException) when (_cts.IsCancellationRequested)
             {
                 break;
             }
-            catch (ObjectDisposedException) when (Volatile.Read(ref m_isDisposed) != 0)
+            catch (ObjectDisposedException) when (Volatile.Read(ref _isDisposed) != 0)
             {
                 break;
             }
@@ -369,7 +618,7 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
                 // when the snapshot has already expired.
                 try
                 {
-                    await Task.Delay(Clamp(m_retryDelay), m_timeProvider, m_cts.Token).ConfigureAwait(false);
+                    await Task.Delay(Clamp(_retryDelay), _timeProvider, _cts.Token).ConfigureAwait(false);
                 }
                 catch (OperationCanceledException)
                 {
@@ -392,33 +641,56 @@ public sealed class ProactiveAsyncCache<T> : IValueCacheAsync<T>, IAsyncDisposab
         return delay <= s_maxDelay ? delay : s_maxDelay;
     }
 
-    private DateTime UtcNow => m_timeProvider.GetUtcNow().UtcDateTime;
+    // Suspends the background refresh loop for as long as the cache is idle. Returns true once the
+    // cache is active again, and false when it was disposed while suspended, in which case the
+    // caller must exit its loop. A no-op when no idle timeout is configured.
+    private async Task<bool> WaitWhileIdleAsync()
+    {
+        return _idleTracker is null
+            || await _idleTracker.WaitWhileIdleAsync(_cts.Token).ConfigureAwait(false);
+    }
+
+    private DateTime UtcNow => _timeProvider.GetUtcNow().UtcDateTime;
 
     // Task.Delay internally converts TimeSpan to int milliseconds; clamp to avoid overflow
     // for refresh intervals longer than ~24.8 days. When the delay fires early, the loop
     // re-reads the snapshot and recomputes — it simply sleeps again and converges correctly.
     private static readonly TimeSpan s_maxDelay = TimeSpan.FromMilliseconds(int.MaxValue - 1);
 
-    private readonly CancellationTokenSource m_cts;
-    private readonly object m_lock;
-    private readonly TimeProvider m_timeProvider;
-    private readonly Func<CancellationToken, Task<T>> m_fetchFunc;
-    private readonly TimeSpan m_refreshInterval;
-    private readonly TimeSpan m_preFetchOffset;
-    private readonly TimeSpan m_retryDelay;
-    private readonly bool m_allowStaleReads;
-    private readonly Task m_backgroundTask;
+    private readonly CancellationTokenSource _cts;
+    private readonly object _lock;
+    private readonly TimeProvider _timeProvider;
+    private readonly Func<CancellationToken, Task<T>> _fetchFunc;
+    private readonly TimeSpan _refreshInterval;
+    private readonly TimeSpan _preFetchOffset;
+    private readonly TimeSpan _retryDelay;
+    private readonly StaleReadPolicy _staleReads;
+    private readonly TimeSpan? _fetchTimeout;
+    private readonly IdleTracker? _idleTracker;
+    private readonly Task _backgroundTask;
 
-    // Volatile: the reference must be immediately visible to all threads because the hot
-    // path in GetValueAsync (and HasValue/Expiration) reads it outside any lock. Since
-    // CacheSnapshot is an immutable record, volatile on the reference alone is sufficient —
-    // readers always see a fully constructed, consistent object.
-    private volatile CacheSnapshot? m_snapshot;
+    // Everything the cache knows, in one immutable object published by a single reference swap.
+    // Volatile: the hot path in GetValueAsync (and HasValue/Expiration) reads it outside any lock,
+    // and because CacheState and everything it holds are immutable records, volatile on the
+    // reference alone is enough — readers always see a fully constructed, consistent object.
+    //
+    // Never null, so the read path needs no null check of its own. Only CompleteAsync writes it,
+    // and those writes are serialised: a new fetch cannot be created until the previous one has
+    // completed, and the state is published before the task completes. A plain store is therefore
+    // sufficient even for the consecutive-failure count, which needs no interlocked increment.
+    private volatile CacheState _state = new CacheState(null, null);
 
-    // Written and read only under m_lock.
-    private Task<CacheSnapshot>? m_pendingFetch;
+    // Written and read only under _lock.
+    private Task<CacheSnapshot>? _pendingFetch;
 
-    private int m_isDisposed;
+    private int _isDisposed;
 
-    private sealed record CacheSnapshot(T Value, DateTime ExpirationTime);
+    private sealed record CacheState(CacheSnapshot? Snapshot, FetchFailure? Failure);
+
+    // CreatedAt is stored rather than derived from ExpiresAt: expiration is clamped to
+    // DateTime.MaxValue for very large refresh intervals, so subtracting the interval back off it
+    // would not recover the real production time.
+    private sealed record CacheSnapshot(T Value, DateTime CreatedAt, DateTime ExpiresAt);
+
+    private sealed record FetchFailure(Exception Exception, DateTime FailedAt, int ConsecutiveCount);
 }

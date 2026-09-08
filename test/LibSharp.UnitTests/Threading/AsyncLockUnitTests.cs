@@ -335,7 +335,7 @@ public class AsyncLockUnitTests
             firstHandle.Dispose();
 
             AsyncLock.Handle secondHandle = await asyncLock.AcquireAsync(TestContext.CancellationToken).ConfigureAwait(false);
-            Task<AsyncLock.Handle> thirdAcquireTask = asyncLock.AcquireAsync(TestContext.CancellationToken);
+            Task<AsyncLock.Handle> thirdAcquireTask = asyncLock.AcquireAsync(TestContext.CancellationToken).AsTask();
 
             // Act + Assert — third acquisition should remain blocked while second holds lock.
             await Task.Delay(20, TestContext.CancellationToken).ConfigureAwait(false);
@@ -364,7 +364,7 @@ public class AsyncLockUnitTests
             originalHandle.Dispose();
 
             AsyncLock.Handle secondHandle = await asyncLock.AcquireAsync(TestContext.CancellationToken).ConfigureAwait(false);
-            Task<AsyncLock.Handle> thirdAcquireTask = asyncLock.AcquireAsync(TestContext.CancellationToken);
+            Task<AsyncLock.Handle> thirdAcquireTask = asyncLock.AcquireAsync(TestContext.CancellationToken).AsTask();
 
             await Task.Delay(20, TestContext.CancellationToken).ConfigureAwait(false);
             Assert.IsFalse(thirdAcquireTask.IsCompleted);
@@ -433,5 +433,9 @@ public class AsyncLockUnitTests
         await task.ConfigureAwait(false);
     }
 
-    public TestContext TestContext { get; set; }
+    // MSTest assigns this by property injection after construction. The initializer states that
+    // explicitly: without it the compiler reports CS8618, which the normal build suppresses but
+    // `dotnet format` does not, and its code-fix pass then makes the property nullable and breaks
+    // every TestContext.CancellationToken use.
+    public TestContext TestContext { get; set; } = null!;
 }

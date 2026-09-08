@@ -9,8 +9,20 @@ namespace LibSharp.Collections;
 /// Interface for a priority queue.
 /// </summary>
 /// <typeparam name="T">Specifies the type of elements in the queue.</typeparam>
-public interface IPriorityQueue<T> : ICollection<T>
+public interface IPriorityQueue<T> : ICollection<T>, IReadOnlyCollection<T>
 {
+    /// <summary>
+    /// Gets the number of items in the queue.
+    /// </summary>
+    /// <remarks>
+    /// Re-declared to resolve the ambiguity between <see cref="ICollection{T}.Count"/> and
+    /// <see cref="IReadOnlyCollection{T}.Count"/>. Without it, reading <c>Count</c> through this
+    /// interface is a compile error (CS0229), which is the reason the base class library never made
+    /// <see cref="ICollection{T}"/> derive from <see cref="IReadOnlyCollection{T}"/>. Implementers
+    /// need do nothing extra: a single public <c>Count</c> satisfies all three declarations.
+    /// </remarks>
+    new int Count { get; }
+
     /// <summary>
     /// Returns the object at the beginning of the queue without removing it.
     /// </summary>

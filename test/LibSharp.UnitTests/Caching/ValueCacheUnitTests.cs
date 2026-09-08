@@ -13,7 +13,11 @@ namespace LibSharp.UnitTests.Caching;
 [TestClass]
 public class ValueCacheUnitTests
 {
-    public TestContext TestContext { get; set; }
+    // MSTest assigns this by property injection after construction. The initializer states that
+    // explicitly: without it the compiler reports CS8618, which the normal build suppresses but
+    // `dotnet format` does not, and its code-fix pass then makes the property nullable and breaks
+    // every TestContext.CancellationToken use.
+    public TestContext TestContext { get; set; } = null!;
 
     [TestMethod]
     public void FromValueFactory_WithoutCallsToGetValue_DoesNotExecuteFactory()
@@ -425,5 +429,65 @@ public class ValueCacheUnitTests
         timeProvider.Advance(TimeSpan.FromSeconds(1));
         Assert.AreEqual(2, cache.GetValue()); // Expired: factory invoked again.
         Assert.AreEqual(2, calls);
+    }
+
+    // ── Factory re-entrancy ───────────────────────────────────────────────
+
+    [TestMethod]
+    public void GetValue_FactoryReadsSameCache_ThrowsInsteadOfRecursing()
+    {
+        // Without the guard the re-entrant read finds no published value, calls the factory again,
+        // and recurses until the stack overflows — which kills the process rather than the call.
+        ValueCache<int>? cache = null;
+        cache = new ValueCache<int>(() => cache!.GetValue(), TimeSpan.FromHours(1));
+
+        _ = Assert.ThrowsExactly<InvalidOperationException>(() => _ = cache.GetValue());
+    }
+
+    [TestMethod]
+    public void GetValue_AfterReentrancyIsRejected_CacheStillWorks()
+    {
+        // The guard must be reset even though the factory threw, or one bad call wedges the cache.
+        ValueCache<int>? cache = null;
+        bool reenter = true;
+        cache = new ValueCache<int>(
+            () =>
+            {
+                if (reenter)
+                {
+                    reenter = false;
+                    return cache!.GetValue();
+                }
+
+                return 42;
+            },
+            TimeSpan.FromHours(1));
+
+        _ = Assert.ThrowsExactly<InvalidOperationException>(() => _ = cache.GetValue());
+
+        Assert.AreEqual(42, cache.GetValue());
+    }
+
+    [TestMethod]
+    public void GetValue_FactoryThrows_DoesNotWedgeTheCache()
+    {
+        ValueCache<int>? cache = null;
+        bool fail = true;
+        cache = new ValueCache<int>(
+            () =>
+            {
+                if (fail)
+                {
+                    fail = false;
+                    throw new InvalidTimeZoneException("boom");
+                }
+
+                return 7;
+            },
+            TimeSpan.FromHours(1));
+
+        _ = Assert.ThrowsExactly<InvalidTimeZoneException>(() => _ = cache!.GetValue());
+
+        Assert.AreEqual(7, cache!.GetValue());
     }
 }

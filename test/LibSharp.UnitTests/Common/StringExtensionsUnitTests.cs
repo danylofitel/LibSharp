@@ -192,4 +192,35 @@ public class StringExtensionsUnitTests
         Assert.IsTrue("OrdinalIgnoreCase".TryConvertToEnum<StringComparison>(out result));
         Assert.AreEqual(StringComparison.OrdinalIgnoreCase, result);
     }
+
+    // -- Reverse -----------------------------------------------------------
+
+    [TestMethod]
+    public void Reverse_PreservesGraphemeClusters()
+    {
+        // Reverse rebuilds the string by appending spans rather than per-element substrings, so
+        // this pins that combining marks stay attached to their base character.
+        string input = "abc";
+        Assert.AreEqual("cba", input.Reverse());
+
+        // e + combining acute, then n + combining tilde.
+        string combining = "e\u0301n\u0303";
+        string reversed = combining.Reverse();
+
+        Assert.AreEqual("n\u0303e\u0301", reversed);
+    }
+
+    [TestMethod]
+    public void Reverse_SurrogatePairs_AreNotSplit()
+    {
+        string input = "a\U0001F600b";
+
+        Assert.AreEqual("b\U0001F600a", input.Reverse());
+    }
+
+    [TestMethod]
+    public void Reverse_EmptyString_ReturnsEmpty()
+    {
+        Assert.AreEqual(string.Empty, string.Empty.Reverse());
+    }
 }

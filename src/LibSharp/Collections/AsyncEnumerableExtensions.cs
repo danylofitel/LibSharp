@@ -22,6 +22,8 @@ public static class AsyncEnumerableExtensions
     /// <param name="chunkWeight">The maximum total weight of elements in a chunk.</param>
     /// <param name="itemWeight">The item weight selector.</param>
     /// <returns>A sequence of chunks.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="itemWeight"/> or <paramref name="source"/> is <c>null</c>.</exception>
+    /// <exception cref="ArgumentOutOfRangeException">Thrown when <paramref name="chunkWeight"/> is outside the permitted range.</exception>
     /// <remarks>
     /// This is a weight-based variant, distinct from a fixed-element-count chunking such as the
     /// standard-library <c>AsyncEnumerable.Chunk(source, size)</c> (available on .NET 10+). Use a
@@ -54,6 +56,7 @@ public static class AsyncEnumerableExtensions
     /// <param name="predicate">A function to test each element for a condition.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Index of the first matching element, or -1 if none match.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="predicate"/> or <paramref name="source"/> is <c>null</c>.</exception>
     public static async Task<int> FirstIndexOfAsync<TSource>(
         this IAsyncEnumerable<TSource> source,
         Func<TSource, bool> predicate,
@@ -85,6 +88,7 @@ public static class AsyncEnumerableExtensions
     /// <param name="predicate">A function to test each element for a condition.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Index of the last matching element, or -1 if none match.</returns>
+    /// <exception cref="ArgumentNullException">Thrown when <paramref name="predicate"/> or <paramref name="source"/> is <c>null</c>.</exception>
     public static async Task<int> LastIndexOfAsync<TSource>(
         this IAsyncEnumerable<TSource> source,
         Func<TSource, bool> predicate,
@@ -121,6 +125,14 @@ public static class AsyncEnumerableExtensions
         await foreach (TSource item in source.WithCancellation(cancellationToken).ConfigureAwait(false))
         {
             double currentItemWeight = itemWeight(item);
+
+            // NaN passes every comparison below - NaN < 0 and NaN > chunkWeight are both false - and
+            // then poisons the running total, after which no comparison against the budget is ever
+            // true again and chunking silently stops happening. Reject it up front.
+            if (!double.IsFinite(currentItemWeight))
+            {
+                throw new ArgumentException($"Weight of an item must be a finite number, but was {currentItemWeight}.", nameof(itemWeight));
+            }
 
             if (currentItemWeight < 0.0)
             {

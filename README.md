@@ -4,7 +4,7 @@
 
 A library of C# core components that enhance the standard library. Supports .NET 8.0, .NET 9.0, .NET 10.0.
 
-The public API ships nullable reference type annotations. The library is trim- and Native AOT-friendly, with the exception of the XML serialization helpers, which depend on `XmlSerializer` and are annotated with `[RequiresUnreferencedCode]` / `[RequiresDynamicCode]`.
+The public API ships nullable reference type annotations. The library is trim- and Native AOT-compatible in full: it is built with `IsAotCompatible`, so the trim and Native AOT analysers run over the whole assembly, and it emits no trimming or AOT warnings to consumers.
 
 * Source code: <https://github.com/danylofitel/LibSharp>.
 * NuGet package: <https://www.nuget.org/packages/LibSharp>.
@@ -39,6 +39,8 @@ BenchmarkDotNet setup and benchmark scripts are available in <https://github.com
 
 ```csharp
     using LibSharp.Common;
+    using System.Net;
+    using System.Text.RegularExpressions;
 
     public static async Task CommonExamples(string stringParam, long longParam, object objectParam, CancellationToken cancellationToken)
     {
@@ -59,7 +61,7 @@ BenchmarkDotNet setup and benchmark scripts are available in <https://github.com
         Argument.OfType(objectParam, typeof(List<string>));
 
         // Optional<T> — wraps a value that may or may not be present
-        Optional<int> empty = default;
+        Optional<int> empty = Optional<int>.Empty;  // same as default(Optional<int>)
         bool hasValue = empty.HasValue;             // false
         int fallback = empty.GetValueOrDefault(-1); // -1
 
@@ -105,7 +107,9 @@ BenchmarkDotNet setup and benchmark scripts are available in <https://github.com
             return 99;
         };
 
-        int taskResult = await task.RunWithTimeout(TimeSpan.FromSeconds(1), cancellationToken);
+        // The caller is released when the timeout elapses whether or not the operation cooperates.
+        // An elapsed timeout throws TimeoutException; a cancelled token throws OperationCanceledException.
+        int taskResult = await task.RunWithTimeout(TimeSpan.FromSeconds(1), cancellationToken: cancellationToken);
 
         // Int extensions
         bool convertedFromInt = 200.TryConvertToEnum<HttpStatusCode>(out HttpStatusCode statusCode);
@@ -129,15 +133,13 @@ BenchmarkDotNet setup and benchmark scripts are available in <https://github.com
 
         // Type extensions
         IComparer<int> intComparer = TypeExtensions.GetDefaultComparer<int>();
-
-        // XML serialization extensions
-        // Note: these rely on XmlSerializer and are not compatible with trimming or Native AOT.
-        string serializedToXml = objectParam.SerializeToXml();
-        List<string> deserializedFromXml = serializedToXml.DeserializeFromXml<List<string>>();
     }
 ```
 
 ### Collections
+
+`MinPriorityQueue<T>` and `MaxPriorityQueue<T>` predate and differ from .NET 6's `System.Collections.Generic.PriorityQueue<TElement, TPriority>`. The BCL type pairs each element with a separate priority and exposes only enqueue/dequeue/peek. These order the element itself through an `IComparer<T>` or `Comparison<T>`, and are full collections: they implement `ICollection<T>` and `IReadOnlyCollection<T>`, so they support `Contains`, `Remove`, `CopyTo` and can be passed to any API taking a read-only collection. Prefer the BCL type when a separate priority is the natural model and you only push and pop; prefer these when the element carries its own ordering, or when you need the collection operations.
+
 
 `Collections` namespace contains extension methods for `ICollection`, `IDictionary`, `IEnumerable`, and `IAsyncEnumerable` interfaces, plus `ConcurrentHashSet<T>`, `MinPriorityQueue<T>`, and `MaxPriorityQueue<T>` collections.
 
@@ -316,10 +318,12 @@ BenchmarkDotNet setup and benchmark scripts are available in <https://github.com
 
 Notes:
 
+* `ILazyAsync<T>` is the common contract of every asynchronously produced value here — `HasValue` plus `GetValueAsync`. The lazies implement it, and `IValueCacheAsync<T>` extends it with `Expiration`, so code that only needs a value can accept `ILazyAsync<T>` and take a lazy, a cache or a proactive cache alike.
+* Every `GetValueAsync` returns `ValueTask<T>` rather than `Task<T>`, so a cache hit costs no allocation. See [Awaiting a ValueTask](#awaiting-a-valuetask) below for the rules that come with it.
 * All caches accept an optional `TimeProvider` (defaulting to `TimeProvider.System`). Pass a `FakeTimeProvider` in tests to drive expiration and background refresh deterministically, without real delays.
 * Some of the classes implement `IDisposable` interface and should be correctly disposed.
 * Be cautious when caching types that implement `IDisposable` interface as the values will not be automatically disposed by the caches.
-* Be cautious when using classes with `LazyThreadSafetyMode.PublicationOnly` behavior together with `IDisposable` types as discarded instances will not be disposed.
+* `PublicationOnly` implementations dispose values that lose the publication race, when those values implement `IAsyncDisposable` or `IDisposable`. The losing value is identified exactly by the compare-exchange that publishes the winner, so it is known never to have reached a caller and nothing else could release it. Pass `disposeDroppedValues: false` to opt out when the factory returns values that share an owned resource or are owned elsewhere. The published value is never disposed for you.
 * `PublicationOnly` implementations may run multiple factories concurrently and publish the first successful result.
 * Async lazy and initializer methods throw `InvalidOperationException` if a factory returns a null `Task`.
 
@@ -332,11 +336,34 @@ Quick selection guide:
 * Use `KeyValueCache<TKey, TValue>` / `KeyValueCacheAsync<TKey, TValue>` when you need the same expiration/refresh behavior per key, and the set of keys is limited.
 * Use `ProactiveAsyncCache<T>` when refresh should happen in the background before expiry instead of on-demand by the next reader.
 
+#### Awaiting a ValueTask
+
+Every asynchronous read in this namespace — on the caches, the lazies and the initializers — returns `ValueTask<T>`. A read that hits a cached value completes synchronously and allocates nothing, which is why the type is used; the cost is that a `ValueTask` is not as forgiving as a `Task`.
+
+Await the result **exactly once, and never concurrently**. To do anything else with it — store it, await it twice, or hand it to `Task.WhenAll` — call `AsTask()` first, which converts it into an ordinary `Task<T>` with none of those restrictions.
+
+```csharp
+    using LibSharp.Caching;
+
+    public static async Task ValueTaskUsageExample(IValueCacheAsync<int> cache, CancellationToken cancellationToken)
+    {
+        // Normal use: await the result once, immediately. No allocation when the value is cached.
+        int value = await cache.GetValueAsync(cancellationToken);
+
+        // Anything else needs AsTask() first: storing it, awaiting it twice, or combining it.
+        Task<int> first = cache.GetValueAsync(cancellationToken).AsTask();
+        Task<int> second = cache.GetValueAsync(cancellationToken).AsTask();
+        int[] values = await Task.WhenAll(first, second);
+    }
+```
+
+The factory delegates you supply still take and return `Task<T>`. They do the real work and never complete synchronously, so a `ValueTask` there would add friction for no benefit.
+
 #### Lazy
 
-Two different implementations of async lazy values are available — `LazyAsyncPublicationOnly` and `LazyAsyncExecutionAndPublication`. Those are async versions of `System.Lazy` class with `LazyThreadSafetyMode.PublicationOnly` and `LazyThreadSafetyMode.ExecutionAndPublication` modes respectively. The reason that async lazy implementations are separate classes is that `LazyAsyncExecutionAndPublication` implements `IDisposable` due to its usage of an instance of `SemaphoreSlim` whereas `LazyAsyncPublicationOnly` does not need to implement `IDisposable`.
+Two different implementations of async lazy values are available — `LazyAsyncPublicationOnly` and `LazyAsyncExecutionAndPublication`. Those are async versions of `System.Lazy` class with `LazyThreadSafetyMode.PublicationOnly` and `LazyThreadSafetyMode.ExecutionAndPublication` modes respectively. They differ in how concurrent callers are handled: `ExecutionAndPublication` shares a single factory execution between them, while `PublicationOnly` lets each run its own and keeps whichever value is published first. Neither is `IDisposable`, and both implement `ILazyAsync<T>`.
 
-`LazyAsyncExecutionAndPublication` runs at most one in-flight factory and retries after failed or canceled attempts. `LazyAsyncPublicationOnly` may execute multiple concurrent factories, but only the first successfully published value is retained.
+`LazyAsyncExecutionAndPublication` runs at most one in-flight factory and retries after failed or canceled attempts. `LazyAsyncPublicationOnly` may execute multiple concurrent factories, but only the first successfully published value is retained; the losing racers' values are disposed for you if they are disposable, unless you pass `disposeDroppedValues: false`.
 
 ```csharp
     using LibSharp.Caching;
@@ -354,7 +381,7 @@ Two different implementations of async lazy values are available — `LazyAsyncP
 
     public static async Task LazyAsyncExecutionAndPublicationExample(Func<CancellationToken, Task<int>> factory, CancellationToken cancellationToken)
     {
-        using LazyAsyncExecutionAndPublication<int> lazy = new LazyAsyncExecutionAndPublication<int>(factory);
+        LazyAsyncExecutionAndPublication<int> lazy = new LazyAsyncExecutionAndPublication<int>(factory);
 
         bool hasValue = lazy.HasValue;                              // false
         int value = await lazy.GetValueAsync(cancellationToken);    // factory invoked
@@ -397,7 +424,7 @@ Initializers in LibSharp are equivalents of lazy types, with the only difference
 
     public static async Task InitializerAsyncExecutionAndPublicationExample(Func<CancellationToken, Task<int>> factory, CancellationToken cancellationToken)
     {
-        using InitializerAsyncExecutionAndPublication<int> initializer = new InitializerAsyncExecutionAndPublication<int>();
+        InitializerAsyncExecutionAndPublication<int> initializer = new InitializerAsyncExecutionAndPublication<int>();
 
         bool hasValue = initializer.HasValue;                                       // false
         int value = await initializer.GetValueAsync(factory, cancellationToken);    // factory invoked
@@ -446,6 +473,8 @@ Note that `ValueCacheAsync` guarantees `LazyThreadSafetyMode.ExecutionAndPublica
 #### Key-Value Caches
 
 Key-value caches allow caching and automatically refreshing multiple values within a single data structure.
+
+Entries are never evicted, so a key-value cache is only suitable for a bounded key space. `Count` reports how many distinct keys are held, including those whose value has expired, which makes it the measure to watch when confirming that the key space really is bounded. Reading it takes every bucket lock of the underlying `ConcurrentDictionary`, so sample it periodically rather than per request. It is deliberately on the concrete types rather than the interfaces, following `MemoryCache`/`IMemoryCache`.
 
 ```csharp
     using LibSharp.Caching;
@@ -496,12 +525,74 @@ Key-value caches allow caching and automatically refreshing multiple values with
 
     public static async Task ProactiveAsyncCacheWithOptionsExample(Func<CancellationToken, Task<int>> factory, CancellationToken cancellationToken)
     {
+        // Anything beyond the two intervals is configured through the options object, so new
+        // settings can be added later without breaking existing callers.
         await using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
             factory,
-            refreshInterval: TimeSpan.FromMinutes(5),
-            preFetchOffset: TimeSpan.FromSeconds(30),
-            allowStaleReads: true);                                 // return the previous value while a refresh is in progress
+            new ProactiveAsyncCacheOptions
+            {
+                RefreshInterval = TimeSpan.FromMinutes(5),
+                PreFetchOffset = TimeSpan.FromSeconds(30),
+
+                // Serve the previous value while a refresh runs, but only for up to two minutes
+                // past its expiration. Beyond that readers wait, so a dependency that stays down
+                // surfaces as an exception instead of an ever-older value.
+                StaleReads = StaleReadPolicy.ServeStaleUpTo(TimeSpan.FromMinutes(2)),
+
+                // Bound a single factory call. Also bounds DisposeAsync, which otherwise waits as
+                // long as the factory takes.
+                FetchTimeout = TimeSpan.FromSeconds(10),
+            });
 
         int value = await cache.GetValueAsync(cancellationToken);
+
+        // A failing background refresh is otherwise invisible when stale reads are enabled:
+        // callers keep receiving a value and see no error. These report what is actually going on.
+        Exception? lastError = cache.LastRefreshException;   // null while healthy
+        int failures = cache.ConsecutiveRefreshFailures;     // 0 while healthy
+        DateTime? producedAt = cache.LastSuccessfulRefresh;  // age of what is being served
+    }
+
+    public static async Task ProactiveAsyncCacheStaleReadPolicyExample(Func<CancellationToken, Task<int>> factory, CancellationToken cancellationToken)
+    {
+        // Three choices for what happens when a read arrives and the value has expired:
+        //
+        //   StaleReadPolicy.Wait                  wait for a fresh value (the default)
+        //   StaleReadPolicy.ServeStale            serve the old value however old it is
+        //   StaleReadPolicy.ServeStaleUpTo(span)  serve it up to `span` past expiration, then wait
+        //
+        // The bound is measured from expiration, so the oldest value a reader can receive is
+        // RefreshInterval + the bound.
+        await using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            factory,
+            new ProactiveAsyncCacheOptions
+            {
+                RefreshInterval = TimeSpan.FromMinutes(5),
+                StaleReads = StaleReadPolicy.ServeStale,
+            });
+
+        int value = await cache.GetValueAsync(cancellationToken);   // never blocks after the first fetch
+    }
+
+    public static async Task ProactiveAsyncCacheWithIdleTimeoutExample(Func<CancellationToken, Task<int>> factory, CancellationToken cancellationToken)
+    {
+        await using ProactiveAsyncCache<int> cache = new ProactiveAsyncCache<int>(
+            factory,
+            new ProactiveAsyncCacheOptions
+            {
+                RefreshInterval = TimeSpan.FromMinutes(5),
+                PreFetchOffset = TimeSpan.FromSeconds(30),
+
+                // Stop refreshing in the background once the cache falls out of use.
+                IdleTimeout = TimeSpan.FromHours(1),
+            });
+
+        int value = await cache.GetValueAsync(cancellationToken);
+
+        // After an hour with no call to GetValueAsync the background loop suspends itself and stops
+        // invoking the factory; it holds no timer and consumes no CPU while suspended. The next read
+        // resumes it, paying for at most one on-demand fetch if the cached value has since expired.
+        // Only GetValueAsync counts as activity — HasValue and Expiration do not. Disposal is still
+        // required: an idle cache is dormant, not collected.
     }
 ```
