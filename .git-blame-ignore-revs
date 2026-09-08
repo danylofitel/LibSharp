@@ -4,3 +4,9 @@
 
 # Normalize encoding to UTF-8 (no BOM) and line endings to LF across the repository.
 e3cfe2f5b53918364a9cca06cbd191712711897f
+
+# Rename instance fields from the m_ prefix to _ , matching the .NET runtime's convention.
+d2418f73361723db37a733cfb37229c669cc5715
+
+# Formatting only: dotnet format across the repository.
+5b55718a675f41987efe65a96758a3147ae297cd
